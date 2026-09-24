@@ -248,7 +248,14 @@ export function normalise(parsed, itemCount) {
     const comment = trimmed(note.comment, MAX_COMMENT);
     if (!comment) continue;
     seen.add(i);
-    notes.push({ itemIndex: i, comment });
+    /* Which listening rules the note applied, by number. Optional and
+       forgiving: a reply from before rules existed, or a model that ignores
+       the field, still grades — the only cost is that a rating on this note
+       cannot be pinned on a rule. */
+    const rules = Array.isArray(note.rules)
+      ? [...new Set(note.rules.map(Number).filter((n) => Number.isInteger(n) && n > 0))].slice(0, 6)
+      : [];
+    notes.push(rules.length ? { itemIndex: i, comment, rules } : { itemIndex: i, comment });
   }
   if (notes.length === 0) return null;
   notes.sort((a, b) => a.itemIndex - b.itemIndex);

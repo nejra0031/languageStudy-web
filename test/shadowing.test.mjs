@@ -256,6 +256,19 @@ test('notes come back sorted, and a good note survives a bad neighbour', () => {
   assert.deepEqual(out.notes.map((n) => n.itemIndex), [0, 2]);
 });
 
+test('the rules a note cites are kept when sound and dropped when not', () => {
+  const out = normalise({
+    notes: [
+      { itemIndex: 0, comment: 'a', rules: [2, '3', 2, 0, -1, 1.5, 'x'] },
+      { itemIndex: 1, comment: 'b', rules: 'nope' },
+      { itemIndex: 2, comment: 'c' },
+    ],
+  }, 3);
+  assert.deepEqual(out.notes[0].rules, [2, 3]);
+  assert.equal('rules' in out.notes[1], false);
+  assert.equal('rules' in out.notes[2], false);
+});
+
 test('an over-long comment is truncated, not rejected', () => {
   const out = normalise({
     notes: [{ itemIndex: 0, comment: 'x'.repeat(900) }],
