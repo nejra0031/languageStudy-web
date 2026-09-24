@@ -72,6 +72,13 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
   when something is missing say so in the UI rather than failing silently.
 - **Logic that can be a plain function is one**, in a module with no DOM, so
   `node --test` can cover it. The DOM stays in the `tab-*.js` files.
+- **Every release carries one version.** GitHub Pages lets browsers cache each
+  file for ten minutes, so `index.html` pins every module to `?v=<version>`
+  through an import map, and the entry script and stylesheet carry the same
+  `?v=`. Any change under `js/` or `css/` bumps that version everywhere it
+  appears in `index.html` (find and replace). A new module also needs its own
+  line in the import map. `test/importmap.test.mjs` fails when either is
+  forgotten.
 
 ## Conventions
 

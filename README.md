@@ -553,6 +553,15 @@ Tests are Node's built-in runner, also with no dependencies:
 node --test "test/*.test.mjs"
 ```
 
+**Changing the code? Bump the version.** GitHub Pages lets a browser keep any
+file for ten minutes. Without a version, a deploy could leave someone with the
+new page and an old module, and the page would fail to start. So `index.html`
+gives every file one version, `?v=2026-09-24.1` for example: the modules
+through an import map, and the entry script and stylesheet directly. Whenever
+anything under `js/` or `css/` changes, replace that version everywhere it
+appears in `index.html`. A new module also needs a line in the import map. The
+tests fail if either is forgotten.
+
 ## Layout
 
 ```
