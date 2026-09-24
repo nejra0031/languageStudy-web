@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   fillTemplate, buildTermListing, sentenceVars, parseSentence, sentenceProblem,
-  RateLimiter, QuotaError, pcmToWav, formatWait, nextBankId, sidecarText, pickVoice,
+  RateLimiter, QuotaError, pcmToWav, formatWait, nextBankId, sidecarText, pickVoice, createClient,
 } from '../js/gemini.js';
 import { DEFAULT_SETTINGS, withDefaults } from '../js/defaults.js';
 
@@ -235,4 +235,45 @@ test('a voice is always picked, even from a broken pool', () => {
   assert.equal(pickVoice(withDefaults({ voices: ['Kore'] })), 'Kore');
   assert.equal(pickVoice({ voices: ['NotARealVoice'], fallbackVoice: 'Kore' }), 'Kore');
   assert.equal(withDefaults({ voices: [] }).voices.length, 1, 'an empty pool falls back rather than staying empty');
+});
+
+/* ── thinking turned off, where the model allows it ─────────────────── */
+
+test('a model that refuses thinkingConfig with a bare 400 is retried without it, and remembered', async () => {
+  const sent = [];
+  const saved = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    const model = decodeURIComponent(url.match(/models\/([^:]+):/)[1]);
+    const body = JSON.parse(init.body);
+    const thinking = !!(body.generationConfig && body.generationConfig.thinkingConfig);
+    sent.push({ model, thinking });
+    if (model === 'lite' && thinking) {
+      return new Response('{"error":{"code":400,"message":"Request contains an invalid argument."}}', { status: 400 });
+    }
+    const text = '{"rules":[{"kind":"listen","text":"Nasal vowels."}]}';
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] }), { status: 200 });
+  };
+  try {
+    let settings = withDefaults({ textModel: 'lite', models: [{ id: 'lite' }, { id: 'flash' }] });
+    const client = createClient({
+      getSettings: () => settings,
+      getApiKey: () => 'k',
+      limiter: new RateLimiter({ now: () => 1_000_000 }),
+    });
+
+    await client.draftShadowRules();
+    assert.deepEqual(sent, [{ model: 'lite', thinking: true }, { model: 'lite', thinking: false }]);
+
+    sent.length = 0;
+    await client.draftShadowRules();
+    assert.deepEqual(sent, [{ model: 'lite', thinking: false }], 'the refusal is remembered: one call, not two');
+
+    /* Another model still gets thinking turned off. */
+    sent.length = 0;
+    settings = withDefaults({ ...settings, textModel: 'flash' });
+    await client.draftShadowRules();
+    assert.deepEqual(sent, [{ model: 'flash', thinking: true }]);
+  } finally {
+    globalThis.fetch = saved;
+  }
 });

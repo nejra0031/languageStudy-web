@@ -516,16 +516,24 @@ export function createClient({ getSettings, getApiKey, limiter }) {
      range vary by model, and an alias can start pointing somewhere new with no
      change on our side.
 
-     So: try with the field, and if the API rejects the request because of it,
-     retry once without and REMEMBER that for the rest of the page's life.
-     Without the memory every later call pays for two real requests and
-     silently doubles what the budget is spending. */
-  let thinkingRejected = false;
+     So: try with the field, and if the API rejects the request, retry once
+     without and REMEMBER that for the rest of the page's life. Without the
+     memory every later call pays for two real requests and silently doubles
+     what the budget is spending.
 
-  function looksLikeThinkingRejection(err) {
-    return err instanceof GeminiError
-      && /HTTP 400/.test(err.message)
-      && /thinking/i.test(err.message);
+     The memory is per model. A model that refuses the field says nothing
+     about the next one, and forgetting it for every model would turn thinking
+     back on for exactly the models the field exists to protect.
+
+     Any HTTP 400 counts as a refusal, not only one that mentions thinking:
+     some models answer a field they do not take with a bare "Request contains
+     an invalid argument". If the 400 was about something else, the retry
+     fails the same way and that error is the one reported, so the cost of
+     guessing wrong is one call, once per model. */
+  const thinkingRejected = new Set();
+
+  function isBadRequest(err) {
+    return err instanceof GeminiError && /HTTP 400/.test(err.message);
   }
 
   /* One call with thinking turned off where the model allows it. `body` is
@@ -533,12 +541,16 @@ export function createClient({ getSettings, getApiKey, limiter }) {
   async function callUnthinking(model, body) {
     const s = getSettings();
     const l = modelLimits(s, model);
+    if (thinkingRejected.has(model)) return call(model, body({}), l.rpm, l.rpd);
     try {
-      return await call(model, body(thinkingRejected ? {} : { thinkingConfig: { thinkingBudget: 0 } }), l.rpm, l.rpd);
+      return await call(model, body({ thinkingConfig: { thinkingBudget: 0 } }), l.rpm, l.rpd);
     } catch (e) {
-      if (!looksLikeThinkingRejection(e) || thinkingRejected) throw e;
-      thinkingRejected = true;
-      return call(model, body({}), l.rpm, l.rpd);
+      if (!isBadRequest(e)) throw e;
+      /* Remembered only once the request without the field has worked, so a
+         400 about something else does not switch thinking on for good. */
+      const data = await call(model, body({}), l.rpm, l.rpd);
+      thinkingRejected.add(model);
+      return data;
     }
   }
 
