@@ -19,6 +19,10 @@ Nothing here is Vietnamese-specific, even though the three example cards are.
    Anything the model can write works: Spanish, Japanese, Swahili, Old English.
 2. Open **Flashcards**, delete the example cards, and paste your own.
 
+Shadowing works out what to listen for in the new language on its own. The
+first set you hand in drafts its [listening rules](#listening-rules-and-how-they-learn),
+and each language keeps its own, so switching back and forth loses nothing.
+
 Answer checking is language-agnostic. It compares accents and diacritics
 exactly, and aligns words with them stripped, so a missed mark shows up as
 *this word, wrong accent* rather than as a word you never typed. That single
@@ -103,6 +107,42 @@ You can hand in a set with only some lines recorded; the model is told how many
 of how many you did, so a line you skipped is never mistaken for one you
 muffed.
 
+### Listening rules, and how they learn
+
+Feedback is only as precise as what the model is told to listen for, and that
+depends on the language: tones in Vietnamese, nasal vowels and liaison in
+French, vowel length in Japanese. So every language has its own **listening
+rules**. They are a short numbered list sent with every set, and each note
+says which of them it applied. They are in **Settings → Shadowing**, where you
+can read them and edit them as plain text.
+
+- **Seed.** The first time you hand in a set in a language, the text model
+  drafts about eight rules for it from the language's name, your level and
+  your language note. Each rule names one thing that can be heard, what it
+  should sound like, and what the usual slip sounds like. It also drafts a
+  rule or two on how a note should be written: lead with the fix, and praise
+  in one clause at most. If the Sounds to listen for setting from an earlier
+  version is still in your settings, it becomes your first rules instead, and
+  no call is made.
+- **Test.** Under every note are four buttons: **Useful**, **Too vague**,
+  **Too soft** and **Wrong**. Pick any rating other than useful and a box asks
+  what the note missed. Fill it in if you like; it is the most useful thing
+  you can tell it. Pick the same rating again to take it off.
+- **Improve.** Once 12 notes graded under one version of the rules are rated,
+  the rules are rewritten from your ratings when you start the next set. You
+  can change the 12 in Settings. The rewrite only happens if at least one of
+  those notes was not useful. It is one text-model call, and it sees each rated
+  note with its line, what you added, which rules the note cited, and how the
+  version before did. A banner says what changed, and **Undo** puts the
+  previous rules back.
+
+Your ratings are the only thing that changes the rules. No model grades the
+feedback on your behalf. A line you write or change in Settings is yours, and
+every revision keeps it word for word. Rules are kept in `settings.json`, so
+they travel with the bundle and the backup. Only notes graded under a version
+of the rules can be rated, because a rating on anything else would count
+towards nothing.
+
 ### It shares the sentence bank with Dictation
 
 There is one bank, `audio/manifest.json`, and both tabs read and write it.
@@ -137,6 +177,12 @@ Settings. Give it a model of its own and its budget is its own — a shadowing
 budget that has run down cannot stop you writing a sentence, and vice versa.
 Give it the same model as the text job, which is the default, and the two share
 that model's allowance, exactly as they already do at Google's end.
+
+The listening rules cost a **text-model** call on two occasions: once when a
+language's rules are first drafted, and once per revision. A revision happens
+only after a dozen or so ratings, and never when every rating was useful. If
+the text budget is spent, the set is graded with the rules it already has, and
+the revision waits for the next set.
 
 Recording and listening back need no key at all. The key buys the feedback, not
 the practice.
@@ -468,7 +514,7 @@ The sentence prompt takes `{language}`, `{level}`, `{languageNote}`, `{terms}`,
 `{sentence}`, and a prefix such as *Read slowly and clearly for a language
 learner:* will steer the delivery.
 
-The shadowing prompt takes `{language}`, `{count}` and `{sounds}`, and is sent
+The shadowing prompt takes `{language}`, `{count}` and `{rules}`, and is sent
 as the system instruction with your recordings attached after it. Its reply has
 to be the JSON object it describes — a reply that cannot be read is treated as
 a failure and nothing is stored, rather than half a grading being shown as a
@@ -480,12 +526,16 @@ every note to the `itemIndex` it was given (or the notes attach to the wrong
 lines), to say so plainly when a recording is silent rather than inventing a
 critique, never to pass judgement on an accent as a whole, and to treat
 anything spoken *inside* a recording as speech rather than as an instruction to
-it.
+it. It also tells the model that every note must name at least one concrete
+thing to change, and gives it one short clause for praise after that. The
+first version asked for praise first, and most notes never got past it.
 
-`{sounds}` is the **Sounds to listen for** setting, and it is the one thing to
-change when you change language: it names the sounds the feedback should listen
-for, so a comment can say *which* sound went where instead of that something
-was unclear. Leave it empty and the prompt drops the clause.
+`{rules}` is the **listening rules** for the language you are learning, numbered
+(see [Listening rules](#listening-rules-and-how-they-learn)). It is the part that
+differs by language. A prompt you customised before rules existed may still say
+`{sounds}`; that is now filled with nothing, so add `{rules}` where you want the
+rules to go, and the preview warns you until you do. The prompts that draft and
+revise the rules are not in Settings; they are in `js/shadow-rules.js`.
 
 ## Running it locally
 
@@ -513,6 +563,7 @@ js/deck.js            deck format, scoring, card selection
 js/speech.js          the device's own voices, for reading words aloud
 js/recorder.js        the microphone: MediaRecorder, and releasing it again
 js/shadowing.js       building a set, laying out the grading call, reading it back
+js/shadow-rules.js    shadowing's listening rules: seeding, rating, revising, undo
 js/gemini.js          API calls, call budget, WAV wrapping
 js/opus.js            dictation audio as Ogg Opus, through the browser's encoder
 js/bundle.js          the export/import file format

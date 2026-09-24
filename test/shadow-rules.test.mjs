@@ -8,6 +8,8 @@ import {
   countRatings, ratingsFor, shouldRevise, collectRated, ruleStats, migrateSounds,
   newEntry, MAX_LISTEN, MAX_STYLE, DEFAULT_STYLE_RULES,
 } from '../js/shadow-rules.js';
+import { withDefaults, DEFAULT_SHADOW_PROMPT } from '../js/defaults.js';
+import { shadowSystem } from '../js/gemini.js';
 
 const NOW = new Date('2026-09-24T12:00:00Z');
 
@@ -253,4 +255,35 @@ test('editing by hand: unchanged lines keep their number, changed ones become yo
   const fresh = editRules(null, 'Nasal vowels.', NOW);
   assert.equal(fresh.generation, 1);
   assert.equal(fresh.rules[0].origin, 'you');
+});
+
+/* ── the settings migration and the filled prompt ────────────────────── */
+
+test('a fresh install starts the default language with rules, and no other', () => {
+  const fresh = withDefaults(null);
+  assert.ok(rulesFor(fresh, fresh.targetLanguage));
+  assert.equal('shadowSounds' in fresh, false, 'the old key is not written back');
+  assert.deepEqual(withDefaults({ targetLanguage: 'French' }).shadowRules, {});
+});
+
+test('an old settings file carries its sounds over once, and then never again', () => {
+  const old = withDefaults({ targetLanguage: 'French', shadowSounds: 'nasal vowels, liaison' });
+  assert.equal(rulesFor(old, 'French').rules.filter((r) => r.kind === 'listen').length, 2);
+  /* Saved and loaded again: the rules are the record now. Clearing them
+     must not bring the sounds back. */
+  const cleared = withDefaults({ ...old, shadowRules: {}, shadowSounds: 'nasal vowels' });
+  assert.deepEqual(cleared.shadowRules, {});
+});
+
+test('the shadowing prompt is sent with the rules numbered and no placeholder left', () => {
+  const s = withDefaults({ targetLanguage: 'French', shadowSounds: 'nasal vowels' });
+  const system = shadowSystem(s, 10);
+  assert.match(system, /1\. Listen for nasal vowels/);
+  assert.match(system, /"rules":\[/);
+  assert.doesNotMatch(system, /\{(rules|sounds|language|count)\}/);
+  assert.match(DEFAULT_SHADOW_PROMPT, /at least one concrete thing to change/);
+  /* A prompt customised before rules existed still fills cleanly. */
+  const legacy = shadowSystem({ ...s, prompts: { shadowing: 'Listen.{sounds} {rules}' } }, 3);
+  assert.doesNotMatch(legacy, /\{sounds\}/);
+  assert.match(shadowSystem(withDefaults({ targetLanguage: 'Thai' }), 1), /No rules yet/);
 });

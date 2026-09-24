@@ -50,6 +50,11 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
 - `zip.js` and `bundle.js` are the two backups: a zip laid out like the data
   folder (keeps the audio), and one readable JSON file (decks and settings).
 - `shadowing.js` is Shadowing's pure logic; `tab-shadowing.js` its DOM.
+- `shadow-rules.js` is the per-language listening rules the shadowing model
+  grades by: seeded once per language, rated note by note, revised from the
+  ratings. The ratings are the only signal. A malformed seed or revision
+  reply changes nothing, and a rule the user wrote is never dropped or
+  reworded by a revision. `store.js` runs the loop; the tabs only call it.
 
 ## Rules the code keeps
 
@@ -82,8 +87,8 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
 ## Checking a change in a browser
 
 Unit tests cover the modules without a DOM — `deck.js`, `text.js`,
-`gemini.js`, the model catalogue, `speech.js`, `zip.js`, `bundle.js` and
-`shadowing.js` — not the tabs. For anything a user sees, drive the
+`gemini.js`, the model catalogue, `speech.js`, `zip.js`, `bundle.js`,
+`shadowing.js` and `shadow-rules.js` — not the tabs. For anything a user sees, drive the
 real page. Playwright's WebKit is Safari's engine and works well; some quirks
 cost time the first time:
 

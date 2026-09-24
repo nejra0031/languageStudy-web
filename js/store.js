@@ -22,6 +22,11 @@ import { withDefaults, STARTER_DECK, DEFAULT_SETTINGS } from './defaults.js';
 import { parseDeck, serializeDeck, normalizeCard, slugify } from './deck.js';
 import { makeBundle, bundleCards } from './bundle.js';
 import { RateLimiter, createClient } from './gemini.js';
+import {
+  rulesFor, withRules, languageKey, seedEntry, applyRevision, undoRevision,
+  editRules, shouldRevise, ratingsFor, collectRated, countRatings, totalOf,
+  isRating,
+} from './shadow-rules.js';
 
 const SETTINGS_FILE = 'settings.json';
 const QUOTA_FILE = 'audio/quota.json';
@@ -396,7 +401,11 @@ export async function saveSession(session) {
   await saveShadowIndex();
 }
 
+/* The rules version and the rating counts ride in the index row so that
+   "is a revision due?" is a sum over the index, not a read of every session
+   file. */
 function summariseSession(session) {
+  const fb = session.feedback;
   return {
     id: session.id,
     created: session.created,
@@ -405,6 +414,8 @@ function summariseSession(session) {
     recorded: (session.items || []).filter((i) => i.file).length,
     language: session.language,
     decks: [...new Set((session.items || []).map((i) => i.deck).filter(Boolean))],
+    rulesGeneration: fb && Number.isInteger(fb.rulesGeneration) ? fb.rulesGeneration : null,
+    ratings: countRatings(fb && fb.notes),
   };
 }
 
@@ -447,6 +458,148 @@ export async function deleteAllSessions() {
   state.shadowSessions = [];
   await saveShadowIndex();
   return ids.length;
+}
+
+/* ── the listening rules ─────────────────────────────────────────────── */
+
+/* The rules of the language being practised, or null when it has none yet.
+   Everything below works on the current language only: rules for another
+   language are kept but never touched, so switching back finds them as they
+   were left. */
+export function currentRules() {
+  return rulesFor(state.settings, state.settings.targetLanguage);
+}
+
+async function putRules(entry) {
+  const s = state.settings;
+  await saveSettings({ shadowRules: withRules(s, s.targetLanguage, entry) });
+  return entry;
+}
+
+/* The first time a language is handed in, its rules are drafted. A language
+   that already has rules costs nothing here. */
+export async function ensureRules() {
+  return currentRules() || putRules(seedEntry(await client.draftShadowRules()));
+}
+
+/* Drafted from scratch, as a new version so Undo brings the old ones back.
+   Rules you wrote yourself are kept, as they are through any revision. */
+export async function redraftRules() {
+  const reply = await client.draftShadowRules();
+  const entry = currentRules();
+  return putRules(entry
+    ? applyRevision(entry, { ...reply, changes: [], reason: 'Drafted again from scratch.' })
+    : seedEntry(reply));
+}
+
+export async function undoRules() {
+  const back = undoRevision(currentRules());
+  return back ? putRules(back) : null;
+}
+
+/* Null when the text says what the rules already say. */
+export async function editRulesText(text) {
+  const next = editRules(currentRules(), text);
+  return next ? putRules(next) : null;
+}
+
+/* Forgets this language's rules entirely; the next set handed in drafts new
+   ones. Ratings already given stay on their sessions, pinned on a version
+   that no longer exists, and so count towards nothing. */
+export async function clearRules() {
+  const key = languageKey(state.settings.targetLanguage);
+  const map = { ...(state.settings.shadowRules || {}) };
+  delete map[key];
+  await saveSettings({ shadowRules: map });
+}
+
+export function rulesRatings(generation) {
+  return ratingsFor(state.shadowSessions, state.settings.targetLanguage, generation);
+}
+
+/* A rating on one note, or none: picking the rating a note already has takes
+   it off again. `why` is kept only alongside a rating that is not useful — it
+   is what the learner says was missed, and "useful" needs no reason. */
+export async function rateNote(session, itemIndex, rating, why = '') {
+  const note = session && session.feedback && (session.feedback.notes || [])
+    .find((n) => n.itemIndex === itemIndex);
+  if (!note) return;
+  if (!isRating(rating) || note.rating === rating) {
+    delete note.rating;
+    delete note.why;
+  } else {
+    note.rating = rating;
+    const text = String(why || '').trim().slice(0, 200);
+    if (rating !== 'useful' && text) note.why = text;
+    else delete note.why;
+  }
+  await saveSession(session);
+}
+
+export async function setNoteWhy(session, itemIndex, why) {
+  const note = session && session.feedback && (session.feedback.notes || [])
+    .find((n) => n.itemIndex === itemIndex);
+  if (!note || !note.rating || note.rating === 'useful') return;
+  const text = String(why || '').trim().slice(0, 200);
+  if (text) note.why = text;
+  else delete note.why;
+  await saveSession(session);
+}
+
+/* Revises this language's rules from your ratings when enough of them say
+   something is off, and returns the new version — or null, which is the
+   common case and costs nothing. `inHand` is the session on screen, used
+   when nothing is being saved and so no session can be read back.
+
+   One revision at a time: ratings arrive a click apart, and two revisions of
+   the same version would each make a new one from the same evidence. */
+let revising = false;
+
+export function shouldReviseRules() {
+  const s = state.settings;
+  return !revising && shouldRevise(currentRules(), state.shadowSessions, s.targetLanguage, s.shadowReviseAfter);
+}
+
+export async function reviseRulesIfDue(inHand = null) {
+  const s = state.settings;
+  const entry = currentRules();
+  if (!shouldReviseRules()) return null;
+  revising = true;
+  try {
+    const key = languageKey(s.targetLanguage);
+    const sessions = [];
+    for (const row of state.shadowSessions) {
+      if (languageKey(row.language) !== key || row.rulesGeneration !== entry.generation) continue;
+      if (!totalOf(row.ratings)) continue;
+      const loaded = inHand && inHand.id === row.id ? inHand : await loadSession(row.id);
+      if (loaded) sessions.push(loaded);
+    }
+    /* The newest ratings, and not an unbounded number of them: a threshold
+       set high should not become a prompt nobody can afford. */
+    const rated = collectRated(sessions, s.targetLanguage, entry.generation).slice(0, 40);
+    if (!rated.length) return null;
+
+    const before = (entry.history || []).at(-1);
+    const beforeCounts = before ? rulesRatings(before.generation) : null;
+    const reply = await client.reviseShadowRules({
+      entry,
+      rated,
+      current: rulesRatings(entry.generation),
+      previous: before ? {
+        generation: before.generation,
+        rules: before.rules,
+        counts: beforeCounts && totalOf(beforeCounts) ? beforeCounts : null,
+      } : null,
+    });
+    /* The rules may have been edited, undone or cleared while the call was
+       out. Then this revision is of something that no longer exists, and
+       applying it would quietly throw away what was done meanwhile. */
+    const now = currentRules();
+    if (!now || now.generation !== entry.generation) return null;
+    return putRules(applyRevision(entry, reply));
+  } finally {
+    revising = false;
+  }
 }
 
 /* ── the bundle: everything out, and back in ─────────────────────────── */

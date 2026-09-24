@@ -857,6 +857,20 @@ textarea { resize: vertical; font: 13px/1.6 var(--mono); }
 
 .sh-meta { font: 11px/1.5 var(--mono); color: var(--fg-dim); }
 
+/* Rating a note: the four ratings as one segmented strip, and the reason box
+   beside it only once a rating asks for one. It wraps under the strip on a
+   narrow screen rather than squeezing it. */
+.sh-rate { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.sh-rate input { flex: 1 1 200px; min-width: 0; font-size: 12.5px; padding: 5px 8px; }
+
+/* The news that the listening rules changed: what happened, then the buttons. */
+.sh-news { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-start; justify-content: space-between; margin-top: 10px; }
+.sh-news > div:first-child { flex: 1 1 260px; min-width: 0; }
+.sh-news .note { margin-top: 4px; }
+.sh-news details { margin-top: 6px; font-size: 12.5px; }
+.sh-news summary { cursor: pointer; color: var(--fg-muted); }
+.sh-news ul { margin: 6px 0 0 18px; }
+
 /* .notes-box keeps pre-wrap so a dictation sentence shows exactly as written.
    These boxes hold ordinary prose in real elements, so the newlines between
    those elements are markup, not content. */

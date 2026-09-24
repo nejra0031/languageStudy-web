@@ -14,6 +14,9 @@
 import { words, contains } from './text.js';
 import { VOICE_NAMES, modelLimits } from './defaults.js';
 import { buildGradingParts, readGrading, attachableClips } from './shadowing.js';
+import {
+  rulesFor, formatRulesBlock, buildSeedPrompt, buildRevisionPrompt, readRules,
+} from './shadow-rules.js';
 import { encodeOggOpus, OPUS_MIME } from './opus.js';
 
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent';
@@ -525,6 +528,20 @@ export function createClient({ getSettings, getApiKey, limiter }) {
       && /thinking/i.test(err.message);
   }
 
+  /* One call with thinking turned off where the model allows it. `body` is
+     handed whether to ask, so the retry is the same request minus the field. */
+  async function callUnthinking(model, body) {
+    const s = getSettings();
+    const l = modelLimits(s, model);
+    try {
+      return await call(model, body(thinkingRejected ? {} : { thinkingConfig: { thinkingBudget: 0 } }), l.rpm, l.rpd);
+    } catch (e) {
+      if (!looksLikeThinkingRejection(e) || thinkingRejected) throw e;
+      thinkingRejected = true;
+      return call(model, body({}), l.rpm, l.rpd);
+    }
+  }
+
   /* One call, carrying the reference text of every recorded line and the
      learner's recording of it. Returns normalised feedback, or throws — a
      reply that cannot be read is a failure, never a half grade, because a
@@ -534,40 +551,18 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     const attach = attachableClips(clips);
     if (!attach.length) throw new GeminiError('There are no recordings to send.');
 
-    const system = fillTemplate(s.prompts.shadowing, {
-      language: s.targetLanguage,
-      count: itemCount,
-      /* The sounds clause hangs off the end of a sentence that reads properly
-         without it, so an empty setting is a legal state rather than a
-         dangling colon. */
-      sounds: s.shadowSounds && s.shadowSounds.trim()
-        ? ` ${s.targetLanguage} sounds worth listening for include ${s.shadowSounds.trim()}.`
-        : '',
-    });
+    const rules = rulesFor(s, s.targetLanguage);
+    const system = shadowSystem(s, itemCount, rules);
 
     const userParts = buildGradingParts({
       items, clips: attach, focus, language: s.targetLanguage, itemCount,
     });
 
-    const body = () => ({
+    const data = await callUnthinking(s.shadowModel, (thinking) => ({
       system_instruction: { parts: [{ text: system }] },
       contents: [{ parts: userParts }],
-      generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: 16384,
-        ...(thinkingRejected ? {} : { thinkingConfig: { thinkingBudget: 0 } }),
-      },
-    });
-
-    const l = modelLimits(s, s.shadowModel);
-    let data;
-    try {
-      data = await call(s.shadowModel, body(), l.rpm, l.rpd);
-    } catch (e) {
-      if (!looksLikeThinkingRejection(e) || thinkingRejected) throw e;
-      thinkingRejected = true;
-      data = await call(s.shadowModel, body(), l.rpm, l.rpd);
-    }
+      generationConfig: { temperature: 0.3, maxOutputTokens: 16384, ...thinking },
+    }));
 
     const graded = readGrading(firstText(data), itemCount);
     if (!graded) {
@@ -575,7 +570,58 @@ export function createClient({ getSettings, getApiKey, limiter }) {
         `${s.shadowModel} replied with something that could not be read as feedback. `
         + 'Nothing was saved — your recordings are still here, so you can ask again.');
     }
-    return { ...graded, model: s.shadowModel, attached: attach.length };
+    /* Which version of the rules graded this, so a rating given to it later
+       counts towards that version and no other. 0 is "graded without any". */
+    return {
+      ...graded,
+      model: s.shadowModel,
+      attached: attach.length,
+      rulesGeneration: rules ? rules.generation : 0,
+    };
+  }
+
+  /* ── listening rules ───────────────────────────────────────────────── */
+
+  /* Drafting and revising the rules are writing jobs, not listening ones, so
+     they go to the text model and spend its allowance — the shadowing budget
+     is left for the thing you actually press Hand in for. Both return the
+     rules read back, or throw; a reply that cannot be read changes nothing. */
+  function rulesPreflight() {
+    const s = getSettings();
+    const l = modelLimits(s, s.textModel);
+    const why = limiter.why(s.textModel, l.rpm, l.rpd);
+    if (why) throw new QuotaError(why, limiter.waitFor(s.textModel, l.rpm, l.rpd));
+  }
+
+  async function rulesCall(prompt, what) {
+    rulesPreflight();
+    const s = getSettings();
+    const data = await callUnthinking(s.textModel, (thinking) => ({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.4, maxOutputTokens: 8192, ...thinking },
+    }));
+    const reply = readRules(firstText(data));
+    if (!reply) {
+      throw new GeminiError(`${s.textModel} replied with something that could not be read as ${what}. The listening rules were left as they were.`);
+    }
+    return reply;
+  }
+
+  async function draftShadowRules() {
+    const s = getSettings();
+    return rulesCall(buildSeedPrompt({
+      language: s.targetLanguage, level: s.learnerLevel, languageNote: s.languageNote,
+    }), 'listening rules');
+  }
+
+  async function reviseShadowRules({ entry, rated, current, previous }) {
+    const s = getSettings();
+    return rulesCall(buildRevisionPrompt({
+      language: s.targetLanguage,
+      level: s.learnerLevel,
+      languageNote: s.languageNote,
+      entry, rated, current, previous,
+    }), 'revised listening rules');
   }
 
   /* Refuses before spending, the way preflight() does for a dictation card. */
@@ -586,7 +632,22 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     if (why) throw new QuotaError(why, limiter.waitFor(s.shadowModel, l.rpm, l.rpd));
   }
 
-  return { call, testKey, generateCard, preflight, gradeShadowing, shadowPreflight };
+  return {
+    call, testKey, generateCard, preflight, gradeShadowing, shadowPreflight,
+    draftShadowRules, reviseShadowRules, rulesPreflight,
+  };
+}
+
+/* The shadowing system instruction, filled. {sounds} is the old setting's
+   placeholder: a prompt someone customised before rules existed may still
+   carry it, and it is filled with nothing rather than left showing. */
+export function shadowSystem(settings, count, rules = rulesFor(settings, settings.targetLanguage)) {
+  return fillTemplate(settings.prompts.shadowing, {
+    language: settings.targetLanguage,
+    count,
+    rules: formatRulesBlock(rules ? rules.rules : []),
+    sounds: '',
+  });
 }
 
 /* Duplicates what the manifest holds, so a stray audio file is never an orphan. */
