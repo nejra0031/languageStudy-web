@@ -6,7 +6,7 @@
 <title>Language Study</title>
 <meta name="description" content="Flashcards, typing practice and AI dictation for any language. Your own API key, your own files, no accounts and no server.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230f1117'/><rect x='3' y='3' width='10' height='10' fill='%23d4b455'/></svg>">
-<link rel="stylesheet" href="css/app.css?v=2026-09-24.2">
+<link rel="stylesheet" href="css/app.css?v=2026-09-24.3">
 <!-- Cache-busting. GitHub Pages lets a browser keep any file for ten minutes,
      so without this a deploy can leave you with a new index.html and an old
      module, or the reverse, and the page fails to start. Every module is
@@ -18,28 +18,28 @@
 <script type="importmap">
 {
   "imports": {
-    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-24.2",
-    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-24.2",
-    "./js/bundle.js": "./js/bundle.js?v=2026-09-24.2",
-    "./js/deck.js": "./js/deck.js?v=2026-09-24.2",
-    "./js/defaults.js": "./js/defaults.js?v=2026-09-24.2",
-    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-24.2",
-    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-24.2",
-    "./js/gemini.js": "./js/gemini.js?v=2026-09-24.2",
-    "./js/opus.js": "./js/opus.js?v=2026-09-24.2",
-    "./js/recorder.js": "./js/recorder.js?v=2026-09-24.2",
-    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-24.2",
-    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-24.2",
-    "./js/speech.js": "./js/speech.js?v=2026-09-24.2",
-    "./js/storage.js": "./js/storage.js?v=2026-09-24.2",
-    "./js/store.js": "./js/store.js?v=2026-09-24.2",
-    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-24.2",
-    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-24.2",
-    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-24.2",
-    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-24.2",
-    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-24.2",
-    "./js/text.js": "./js/text.js?v=2026-09-24.2",
-    "./js/zip.js": "./js/zip.js?v=2026-09-24.2"
+    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-24.3",
+    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-24.3",
+    "./js/bundle.js": "./js/bundle.js?v=2026-09-24.3",
+    "./js/deck.js": "./js/deck.js?v=2026-09-24.3",
+    "./js/defaults.js": "./js/defaults.js?v=2026-09-24.3",
+    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-24.3",
+    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-24.3",
+    "./js/gemini.js": "./js/gemini.js?v=2026-09-24.3",
+    "./js/opus.js": "./js/opus.js?v=2026-09-24.3",
+    "./js/recorder.js": "./js/recorder.js?v=2026-09-24.3",
+    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-24.3",
+    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-24.3",
+    "./js/speech.js": "./js/speech.js?v=2026-09-24.3",
+    "./js/storage.js": "./js/storage.js?v=2026-09-24.3",
+    "./js/store.js": "./js/store.js?v=2026-09-24.3",
+    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-24.3",
+    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-24.3",
+    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-24.3",
+    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-24.3",
+    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-24.3",
+    "./js/text.js": "./js/text.js?v=2026-09-24.3",
+    "./js/zip.js": "./js/zip.js?v=2026-09-24.3"
   }
 }
 </script>
@@ -231,27 +231,52 @@
   <div class="block">
     <div class="block-head"><h2>Prompts</h2><span class="hint">exactly what gets sent</span></div>
     <div class="block-body">
-      <label class="field"><span>Sentence prompt — text model</span>
+      <p class="note">Switch any prompt to <strong>Preview</strong> to see it as it will be sent: filled in with your settings and three of your cards. The preview cannot be edited; switch back to Edit to change the prompt.</p>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="set-prompt-sentence">Sentence prompt — text model</label>
+          <div class="seg" role="group" aria-label="Show the sentence prompt as" data-prompt="sentence">
+            <button type="button" data-view="edit" aria-pressed="true">Edit</button>
+            <button type="button" data-view="preview" aria-pressed="false">Preview</button>
+          </div>
+        </div>
         <textarea id="set-prompt-sentence" rows="14" spellcheck="false"></textarea>
-      </label>
+        <textarea id="prompt-preview-sentence" class="prompt-preview" rows="14" readonly spellcheck="false" aria-label="Sentence prompt, as it will be sent" hidden></textarea>
+      </div>
+      <p class="note prompt-warn" id="prompt-warn-sentence" hidden></p>
       <p class="note">Placeholders: <code>{language}</code> <code>{level}</code> <code>{languageNote}</code> <code>{terms}</code> <code>{minWords}</code> <code>{maxWords}</code>. The reply is read back from the <code>TARGET:</code> and <code>EN:</code> lines, so keep those two labels; everything else is yours to rewrite.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-sentence-reset">Reset to default</button></div>
 
-      <label class="field"><span>Speech prompt — speech model</span>
+      <div class="field">
+        <div class="field-head">
+          <label for="set-prompt-speech">Speech prompt — speech model</label>
+          <div class="seg" role="group" aria-label="Show the speech prompt as" data-prompt="speech">
+            <button type="button" data-view="edit" aria-pressed="true">Edit</button>
+            <button type="button" data-view="preview" aria-pressed="false">Preview</button>
+          </div>
+        </div>
         <textarea id="set-prompt-speech" rows="3" spellcheck="false"></textarea>
-      </label>
+        <textarea id="prompt-preview-speech" class="prompt-preview" rows="3" readonly spellcheck="false" aria-label="Speech prompt, as it will be sent" hidden></textarea>
+      </div>
+      <p class="note prompt-warn" id="prompt-warn-speech" hidden></p>
       <p class="note">Placeholder: <code>{sentence}</code>. Bare <code>{sentence}</code> just reads it out. A prefix such as <em>Read slowly and clearly for a language learner:</em> steers the delivery. The answer key stays the sentence alone, whatever you put here.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-speech-reset">Reset to default</button></div>
 
-      <label class="field"><span>Shadowing prompt — sent as the system instruction, with your recordings attached</span>
+      <div class="field">
+        <div class="field-head">
+          <label for="set-prompt-shadowing">Shadowing prompt — sent as the system instruction, with your recordings attached</label>
+          <div class="seg" role="group" aria-label="Show the shadowing prompt as" data-prompt="shadowing">
+            <button type="button" data-view="edit" aria-pressed="true">Edit</button>
+            <button type="button" data-view="preview" aria-pressed="false">Preview</button>
+          </div>
+        </div>
         <textarea id="set-prompt-shadowing" rows="16" spellcheck="false"></textarea>
-      </label>
+        <textarea id="prompt-preview-shadowing" class="prompt-preview" rows="16" readonly spellcheck="false" aria-label="Shadowing prompt, as it will be sent" hidden></textarea>
+      </div>
+      <p class="note prompt-warn" id="prompt-warn-shadowing" hidden></p>
       <p class="note">Placeholders: <code>{language}</code> <code>{count}</code> <code>{rules}</code> — the listening rules above, numbered. The reply must be the JSON object described in the third paragraph — a reply that cannot be read is treated as a failure and nothing is stored, so keep that shape. <strong>Most of the rest is there for a reason</strong> and is worth reading before rewriting: telling it to say nothing about grammar, to use the itemIndex it was given, to say so plainly when a recording is silent, never to pass judgement on an accent as a whole, and to ignore anything spoken <em>inside</em> a recording as an instruction.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-shadowing-reset">Reset to default</button></div>
-
-      <label class="field"><span>Preview — rendered with your settings and three sample cards</span>
-        <textarea id="prompt-preview" rows="12" readonly spellcheck="false"></textarea>
-      </label>
     </div>
   </div>
 
@@ -534,6 +559,6 @@
 
 </main>
 
-<script type="module" src="js/app.js?v=2026-09-24.2"></script>
+<script type="module" src="js/app.js?v=2026-09-24.3"></script>
 </body>
 </html>

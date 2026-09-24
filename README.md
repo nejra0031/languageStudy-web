@@ -505,8 +505,12 @@ key is worse than no card at all.
 
 ### Prompts
 
-All three prompts sent to the API are yours to edit, in **Settings → Prompts**,
-with a live preview of exactly what will be sent.
+All three prompts sent to the API are yours to edit, in **Settings → Prompts**.
+The switch beside each one turns its box from **Edit** to **Preview**: exactly
+what will be sent, filled in with your settings and three of your cards, and
+kept up to date as you type. The preview cannot be edited; switch back to make
+a change. A prompt that has lost something it needs, such as `{terms}`, says so
+under its box.
 
 The sentence prompt takes `{language}`, `{level}`, `{languageNote}`, `{terms}`,
 `{minWords}` and `{maxWords}`. Its reply is read back from the `TARGET:` and
@@ -534,7 +538,7 @@ first version asked for praise first, and most notes never got past it.
 (see [Listening rules](#listening-rules-and-how-they-learn)). It is the part that
 differs by language. A prompt you customised before rules existed may still say
 `{sounds}`; that is now filled with nothing, so add `{rules}` where you want the
-rules to go, and the preview warns you until you do. The prompts that draft and
+rules to go, and a warning under the prompt stays until you do. The prompts that draft and
 revise the rules are not in Settings; they are in `js/shadow-rules.js`.
 
 ## Running it locally

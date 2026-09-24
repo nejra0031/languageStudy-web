@@ -222,7 +222,8 @@ main { padding: 0 0 96px; }
 /* ── form controls ────────────────────────────────────────────── */
 
 .field { display: block; }
-.field > span {
+.field > span,
+.field-head > label {
   display: block;
   font-size: 11px;
   font-weight: 600;
@@ -255,6 +256,26 @@ input:disabled, textarea:disabled, button:disabled {
   cursor: not-allowed;
 }
 textarea { resize: vertical; font: 13px/1.6 var(--mono); }
+
+/* A field whose label shares its line with a control, such as the Edit and
+   Preview switch over each prompt. The label keeps the look of a plain
+   field's; the control sits at the right edge, level with it. */
+.field-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 5px;
+}
+.field-head > label { margin-bottom: 0; }
+.field-head .seg { flex: none; }
+
+/* A prompt as it will be sent. It stands where the prompt was, so it is set
+   apart by its background rather than by its place: text that cannot be
+   typed into should not look as if it can. */
+.prompt-preview { background: var(--surface-hi); color: var(--fg-muted); }
+.prompt-preview:hover, .prompt-preview:focus { border-color: var(--line-strong); }
+.prompt-warn { color: var(--warn); }
 
 .grid {
   display: grid;

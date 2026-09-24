@@ -487,6 +487,12 @@ function render() {
 
 /* ── prompts ─────────────────────────────────────────────────────────── */
 
+/* Each prompt has an Edit and a Preview view of one box. The preview is a
+   second, read-only textarea that takes the editor's place rather than the
+   editor's own text being swapped out: the editor is what draftSettings()
+   reads, and what a blur commits, so it must never hold rendered text. */
+const PROMPT_VIEWS = ['sentence', 'speech', 'shadowing'];
+
 function wirePrompts() {
   const sp = $('set-prompt-sentence');
   const pp = $('set-prompt-speech');
@@ -514,49 +520,75 @@ function wirePrompts() {
     store.saveSettings({ prompts: { ...store.state.settings.prompts, shadowing: DEFAULT_SHADOW_PROMPT } });
     renderPreview();
   });
+
+  for (const name of PROMPT_VIEWS) {
+    const seg = document.querySelector(`.seg[data-prompt="${name}"]`);
+    seg.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-view]');
+      if (btn) showPromptView(name, btn.dataset.view === 'preview');
+    });
+  }
+}
+
+function showPromptView(name, preview) {
+  const editor = $(`set-prompt-${name}`);
+  const shown = $(`prompt-preview-${name}`);
+  /* The preview opens at whatever height the editor was dragged to, so
+     switching back and forth does not make the page jump. */
+  if (preview && !editor.hidden) shown.style.height = `${editor.offsetHeight}px`;
+  if (!preview && !shown.hidden) editor.style.height = `${shown.offsetHeight}px`;
+  editor.hidden = preview;
+  shown.hidden = !preview;
+  for (const btn of document.querySelectorAll(`.seg[data-prompt="${name}"] button`)) {
+    btn.setAttribute('aria-pressed', String((btn.dataset.view === 'preview') === preview));
+  }
 }
 
 function renderPreview() {
   const draft = draftSettings();
   const terms = store.state.cards.slice(0, 3).map((c) => ({ front: c.front, back: c.back }));
   const sample = terms.length ? terms : SAMPLE_TERMS;
-  const sentence = fillTemplate(draft.prompts.sentence, sentenceVars(draft, sample));
-  const spoken = fillTemplate(draft.prompts.speech, { sentence: '<the sentence it just wrote>' });
 
-  const shadowing = shadowSystem(draft, draft.shadowItems);
+  $('prompt-preview-sentence').value = [
+    `── to ${draft.textModel} ──`,
+    fillTemplate(draft.prompts.sentence, sentenceVars(draft, sample)),
+  ].join('\n');
+  $('prompt-preview-speech').value = [
+    `── to ${draft.ttsModel} ──`,
+    fillTemplate(draft.prompts.speech, { sentence: '<the sentence it just wrote>' }),
+  ].join('\n');
+  $('prompt-preview-shadowing').value = [
+    `── to ${draft.shadowModel}, as the system instruction ──`,
+    shadowSystem(draft, draft.shadowItems),
+    '',
+    '(then one text part per line, each followed by your recording of it)',
+  ].join('\n');
 
-  const warnings = [];
+  /* The warnings sit under their own prompt, outside the preview, so they
+     are seen while editing — which is when they can be acted on. */
+  const warnings = { sentence: [], speech: [], shadowing: [] };
   if (!draft.prompts.sentence.includes('{terms}')) {
-    warnings.push('! The sentence prompt has no {terms} placeholder, so the model is never told which words to use.');
+    warnings.sentence.push('The sentence prompt has no {terms} placeholder, so the model is never told which words to use.');
   }
   if (!draft.prompts.speech.includes('{sentence}')) {
-    warnings.push('! The speech prompt has no {sentence} placeholder, so it will not read the sentence.');
+    warnings.speech.push('The speech prompt has no {sentence} placeholder, so it will not read the sentence.');
   }
   /* The one part of the shadowing prompt that is not taste: a reply that
      cannot be read is treated as a failure and nothing is stored, so a prompt
      that stops asking for this shape would never produce any feedback. */
   if (!draft.prompts.shadowing.includes('notes') || !draft.prompts.shadowing.includes('itemIndex')) {
-    warnings.push('! The shadowing prompt no longer asks for "notes" keyed by "itemIndex". A reply that cannot be read is treated as a failure, so no feedback would ever be stored.');
+    warnings.shadowing.push('The shadowing prompt no longer asks for "notes" keyed by "itemIndex". A reply that cannot be read is treated as a failure, so no feedback would ever be stored.');
   }
   if (!draft.prompts.shadowing.includes('{rules}')) {
     /* A prompt edited before rules existed lands here: the unedited old
        default is upgraded on load, but an edited one is the user's to fix. */
-    warnings.push('! The shadowing prompt has no {rules} placeholder, so the listening rules are never sent and your ratings cannot improve anything. Your prompt was edited before listening rules existed: press Reset to default under it, or add {rules} to it yourself.');
+    warnings.shadowing.push('The shadowing prompt has no {rules} placeholder, so the listening rules are never sent and your ratings cannot improve anything. Your prompt was edited before listening rules existed: press Reset to default under it, or add {rules} to it yourself.');
   }
-
-  $('prompt-preview').value = [
-    ...(warnings.length ? [...warnings, ''] : []),
-    `── to ${draft.textModel} ──`,
-    sentence,
-    '',
-    `── to ${draft.ttsModel} ──`,
-    spoken,
-    '',
-    `── to ${draft.shadowModel}, as the system instruction ──`,
-    shadowing,
-    '',
-    '(then one text part per line, each followed by your recording of it)',
-  ].join('\n');
+  for (const name of PROMPT_VIEWS) {
+    const el = $(`prompt-warn-${name}`);
+    el.textContent = warnings[name].join(' ');
+    el.hidden = !warnings[name].length;
+  }
 }
 
 /* The preview follows what is typed, before it is committed on blur. */
