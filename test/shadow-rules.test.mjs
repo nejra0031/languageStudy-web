@@ -8,7 +8,9 @@ import {
   countRatings, ratingsFor, shouldRevise, collectRated, ruleStats, migrateSounds,
   newEntry, MAX_LISTEN, MAX_STYLE, DEFAULT_STYLE_RULES,
 } from '../js/shadow-rules.js';
-import { withDefaults, DEFAULT_SHADOW_PROMPT } from '../js/defaults.js';
+import {
+  withDefaults, upgradePrompts, DEFAULT_SHADOW_PROMPT, RETIRED_SHADOW_PROMPTS,
+} from '../js/defaults.js';
 import { shadowSystem } from '../js/gemini.js';
 
 const NOW = new Date('2026-09-24T12:00:00Z');
@@ -286,4 +288,20 @@ test('the shadowing prompt is sent with the rules numbered and no placeholder le
   const legacy = shadowSystem({ ...s, prompts: { shadowing: 'Listen.{sounds} {rules}' } }, 3);
   assert.doesNotMatch(legacy, /\{sounds\}/);
   assert.match(shadowSystem(withDefaults({ targetLanguage: 'Thai' }), 1), /No rules yet/);
+});
+
+test('an install still holding an old default prompt is moved to the current one', () => {
+  for (const old of RETIRED_SHADOW_PROMPTS) {
+    assert.doesNotMatch(old, /\{rules\}/, 'the retired prompt is the one without rules');
+    /* A textarea round trip turns line endings into CRLF on some systems. */
+    const loaded = withDefaults({ prompts: { shadowing: old.replace(/\n/g, '\r\n') + '\n' } });
+    assert.equal(loaded.prompts.shadowing, DEFAULT_SHADOW_PROMPT);
+  }
+  assert.equal(upgradePrompts({ shadowing: DEFAULT_SHADOW_PROMPT }).shadowing, DEFAULT_SHADOW_PROMPT);
+});
+
+test('a prompt you edited is left exactly as you wrote it', () => {
+  const edited = `${RETIRED_SHADOW_PROMPTS[0]}\n- Be brief.`;
+  assert.equal(withDefaults({ prompts: { shadowing: edited } }).prompts.shadowing, edited);
+  assert.equal(withDefaults({ prompts: { shadowing: 'Mine.' } }).prompts.shadowing, 'Mine.');
 });

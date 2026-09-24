@@ -539,7 +539,9 @@ function renderPreview() {
     warnings.push('! The shadowing prompt no longer asks for "notes" keyed by "itemIndex". A reply that cannot be read is treated as a failure, so no feedback would ever be stored.');
   }
   if (!draft.prompts.shadowing.includes('{rules}')) {
-    warnings.push('! The shadowing prompt has no {rules} placeholder, so the listening rules are never sent and your ratings cannot improve anything.');
+    /* A prompt edited before rules existed lands here: the unedited old
+       default is upgraded on load, but an edited one is the user's to fix. */
+    warnings.push('! The shadowing prompt has no {rules} placeholder, so the listening rules are never sent and your ratings cannot improve anything. Your prompt was edited before listening rules existed: press Reset to default under it, or add {rules} to it yourself.');
   }
 
   $('prompt-preview').value = [
