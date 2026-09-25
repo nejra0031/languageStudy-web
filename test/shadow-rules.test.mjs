@@ -368,3 +368,14 @@ test('a language’s first rules number after every version its sets were graded
 
   assert.equal(editRules(null, 'Nasal vowels.', NOW, 3).generation, 4, 'rules written by hand number after too');
 });
+
+test('an undo is described as something that happened, including one saved with the old wording', () => {
+  let entry = entryOf(BASE, 1);
+  entry = applyRevision(entry, { rules: [{ id: 1, kind: 'listen', text: 'changed' }], changes: [], reason: 'r' }, NOW);
+  const back = undoRevision(entry, NOW);
+  assert.equal(back.reason, 'Undo restored the rules of version 1.');
+
+  const saved = cleanEntry({ ...back, reason: 'Back to the rules of version 1.' });
+  assert.equal(saved.reason, 'Undo restored the rules of version 1.');
+  assert.equal(cleanEntry({ ...back, reason: 'Edited by you.' }).reason, 'Edited by you.', 'other reasons are left alone');
+});

@@ -153,7 +153,7 @@ export function init() {
   $('sh-rules').addEventListener('click', async (e) => {
     if (e.target.closest('[data-act="rules-undo"]')) {
       const back = await store.undoRules();
-      rulesNews = back ? { note: `${back.reason} That is version ${back.generation} now.` } : null;
+      rulesNews = back ? { note: `${back.reason} They are version ${back.generation} now.` } : null;
       renderRulesNews();
     } else if (e.target.closest('[data-act="rules-dismiss"]')) {
       rulesNews = null;

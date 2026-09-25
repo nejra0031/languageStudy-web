@@ -146,7 +146,7 @@ export function cleanEntry(raw) {
     generation,
     rules,
     history,
-    reason: String(raw.reason || '').slice(0, 300),
+    reason: rewordReason(String(raw.reason || '')).slice(0, 300),
     changes: cleanChanges(raw.changes),
     revisedAt: String(raw.revisedAt || ''),
   };
@@ -538,6 +538,20 @@ export function applyRevision(entry, reply, now = new Date()) {
   }, now);
 }
 
+/* Why a version exists, when Undo made it. Worded as something that
+   happened, because the Settings page shows it straight after the version
+   line: the first wording, "Back to the rules of version 1.", read like a
+   link to press. */
+export function undoReason(generation) {
+  return `Undo restored the rules of version ${generation}.`;
+}
+
+/* A reason saved with the first wording is shown with the current one. */
+function rewordReason(reason) {
+  const old = /^Back to the rules of version (\d+)\.$/.exec(reason.trim());
+  return old ? undoReason(Number(old[1])) : reason;
+}
+
 /* Undo walks back one version at a time, and is itself a new version: the
    version numbers only ever go up, so ratings given to the undone version
    stay attached to it and cannot count towards the one restored. */
@@ -549,7 +563,7 @@ export function undoRevision(entry, now = new Date()) {
     generation: entry.generation + 1,
     rules: cleanRules(back.rules),
     history: history.slice(0, -1),
-    reason: `Back to the rules of version ${back.generation}.`,
+    reason: undoReason(back.generation),
     changes: [],
     revisedAt: now.toISOString(),
   };
