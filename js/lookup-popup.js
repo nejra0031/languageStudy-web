@@ -28,6 +28,12 @@ let token = 0;
    opening on every selectionchange of the drag would chase the pointer. */
 let pointerDown = false;
 let idle = 0;
+/* The selection the popup was last closed on. Closing does not take the
+   selection away — it is the student's, and they may want to copy it — so
+   the mouseup after a click on × would find it still there and open the
+   popup straight back up. It stays shut for that selection until the
+   selection changes or goes. */
+let dismissed = null;
 
 export function init() {
   pop = $('lookup-pop');
@@ -98,7 +104,10 @@ const TYPING = 'textarea, [contenteditable]:not([contenteditable="false"]), '
 function check() {
   if (!store.state.settings.lookupEnabled || !store.state.ready) return;
   const sel = window.getSelection();
-  if (!sel || sel.isCollapsed || !sel.rangeCount) return;
+  if (!sel || sel.isCollapsed || !sel.rangeCount) {
+    dismissed = null;
+    return;
+  }
   /* A selection inside a text field is someone editing, not reading: the deck
      editor, an answer being typed, a prompt. And never the popup itself. */
   const active = document.activeElement;
@@ -110,13 +119,18 @@ function check() {
 
   const raw = sel.toString();
   const text = cleanSelection(raw);
-  if (!text) return;
+  if (!text) {
+    dismissed = null;
+    return;
+  }
   const rect = range.getBoundingClientRect();
   if (!rect.width && !rect.height) return;
 
-  /* The same selection, still standing: nothing new to do. */
+  /* The same selection, still standing — open, or closed on purpose: nothing
+     new to do. */
   const where = `${text}|${Math.round(rect.left + window.scrollX)}|${Math.round(rect.top + window.scrollY)}`;
-  if (open && open.where === where) return;
+  if ((open && open.where === where) || where === dismissed) return;
+  dismissed = null;
 
   openFor(text, rect, contextOf(el, range, raw), where);
 }
@@ -247,6 +261,7 @@ function place(rect) {
 
 function close() {
   token++;
+  if (open) dismissed = open.where;
   open = null;
   pop.hidden = true;
 }
