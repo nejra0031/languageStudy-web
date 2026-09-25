@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { packetSamples, oggCrc, oggOpus, encodeOggOpus, canEncodeOpus } from '../js/opus.js';
-import { speechFile, pcmToWav } from '../js/gemini.js';
+import { speechFile, pcmToWav, wavSamples } from '../js/gemini.js';
 
 /* Reads an Ogg file back into its pages, checking each page's CRC. */
 function pages(bytes) {
@@ -90,4 +90,34 @@ test('audio that arrives in a container keeps its own kind', async () => {
   assert.equal((await speechFile(ogg, 'audio/ogg')).ext, 'ogg');
   const riff = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0]);
   assert.equal((await speechFile(riff, '')).ext, 'wav');
+});
+
+test('wavSamples finds the samples in a WAV like the one Gemini sends', () => {
+  const pcm = new Uint8Array([1, 2, 3, 4, 5, 6]);
+  const got = wavSamples(pcmToWav(pcm, 'audio/L16;rate=24000'));
+  assert.equal(got.rate, 24000);
+  assert.deepEqual([...got.pcm], [...pcm]);
+});
+
+test('wavSamples walks past other chunks, and reads a streaming size to the end', () => {
+  const wav = pcmToWav(new Uint8Array([9, 8, 7, 6]), 'audio/L16;rate=16000');
+  const list = new Uint8Array([0x4c, 0x49, 0x53, 0x54, 3, 0, 0, 0, 1, 2, 3, 0]); // LIST, odd size, padded
+  const withList = new Uint8Array([...wav.slice(0, 36), ...list, ...wav.slice(36)]);
+  let got = wavSamples(withList);
+  assert.equal(got.rate, 16000);
+  assert.deepEqual([...got.pcm], [9, 8, 7, 6]);
+
+  const streaming = wav.slice();
+  new DataView(streaming.buffer).setUint32(40, 0xffffffff, true);
+  assert.deepEqual([...wavSamples(streaming).pcm], [9, 8, 7, 6]);
+});
+
+test('wavSamples leaves alone what the encoder should not be given', () => {
+  const stereo = pcmToWav(new Uint8Array(8), 'audio/L16;rate=24000');
+  new DataView(stereo.buffer).setUint16(22, 2, true);
+  assert.equal(wavSamples(stereo), null);
+  const float = pcmToWav(new Uint8Array(8), '');
+  new DataView(float.buffer).setUint16(20, 3, true);
+  assert.equal(wavSamples(float), null);
+  assert.equal(wavSamples(new Uint8Array([0x4f, 0x67, 0x67, 0x53])), null);
 });

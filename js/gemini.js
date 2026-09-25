@@ -312,17 +312,59 @@ export function pcmToWav(bytes, mime) {
 /* The file a spoken sentence is saved as: Ogg Opus where the browser can
    encode it, a twelfth the size, and WAV where it cannot — see opus.js. A
    bank that already holds WAVs keeps them; each entry names its own file.
-   A payload that arrives already in a container is kept as it came. */
+
+   Gemini has sent the speech both ways: as bare PCM described by a mime type
+   like audio/L16;rate=24000, and as a finished audio/wav file. Either way the
+   samples are the same, so a plain 16-bit mono WAV is opened up and encoded
+   like bare PCM. Anything else that arrives already in a container is kept
+   as it came. */
 export async function speechFile(bytes, mime) {
-  const wav = pcmToWav(bytes, mime);
-  if (wav === bytes) {
-    const ogg = ascii4(bytes) === 'OggS';
-    return { bytes, ext: ogg ? 'ogg' : 'wav', type: ogg ? OPUS_MIME : 'audio/wav' };
+  const head = ascii4(bytes);
+  let pcm = null;
+  let rate = 24000;
+  if (head === 'RIFF') {
+    const inside = wavSamples(bytes);
+    if (inside) ({ pcm, rate } = inside);
+  } else if (head !== 'OggS' && head.slice(0, 3) !== 'ID3') {
+    const m = /rate=(\d+)/.exec(mime || '');
+    pcm = bytes;
+    if (m) rate = Number(m[1]);
   }
-  const m = /rate=(\d+)/.exec(mime || '');
-  const opus = await encodeOggOpus(bytes, m ? Number(m[1]) : 24000);
+
+  const opus = pcm && await encodeOggOpus(pcm, rate);
   if (opus) return { bytes: opus, ext: 'ogg', type: OPUS_MIME };
-  return { bytes: wav, ext: 'wav', type: 'audio/wav' };
+  if (head === 'OggS') return { bytes, ext: 'ogg', type: OPUS_MIME };
+  return { bytes: pcmToWav(bytes, mime), ext: 'wav', type: 'audio/wav' };
+}
+
+/* The samples and rate inside a WAV, when it is 16-bit mono PCM — the only
+   kind Gemini sends, and the only kind the encoder is given; or null. Walks
+   the chunks rather than assuming a 44-byte header, since a writer may put
+   others (LIST, fact) before the data. A data size larger than the file, as
+   a streaming writer leaves it, is read as "to the end". */
+export function wavSamples(bytes) {
+  if (bytes.length < 12 || ascii4(bytes) !== 'RIFF'
+      || String.fromCharCode(...bytes.slice(8, 12)) !== 'WAVE') return null;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let format = null;
+  for (let at = 12; at + 8 <= bytes.length;) {
+    const id = String.fromCharCode(...bytes.slice(at, at + 4));
+    const size = view.getUint32(at + 4, true);
+    const body = at + 8;
+    if (id === 'fmt ' && body + 16 <= bytes.length) {
+      format = {
+        code: view.getUint16(body, true),
+        channels: view.getUint16(body + 2, true),
+        rate: view.getUint32(body + 4, true),
+        bits: view.getUint16(body + 14, true),
+      };
+    } else if (id === 'data') {
+      if (!format || format.code !== 1 || format.channels !== 1 || format.bits !== 16) return null;
+      return { pcm: bytes.subarray(body, Math.min(body + size, bytes.length)), rate: format.rate };
+    }
+    at = body + size + (size & 1);               // chunks are padded to even
+  }
+  return null;
 }
 
 function ascii4(bytes) {
