@@ -46,8 +46,13 @@ export function extensionFor(mime) {
   }
 }
 
-export function takePath(sessionId, index, mime) {
-  return `shadowing/${sessionId}_${index}.${extensionFor(mime)}`;
+/* Each take has a name of its own, numbered, so that recording a line again
+   does not overwrite a take that feedback was given on: the earlier
+   hand-in's note stays playable next to the recording it was about. Take 0
+   is the name every take had before takes were numbered. */
+export function takePath(sessionId, index, mime, take = 0) {
+  const n = Math.round(Number(take)) || 0;
+  return `shadowing/${sessionId}_${index}${n > 0 ? `_t${n}` : ''}.${extensionFor(mime)}`;
 }
 
 /* ── building a set ──────────────────────────────────────────────────── */
@@ -361,7 +366,7 @@ export function mergeGrading(previous, graded, items, now = new Date()) {
   const handin = {
     n: number,
     lines,
-    notes: fresh.map((n) => snapshotNote(n)).sort((a, b) => a.itemIndex - b.itemIndex),
+    notes: fresh.map((n) => snapshotNote(n, byIndex.get(n.itemIndex))).sort((a, b) => a.itemIndex - b.itemIndex),
     overall: graded.overall || null,
     focusNote: graded.focusNote || null,
     model: graded.model || '',
@@ -380,12 +385,52 @@ export function mergeGrading(previous, graded, items, now = new Date()) {
   };
 }
 
-/* What a hand-in keeps of each note: enough to show what it said, and no
-   rating, since ratings belong to the line's current note. */
-function snapshotNote(note) {
+/* What a hand-in keeps of each note: enough to show what it said and to
+   play the take it heard, and no rating, since ratings belong to the line's
+   current note. */
+function snapshotNote(note, item) {
   const out = { itemIndex: note.itemIndex, comment: note.comment, take: takeOf(note) };
   if (Array.isArray(note.rules) && note.rules.length) out.rules = note.rules;
+  if (item && item.file) {
+    out.file = item.file;
+    out.mime = item.mime || '';
+  }
   return out;
+}
+
+/* ── keeping the takes feedback was given on ─────────────────────────── */
+
+/* Whether the take a line has now was handed in, and so must be kept when
+   the line is recorded again. A take recorded over before it was ever
+   handed in is not kept: re-recording until it sounds right costs nothing
+   and leaves nothing behind. A hand-in names the file it heard; a set
+   graded before that is matched on the take number, or on the line's
+   current note being about this take. */
+export function takeWasHandedIn(session, index) {
+  const item = session && session.items && session.items[index];
+  if (!item || !item.file) return false;
+  const take = takeOf(item);
+  if (noteIsCurrent(item, notesByIndex(session).get(index))) return true;
+  return handinsOf(session.feedback).some((h) => (h.notes || []).some((n) => n.itemIndex === index
+    && (n.file ? n.file === item.file : takeOf(n) === take)));
+}
+
+/* Before a line's take is recorded over, the hand-ins that heard it are
+   told its file, so their notes can still play it. Sets graded before
+   hand-ins named their files learn it here. Their hand-ins become stored
+   records if they were only implied, so what is written down sticks. */
+export function pinTakeFile(session, index) {
+  const item = session && session.items && session.items[index];
+  if (!item || !item.file || !session.feedback) return session;
+  const take = takeOf(item);
+  const handins = handinsOf(session.feedback).map((h) => ({
+    ...h,
+    notes: (h.notes || []).map((n) => (n.itemIndex === index && !n.file && takeOf(n) === take
+      ? { ...n, file: item.file, mime: item.mime || '' }
+      : n)),
+  }));
+  if (handins.length) session.feedback = { ...session.feedback, handins };
+  return session;
 }
 
 /* The set's hand-ins, oldest first. A set graded before hand-ins were kept

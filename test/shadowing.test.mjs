@@ -6,7 +6,7 @@ import {
   attachableClips, buildGradingParts, extractTrailingJson, normalise,
   readGrading, focusFor, AUDIO_BUDGET_BYTES,
   takeOf, noteIsCurrent, pendingIndices, sessionStatus, mergeGrading,
-  handinsOf, groupByHandin, lineList,
+  handinsOf, groupByHandin, lineList, takeWasHandedIn, pinTakeFile,
 } from '../js/shadowing.js';
 
 /* ── ids and filenames ───────────────────────────────────────────────── */
@@ -465,4 +465,48 @@ test('line lists read the way a learner counts', () => {
   assert.equal(lineList([4, 5]), 'lines 5, 6');
   assert.equal(lineList([9, 0, 1, 2, 6, 8]), 'lines 1–3, 7, 9, 10');
   assert.equal(lineList([]), 'no lines');
+});
+
+/* ── keeping the takes feedback was given on ─────────────────────────── */
+
+test('each take has its own file, and take 0 keeps the old name', () => {
+  assert.equal(takePath('s_1', 3, 'audio/webm', 2), 'shadowing/s_1_3_t2.webm');
+  assert.equal(takePath('s_1', 3, 'audio/ogg'), 'shadowing/s_1_3.ogg');
+});
+
+test('a take is kept when it was handed in, and not when it was recorded over first', () => {
+  const s = setOf(2);
+  record(s, 0);
+  s.items[0].file = takePath('s', 0, 'audio/webm', 1);
+  assert.equal(takeWasHandedIn(s, 0), false, 'never handed in: free to discard');
+
+  s.feedback = mergeGrading(s.feedback, grading([0]), s.items, NOW);
+  assert.equal(takeWasHandedIn(s, 0), true, 'handed in: keep it');
+  assert.equal(s.feedback.handins[0].notes[0].file, 'shadowing/s_0_t1.webm', 'the hand-in names the file it heard');
+
+  /* A retake, not handed in, then recorded over again: that one goes. */
+  record(s, 0);
+  s.items[0].file = takePath('s', 0, 'audio/webm', 2);
+  assert.equal(takeWasHandedIn(s, 0), false);
+  assert.equal(takeWasHandedIn(s, 1), false, 'a line with no take has nothing to keep');
+});
+
+test('a set graded before hand-ins named their files learns the file before it is recorded over', () => {
+  const old = {
+    items: [{ index: 0, text: 'a', file: 'shadowing/s_0.webm', mime: 'audio/webm', take: 1 }],
+    feedback: { notes: [{ itemIndex: 0, comment: 'c', take: 1 }], overall: 'o', rulesGeneration: 1 },
+  };
+  assert.equal(takeWasHandedIn(old, 0), true);
+  pinTakeFile(old, 0);
+  assert.equal(old.feedback.handins[0].notes[0].file, 'shadowing/s_0.webm');
+
+  /* After the retake, the old hand-in still points at the kept file. */
+  old.items[0].take = 2;
+  old.items[0].file = 'shadowing/s_0_t2.webm';
+  const { groups } = groupByHandin(old);
+  assert.equal(groups[0].rows[0].current, true, 'the note is still the line’s current one until handed in again');
+  old.feedback = mergeGrading(old.feedback, grading([0]), old.items, NOW);
+  const again = groupByHandin(old).groups[0].rows[0];
+  assert.equal(again.current, false);
+  assert.equal(again.said.file, 'shadowing/s_0.webm', 'the first hand-in can still play what it heard');
 });

@@ -36,6 +36,7 @@ import { createRecorder, SUPPORTED as CAN_RECORD } from './recorder.js';
 import {
   buildSet, nextSessionId, takePath, focusFor, takeOf, noteIsCurrent, notesByIndex,
   pendingIndices, sessionStatus, mergeGrading, groupByHandin, lineList,
+  takeWasHandedIn, pinTakeFile,
 } from './shadowing.js';
 import { RATINGS, totalOf, languageKey, noteGeneration } from './shadow-rules.js';
 import { describe } from './tab-settings.js';
@@ -110,6 +111,7 @@ export function init() {
     }
     const btn = e.target.closest('button[data-act]');
     if (!btn) return;
+    if (btn.dataset.act === 'old') { playFile(btn.dataset.file); return; }
     const index = Number(btn.closest('[data-index]').dataset.index);
     if (btn.dataset.act === 'model') playModel(index);
     else if (btn.dataset.act === 'mine') playMine(index);
@@ -430,7 +432,10 @@ async function finishRecording() {
   /* Stopping is keeping: the take is saved the moment it exists, with no
      "do you want this one?" step in between. */
   const previous = item.file;
-  const path = takePath(session.id, index, blob.type);
+  const path = takePath(session.id, index, blob.type, takeOf(item) + 1);
+  /* Asked before anything changes, while the line still points at the take
+     being recorded over. */
+  const keepPrevious = takeWasHandedIn(session, index);
   if (store.state.persistent) {
     const written = await storage.writeBlob(path, blob);
     if (!written) {
@@ -438,10 +443,14 @@ async function finishRecording() {
       render();
       return;
     }
-    /* A different browser session can produce a different container, which
-       means a different filename — the old one would otherwise sit there
-       orphaned and ride along in every backup. */
-    if (previous && previous !== path) await storage.remove(previous);
+    /* The take being recorded over is kept if feedback was given on it, so
+       the note about it can still play what it heard. One that was never
+       handed in is removed: re-recording until it sounds right should not
+       fill the folder, and every backup, with takes nobody listened to. */
+    if (previous && previous !== path) {
+      if (keepPrevious) pinTakeFile(session, index);
+      else await storage.remove(previous);
+    }
     item.file = path;
   } else {
     item.file = path;      // nominal: nothing is on disk, but the set knows it has a take
@@ -555,6 +564,19 @@ async function playMine(index) {
   const url = held ? held.url : await storage.readBlobUrl(item.file);
   if (!url) { showError('That recording could not be read back.'); return; }
   if (!held) urls.add(url);
+  player = new Audio(url);
+  player.play().catch(() => {});
+}
+
+/* A take kept for an earlier hand-in's note, played from disk. */
+async function playFile(path) {
+  if (!path) return;
+  stopPlayer();
+  speech.stop();
+  if (recordingIndex !== null) return;
+  const url = await storage.readBlobUrl(path);
+  if (!url) { showError('That earlier take could not be read back.'); return; }
+  urls.add(url);
   player = new Audio(url);
   player.play().catch(() => {});
 }
@@ -860,10 +882,18 @@ function lineRow(item, note) {
 /* A line this hand-in carried but a later one graded again: what was said
    then, with no controls, since those are with the line's current note. */
 function oldRow(item, row) {
+  const file = row.said && row.said.file;
+  /* A take overwritten before takes were kept has no file to play. */
+  const play = file
+    ? `<button class="play play--sm" data-act="old" data-file="${escapeHtml(file)}" aria-label="Play the take this note was about">▶</button>`
+    : '';
   return `<div class="sh-row sh-row--old">
-    <div class="sh-line" lang="${escapeHtml(speech.languageCode(session.language) || '')}"><span class="sh-num">${item.index + 1}</span>${escapeHtml(item.text)}</div>
+    <div class="sh-main">
+      <div class="sh-line" lang="${escapeHtml(speech.languageCode(session.language) || '')}"><span class="sh-num">${item.index + 1}</span>${escapeHtml(item.text)}</div>
+      ${play ? `<div class="sh-acts">${play}</div>` : ''}
+    </div>
     <div class="sh-comment is-stale">
-      <span class="sh-stale">Handed in again${row.replacedBy ? ` in hand-in ${row.replacedBy}` : ''}. This is what was said about the earlier take.</span>
+      <span class="sh-stale">Handed in again${row.replacedBy ? ` in hand-in ${row.replacedBy}` : ''}. This is what was said about the earlier take${file ? ', which ▶ plays' : ', which was recorded before earlier takes were kept'}.</span>
       ${escapeHtml((row.said && row.said.comment) || '')}
     </div>
   </div>`;
@@ -910,7 +940,7 @@ function renderFeedback() {
   const waiting = pendingIndices(session).length;
   const latest = (fb.notes || []).find((n) => canRate(n));
   const bits = [
-    waiting ? `${waiting} line${waiting === 1 ? ' is' : 's are'} recorded and waiting for feedback. They are ticked for your next hand-in.` : '',
+    waiting ? `${waiting} line${waiting === 1 ? ' is' : 's are'} recorded and waiting for feedback. ${waiting === 1 ? 'It is' : 'They are'} ticked for your next hand-in.` : '',
     rulesNote,
     latest ? rateHint(fb.rulesGeneration) : '',
   ].filter(Boolean);

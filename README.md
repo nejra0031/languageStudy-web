@@ -204,6 +204,13 @@ They are written into `shadowing/` as you make them — before you hand anything
 in, so a set is never lost — and they ride along in the `.zip` backup. When you
 hand a set in, the audio goes to Google with your API key, and nowhere else.
 
+**A take that was handed in is kept.** Record a line again after it has had
+feedback, and the new take is saved beside the old one instead of over it. The
+earlier hand-in's note gets a ▶ that plays the take it was about, so you can
+hear the difference. A take you record over *before* handing it in is not
+kept: re-record as often as you like, and nothing piles up. Takes recorded over
+before this was added are gone; their notes say so.
+
 Each past set is kept with its feedback so you can play back what the feedback
 is about. **Delete** removes one set and its recordings; **Delete all
 recordings** in Settings removes the lot and leaves the sentence bank alone.

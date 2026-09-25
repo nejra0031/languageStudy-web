@@ -920,7 +920,7 @@ textarea { resize: vertical; font: 13px/1.6 var(--mono); }
   color: var(--fg-muted);
 }
 .sh-overall p { margin-top: 6px; }
-.sh-row--old .sh-line { font-size: 13px; color: var(--fg-dim); }
+.sh-row--old .sh-line { flex: 1 1 auto; font-size: 13px; color: var(--fg-dim); }
 .sh-num {
   display: inline-block;
   min-width: 1.6em;
