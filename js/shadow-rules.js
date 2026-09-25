@@ -173,9 +173,14 @@ function cleanChanges(list) {
     .slice(0, 20);
 }
 
-export function newEntry(rules, reason = '', now = new Date()) {
+/* `after` is the highest version this language's sets were ever graded
+   under. A first set of rules for a language that has had rules before
+   continues the numbering instead of starting again at 1: ratings are
+   counted per version number, and a reused number would hand the new rules
+   ratings that were given to old ones. */
+export function newEntry(rules, reason = '', now = new Date(), after = 0) {
   return {
-    generation: 1,
+    generation: Math.max(0, Math.round(Number(after)) || 0) + 1,
     rules: cleanRules(rules),
     history: [],
     reason,
@@ -327,6 +332,22 @@ export function ratingsByGeneration(feedback) {
   return out;
 }
 
+/* The highest rules version any set in this language was graded under, from
+   the history index, or 0. What a language's first rules must number after. */
+export function highestGeneration(rows, language) {
+  const key = languageKey(language);
+  let top = 0;
+  for (const row of rows || []) {
+    if (!row || languageKey(row.language) !== key) continue;
+    const seen = [
+      row.rulesGeneration,
+      ...Object.keys((row.ratingsByGeneration && typeof row.ratingsByGeneration === 'object') ? row.ratingsByGeneration : {}),
+    ].map(Number).filter((n) => Number.isInteger(n) && n > 0);
+    top = Math.max(top, ...seen);
+  }
+  return top;
+}
+
 /* Revise once enough notes graded under THIS version have been rated, and
    only when at least one of them says something is off. A run of all-useful
    ratings is the rules working; spending a call to rewrite them would only
@@ -467,12 +488,12 @@ export function readRules(text) {
 
 /* A freshly drafted set, topped up with the default style rules when the
    model brought none, since those are what keep the notes from going soft. */
-export function seedEntry(reply, now = new Date()) {
+export function seedEntry(reply, now = new Date(), after = 0) {
   const rules = reply.rules.map((r) => ({ ...r, origin: 'seed' }));
   if (!rules.some((r) => r.kind === 'style')) {
     rules.push(...DEFAULT_STYLE_RULES.map((text) => ({ kind: 'style', origin: 'seed', text })));
   }
-  return newEntry(rules, 'Drafted for this language.', now);
+  return newEntry(rules, 'Drafted for this language.', now, after);
 }
 
 function snapshot(entry) {
@@ -546,7 +567,7 @@ export function rulesToText(rules) {
    exactly as it was keeps its number and origin, so its ratings still count;
    a changed or new line is yours. Returns null when nothing changed, so
    saving an untouched box does not make a new version. */
-export function editRules(entry, text, now = new Date()) {
+export function editRules(entry, text, now = new Date(), after = 0) {
   const current = entry ? entry.rules : [];
   const byText = new Map(current.map((r) => [`${r.kind}:${r.text}`, r]));
   const rules = String(text || '').split('\n').map((line) => {
@@ -562,7 +583,7 @@ export function editRules(entry, text, now = new Date()) {
   const same = cleaned.length === current.length
     && cleaned.every((r, i) => r.text === current[i].text && r.kind === current[i].kind);
   if (same) return null;
-  if (!entry) return cleaned.length ? newEntry(cleaned, 'Written by you.', now) : null;
+  if (!entry) return cleaned.length ? newEntry(cleaned, 'Written by you.', now, after) : null;
   return nextVersion(entry, cleaned, { reason: 'Edited by you.' }, now);
 }
 
