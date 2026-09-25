@@ -465,15 +465,59 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     if (why) throw new QuotaError(why, limiter.report(s).retryAfter);
   }
 
+  /* ── thinking ──────────────────────────────────────────────────────── */
+
+  /* Reasoning-capable Flash models think by default, and the thinking tokens
+     come out of the SAME budget as the visible answer — so the reasoning can
+     eat the whole maxOutputTokens and leave nothing: a grading reply cut off
+     mid-object, or a dictation sentence that never arrives at all
+     (finishReason MAX_TOKENS, no text, 2000+ thought tokens). Neither job
+     needs to reason; both need their answer. thinkingConfig turns it off,
+     but support and valid range vary by model, and an alias can start
+     pointing somewhere new with no change on our side.
+
+     So: try with the field, and if the API rejects the request because of it,
+     retry once without and REMEMBER that for the rest of the page's life.
+     Without the memory every later call pays for two real requests and
+     silently doubles what the budget is spending. It is remembered per model:
+     the sentence writer and the grader can be different models, and one
+     refusing says nothing about the other. */
+  const thinkingRejected = new Set();
+
+  function looksLikeThinkingRejection(err) {
+    return err instanceof GeminiError
+      && /HTTP 400/.test(err.message)
+      && /thinking/i.test(err.message);
+  }
+
+  /* call(), asking the model not to think. `request` is the body without
+     thinkingConfig; it is added here, or left off for a model that refused it. */
+  async function callWithoutThinking(model, request, rpm, rpd, waitUpTo = 0) {
+    const body = () => (thinkingRejected.has(model) ? request : {
+      ...request,
+      generationConfig: { ...request.generationConfig, thinkingConfig: { thinkingBudget: 0 } },
+    });
+    try {
+      return await call(model, body(), rpm, rpd, waitUpTo);
+    } catch (e) {
+      if (!looksLikeThinkingRejection(e) || thinkingRejected.has(model)) throw e;
+      thinkingRejected.add(model);
+      return call(model, body(), rpm, rpd, waitUpTo);
+    }
+  }
+
   async function writeSentence(terms) {
     const s = getSettings();
     const prompt = fillTemplate(s.prompts.sentence, sentenceVars(s, terms));
     const l = modelLimits(s, s.textModel);
     const problems = [];
     for (let attempt = 0; attempt < 3; attempt++) {
-      const data = await call(s.textModel, {
+      /* With thinking off a sentence needs a few dozen tokens. The ceiling is
+         for a model that refuses to stop thinking, so it still has room left
+         to answer; it is a cap, not a charge. */
+      const data = await callWithoutThinking(s.textModel, {
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 1.0, maxOutputTokens: 2048 },
+        generationConfig: { temperature: 1.0, maxOutputTokens: 8192 },
       }, l.rpm, l.rpd, attempt ? 75 : 0);
       const { target, english } = parseSentence(firstText(data));
       const why = sentenceProblem(target, terms, s);
@@ -548,25 +592,6 @@ export function createClient({ getSettings, getApiKey, limiter }) {
 
   /* ── shadowing ─────────────────────────────────────────────────────── */
 
-  /* Reasoning-capable Flash models think by default, and the thinking tokens
-     come out of the SAME budget as the visible answer — so the reasoning can
-     eat the whole maxOutputTokens and cut the JSON off mid-object, leaving
-     nothing parseable. thinkingConfig turns it off, but support and valid
-     range vary by model, and an alias can start pointing somewhere new with no
-     change on our side.
-
-     So: try with the field, and if the API rejects the request because of it,
-     retry once without and REMEMBER that for the rest of the page's life.
-     Without the memory every later call pays for two real requests and
-     silently doubles what the budget is spending. */
-  let thinkingRejected = false;
-
-  function looksLikeThinkingRejection(err) {
-    return err instanceof GeminiError
-      && /HTTP 400/.test(err.message)
-      && /thinking/i.test(err.message);
-  }
-
   /* One call, carrying the reference text of every recorded line and the
      learner's recording of it. Returns normalised feedback, or throws — a
      reply that cannot be read is a failure, never a half grade, because a
@@ -591,25 +616,12 @@ export function createClient({ getSettings, getApiKey, limiter }) {
       items, clips: attach, focus, language: s.targetLanguage, itemCount,
     });
 
-    const body = () => ({
+    const l = modelLimits(s, s.shadowModel);
+    const data = await callWithoutThinking(s.shadowModel, {
       system_instruction: { parts: [{ text: system }] },
       contents: [{ parts: userParts }],
-      generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: 16384,
-        ...(thinkingRejected ? {} : { thinkingConfig: { thinkingBudget: 0 } }),
-      },
-    });
-
-    const l = modelLimits(s, s.shadowModel);
-    let data;
-    try {
-      data = await call(s.shadowModel, body(), l.rpm, l.rpd);
-    } catch (e) {
-      if (!looksLikeThinkingRejection(e) || thinkingRejected) throw e;
-      thinkingRejected = true;
-      data = await call(s.shadowModel, body(), l.rpm, l.rpd);
-    }
+      generationConfig: { temperature: 0.3, maxOutputTokens: 16384 },
+    }, l.rpm, l.rpd);
 
     const graded = readGrading(firstText(data), itemCount);
     if (!graded) {

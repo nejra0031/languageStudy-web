@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   fillTemplate, buildTermListing, sentenceVars, parseSentence, sentenceProblem,
-  RateLimiter, QuotaError, pcmToWav, formatWait, nextBankId, sidecarText, pickVoice,
+  RateLimiter, QuotaError, pcmToWav, createClient, formatWait, nextBankId, sidecarText, pickVoice,
 } from '../js/gemini.js';
 import { DEFAULT_SETTINGS, withDefaults } from '../js/defaults.js';
 
@@ -235,4 +235,75 @@ test('a voice is always picked, even from a broken pool', () => {
   assert.equal(pickVoice(withDefaults({ voices: ['Kore'] })), 'Kore');
   assert.equal(pickVoice({ voices: ['NotARealVoice'], fallbackVoice: 'Kore' }), 'Kore');
   assert.equal(withDefaults({ voices: [] }).voices.length, 1, 'an empty pool falls back rather than staying empty');
+});
+
+/* ── thinking ────────────────────────────────────────────────────────── */
+
+/* A client against a fake Gemini: `reply(model, body)` answers each request,
+   and every request is kept to be looked at. The limiter never refuses. */
+function fakeClient(reply, settings = {}) {
+  const sent = [];
+  const s = withDefaults({ targetLanguage: 'Vietnamese', ...settings });
+  globalThis.fetch = async (url, init) => {
+    const model = decodeURIComponent(/models\/([^:]+):/.exec(url)[1]);
+    const body = JSON.parse(init.body);
+    sent.push({ model, body });
+    const r = reply(model, body);
+    return r.status
+      ? { ok: false, status: r.status, text: async () => r.text }
+      : { ok: true, json: async () => r };
+  };
+  const limiter = { reserve: async () => {}, why: () => null, report: () => ({}), coolOff() {} };
+  const client = createClient({ getSettings: () => s, getApiKey: () => 'key', limiter });
+  return { client, sent, settings: s };
+}
+
+const SENTENCE = { candidates: [{ content: { parts: [{ text: 'TARGET: Tôi muốn cải tiến và tận hưởng mỗi buổi sáng ở đây.\nEN: I want to improve and enjoy every morning here.' }] } }] };
+const SPEECH = { candidates: [{ content: { parts: [{ inlineData: { mimeType: 'audio/L16;rate=24000', data: 'AAAAAA==' } }] } }] };
+const isSpeech = (body) => !!body.generationConfig.responseModalities;
+const thinking = (body) => body.generationConfig.thinkingConfig;
+
+test('the sentence is asked for with thinking off, so thought cannot eat the answer', async () => {
+  const { client, sent } = fakeClient((model, body) => (isSpeech(body) ? SPEECH : SENTENCE));
+  const { entry } = await client.generateCard(TERMS, [], 'default');
+  assert.ok(entry.sentence.includes('cải tiến'));
+  const text = sent.filter((r) => !isSpeech(r.body));
+  assert.equal(text.length, 1);
+  assert.deepEqual(thinking(text[0].body), { thinkingBudget: 0 });
+  assert.ok(text[0].body.generationConfig.maxOutputTokens >= 8192, 'room to answer even if it thinks');
+});
+
+test('a model that refuses thinkingConfig is asked again without it, and remembered', async () => {
+  const refusing = 'gemini-thinks-always';
+  const { client, sent, settings } = fakeClient((model, body) => {
+    if (isSpeech(body)) return SPEECH;
+    if (model === refusing && thinking(body)) {
+      return { status: 400, text: '{"error":{"message":"Thinking budget is not supported for this model."}}' };
+    }
+    return SENTENCE;
+  }, { textModel: refusing });
+
+  await client.generateCard(TERMS, [], 'default');
+  let text = sent.filter((r) => !isSpeech(r.body));
+  assert.equal(text.length, 2, 'one refusal, one retry');
+  assert.equal(thinking(text[1].body), undefined);
+
+  sent.length = 0;
+  await client.generateCard(TERMS, [], 'default');
+  text = sent.filter((r) => !isSpeech(r.body));
+  assert.equal(text.length, 1, 'the next card does not pay for the refusal again');
+  assert.equal(thinking(text[0].body), undefined);
+
+  /* Another model has not refused anything, so it is still asked not to think. */
+  settings.textModel = 'gemini-3.6-flash';
+  sent.length = 0;
+  await client.generateCard(TERMS, [], 'default');
+  text = sent.filter((r) => !isSpeech(r.body));
+  assert.deepEqual(thinking(text[0].body), { thinkingBudget: 0 });
+});
+
+test('any other 400 is not mistaken for a refusal of thinkingConfig', async () => {
+  const { client, sent } = fakeClient(() => ({ status: 400, text: '{"error":{"message":"API key not valid."}}' }));
+  await assert.rejects(client.generateCard(TERMS, [], 'default'), /HTTP 400/);
+  assert.equal(sent.length, 1);
 });
