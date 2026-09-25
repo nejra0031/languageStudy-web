@@ -11,7 +11,7 @@ import {
 import {
   withDefaults, upgradePrompts, DEFAULT_SHADOW_PROMPT, RETIRED_SHADOW_PROMPTS,
 } from '../js/defaults.js';
-import { shadowSystem } from '../js/gemini.js';
+import { shadowSystem, feedbackRequestText } from '../js/gemini.js';
 
 const NOW = new Date('2026-09-24T12:00:00Z');
 
@@ -292,7 +292,8 @@ test('the shadowing prompt is sent with the rules numbered and no placeholder le
 
 test('an install still holding an old default prompt is moved to the current one', () => {
   for (const old of RETIRED_SHADOW_PROMPTS) {
-    assert.doesNotMatch(old, /\{rules\}/, 'the retired prompt is the one without rules');
+    assert.notEqual(old.trim(), DEFAULT_SHADOW_PROMPT.trim(), 'a retired prompt is never the current one');
+    assert.doesNotMatch(old, /\{feedback\}/, 'every retired prompt predates the feedback request');
     /* A textarea round trip turns line endings into CRLF on some systems. */
     const loaded = withDefaults({ prompts: { shadowing: old.replace(/\n/g, '\r\n') + '\n' } });
     assert.equal(loaded.prompts.shadowing, DEFAULT_SHADOW_PROMPT);
@@ -304,4 +305,21 @@ test('a prompt you edited is left exactly as you wrote it', () => {
   const edited = `${RETIRED_SHADOW_PROMPTS[0]}\n- Be brief.`;
   assert.equal(withDefaults({ prompts: { shadowing: edited } }).prompts.shadowing, edited);
   assert.equal(withDefaults({ prompts: { shadowing: 'Mine.' } }).prompts.shadowing, 'Mine.');
+});
+
+/* ── the feedback request ─────────────────────────────────────────── */
+
+test('the feedback request is sent as typed, English when empty, and even with a custom prompt', () => {
+  assert.equal(feedbackRequestText('  English, avoid technical terms '), 'English, avoid technical terms');
+  assert.equal(feedbackRequestText(''), 'English.');
+
+  const s = withDefaults({ targetLanguage: 'Vietnamese', feedbackRequest: 'English and Vietnamese' });
+  const system = shadowSystem(s, 3);
+  assert.match(system, /<feedback_request>\nEnglish and Vietnamese\n<\/feedback_request>/);
+  assert.equal(system.match(/<feedback_request>/g).length, 1);
+  assert.doesNotMatch(system, /\{feedback\}/);
+
+  const custom = shadowSystem({ ...s, prompts: { ...s.prompts, shadowing: 'Listen. {rules}' } }, 3);
+  assert.match(custom, /^Listen\./);
+  assert.match(custom, /<feedback_request>\nEnglish and Vietnamese\n<\/feedback_request>/, 'appended to a prompt without {feedback}');
 });

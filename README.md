@@ -107,6 +107,16 @@ You can hand in a set with only some lines recorded; the model is told how many
 of how many you did, so a line you skipped is never mistaken for one you
 muffed.
 
+### The language of the feedback
+
+**Settings → Shadowing → Feedback language and style** says how the notes are
+written, in your own words: *English*, *English and Vietnamese*, *English,
+avoid technical terms*, *Vietnamese, with an English summary at the end*.
+Whatever you type goes to the model as your request. The only things it cannot
+change are the reply's format and the rules against judging your accent as a
+whole. The words you are practising are always quoted as written. Left empty,
+the notes are in English.
+
 ### Listening rules, and how they learn
 
 Feedback is only as precise as what the model is told to listen for, and that
@@ -538,7 +548,9 @@ first version asked for praise first, and most notes never got past it.
 (see [Listening rules](#listening-rules-and-how-they-learn)). It is the part that
 differs by language. A prompt you customised before rules existed may still say
 `{sounds}`; that is now filled with nothing, so add `{rules}` where you want the
-rules to go, and a warning under the prompt stays until you do. The prompts that draft and
+rules to go, and a warning under the prompt stays until you do. `{feedback}` is
+the **Feedback language and style** setting. A prompt without it gets that
+request added at its end, so the setting is never left unsent. The prompts that draft and
 revise the rules are not in Settings; they are in `js/shadow-rules.js`.
 
 ## Running it locally

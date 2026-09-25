@@ -437,6 +437,7 @@ const FIELDS = [
   ['set-level', 'learnerLevel', 'text'],
   ['set-note', 'languageNote', 'text'],
   ['set-shadow-items', 'shadowItems', 'int'],
+  ['set-feedback-request', 'feedbackRequest', 'text'],
   ['set-revise-after', 'shadowReviseAfter', 'int'],
   ['set-wmin', 'sentenceWords.min', 'int'],
   ['set-wmax', 'sentenceWords.max', 'int'],
@@ -600,6 +601,7 @@ function draftSettings() {
     learnerLevel: $('set-level').value.trim() || s.learnerLevel,
     languageNote: $('set-note').value,
     shadowItems: Number($('set-shadow-items').value) || s.shadowItems,
+    feedbackRequest: $('set-feedback-request').value,
     sentenceWords: {
       min: Number($('set-wmin').value) || s.sentenceWords.min,
       max: Number($('set-wmax').value) || s.sentenceWords.max,

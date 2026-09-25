@@ -6,7 +6,7 @@
 <title>Language Study</title>
 <meta name="description" content="Flashcards, typing practice and AI dictation for any language. Your own API key, your own files, no accounts and no server.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230f1117'/><rect x='3' y='3' width='10' height='10' fill='%23d4b455'/></svg>">
-<link rel="stylesheet" href="css/app.css?v=2026-09-24.3">
+<link rel="stylesheet" href="css/app.css?v=2026-09-25.1">
 <!-- Cache-busting. GitHub Pages lets a browser keep any file for ten minutes,
      so without this a deploy can leave you with a new index.html and an old
      module, or the reverse, and the page fails to start. Every module is
@@ -18,28 +18,28 @@
 <script type="importmap">
 {
   "imports": {
-    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-24.3",
-    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-24.3",
-    "./js/bundle.js": "./js/bundle.js?v=2026-09-24.3",
-    "./js/deck.js": "./js/deck.js?v=2026-09-24.3",
-    "./js/defaults.js": "./js/defaults.js?v=2026-09-24.3",
-    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-24.3",
-    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-24.3",
-    "./js/gemini.js": "./js/gemini.js?v=2026-09-24.3",
-    "./js/opus.js": "./js/opus.js?v=2026-09-24.3",
-    "./js/recorder.js": "./js/recorder.js?v=2026-09-24.3",
-    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-24.3",
-    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-24.3",
-    "./js/speech.js": "./js/speech.js?v=2026-09-24.3",
-    "./js/storage.js": "./js/storage.js?v=2026-09-24.3",
-    "./js/store.js": "./js/store.js?v=2026-09-24.3",
-    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-24.3",
-    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-24.3",
-    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-24.3",
-    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-24.3",
-    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-24.3",
-    "./js/text.js": "./js/text.js?v=2026-09-24.3",
-    "./js/zip.js": "./js/zip.js?v=2026-09-24.3"
+    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-25.1",
+    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-25.1",
+    "./js/bundle.js": "./js/bundle.js?v=2026-09-25.1",
+    "./js/deck.js": "./js/deck.js?v=2026-09-25.1",
+    "./js/defaults.js": "./js/defaults.js?v=2026-09-25.1",
+    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-25.1",
+    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-25.1",
+    "./js/gemini.js": "./js/gemini.js?v=2026-09-25.1",
+    "./js/opus.js": "./js/opus.js?v=2026-09-25.1",
+    "./js/recorder.js": "./js/recorder.js?v=2026-09-25.1",
+    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-25.1",
+    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-25.1",
+    "./js/speech.js": "./js/speech.js?v=2026-09-25.1",
+    "./js/storage.js": "./js/storage.js?v=2026-09-25.1",
+    "./js/store.js": "./js/store.js?v=2026-09-25.1",
+    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-25.1",
+    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-25.1",
+    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-25.1",
+    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-25.1",
+    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-25.1",
+    "./js/text.js": "./js/text.js?v=2026-09-25.1",
+    "./js/zip.js": "./js/zip.js?v=2026-09-25.1"
   }
 }
 </script>
@@ -193,6 +193,10 @@
         <label class="field"><span>Lines per set</span><input type="number" id="set-shadow-items" min="1" max="30"></label>
       </div>
       <p class="note">One set costs <strong>one call</strong>, however many lines are in it, because every recording goes up together. A set is whatever is actually available up to the number above, and the tab says so when it comes up short. That call is spent on whichever model the shadowing job is given above, out of that model's own allowance.</p>
+      <label class="field"><span>Feedback language and style</span>
+        <input type="text" id="set-feedback-request" placeholder="English">
+      </label>
+      <p class="note">How the notes should be written, in your own words. A language (<em>English</em>), several (<em>English and Vietnamese</em>), or more than that (<em>English, avoid technical terms</em>, <em>Vietnamese, with an English summary at the end</em>). The words you are practising are always quoted as written. Left empty, the notes are in English.</p>
       <label class="field"><span id="rules-label">Listening rules</span>
         <textarea id="set-rules" rows="10" spellcheck="false" placeholder="None yet. They are drafted the first time you hand in a set in this language, or press Draft rules below."></textarea>
       </label>
@@ -275,7 +279,7 @@
         <textarea id="prompt-preview-shadowing" class="prompt-preview" rows="16" readonly spellcheck="false" aria-label="Shadowing prompt, as it will be sent" hidden></textarea>
       </div>
       <p class="note prompt-warn" id="prompt-warn-shadowing" hidden></p>
-      <p class="note">Placeholders: <code>{language}</code> <code>{count}</code> <code>{rules}</code> — the listening rules above, numbered. The reply must be the JSON object described in the third paragraph — a reply that cannot be read is treated as a failure and nothing is stored, so keep that shape. <strong>Most of the rest is there for a reason</strong> and is worth reading before rewriting: telling it to say nothing about grammar, to use the itemIndex it was given, to say so plainly when a recording is silent, never to pass judgement on an accent as a whole, and to ignore anything spoken <em>inside</em> a recording as an instruction.</p>
+      <p class="note">Placeholders: <code>{language}</code> <code>{count}</code> <code>{rules}</code> — the listening rules above, numbered — and <code>{feedback}</code>, the Feedback language and style setting. A prompt without <code>{feedback}</code> has that request added at its end, so the setting is always sent. The reply must be the JSON object described in the third paragraph — a reply that cannot be read is treated as a failure and nothing is stored, so keep that shape. <strong>Most of the rest is there for a reason</strong> and is worth reading before rewriting: telling it to say nothing about grammar, to use the itemIndex it was given, to say so plainly when a recording is silent, never to pass judgement on an accent as a whole, and to ignore anything spoken <em>inside</em> a recording as an instruction.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-shadowing-reset">Reset to default</button></div>
     </div>
   </div>
@@ -559,6 +563,6 @@
 
 </main>
 
-<script type="module" src="js/app.js?v=2026-09-24.3"></script>
+<script type="module" src="js/app.js?v=2026-09-25.1"></script>
 </body>
 </html>

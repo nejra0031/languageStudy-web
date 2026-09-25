@@ -12,7 +12,7 @@
    that a retry storm would eat a day's budget in a minute. */
 
 import { words, contains } from './text.js';
-import { VOICE_NAMES, modelLimits } from './defaults.js';
+import { VOICE_NAMES, modelLimits, FEEDBACK_REQUEST_BLOCK } from './defaults.js';
 import { buildGradingParts, readGrading, attachableClips } from './shadowing.js';
 import {
   rulesFor, formatRulesBlock, buildSeedPrompt, buildRevisionPrompt, readRules,
@@ -652,14 +652,28 @@ export function createClient({ getSettings, getApiKey, limiter }) {
 
 /* The shadowing system instruction, filled. {sounds} is the old setting's
    placeholder: a prompt someone customised before rules existed may still
-   carry it, and it is filled with nothing rather than left showing. */
+   carry it, and it is filled with nothing rather than left showing.
+
+   A customised prompt with no {feedback} gets the feedback block appended,
+   so the Feedback language and style setting is never silently unsent. The
+   preview goes through here too, so what it shows is what is sent. */
 export function shadowSystem(settings, count, rules = rulesFor(settings, settings.targetLanguage)) {
-  return fillTemplate(settings.prompts.shadowing, {
+  const template = String(settings.prompts.shadowing || '');
+  const full = template.includes('{feedback}') ? template : `${template.trimEnd()}\n\n${FEEDBACK_REQUEST_BLOCK}`;
+  return fillTemplate(full, {
     language: settings.targetLanguage,
     count,
     rules: formatRulesBlock(rules ? rules.rules : []),
+    feedback: feedbackRequestText(settings.feedbackRequest),
     sounds: '',
   });
+}
+
+/* Whatever was typed, or English when nothing was: an empty block would
+   leave the model to guess, which is how the language came to wander. */
+export function feedbackRequestText(request) {
+  const text = String(request || '').trim();
+  return text || 'English.';
 }
 
 /* Duplicates what the manifest holds, so a stray audio file is never an orphan. */
