@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  recordResult, stats, isDictatable, isPattern, normalizeCard, parseDeck, serializeDeck,
+  recordResult, stats, isDictatable, isPattern, setPattern, normalizeCard, parseDeck, serializeDeck,
   importWatchlist, parseDeckFile, amendLastToRight, addAlternative, meanings,
   pickWeighted, pickGroup, cardWeight, inScope, slugify, WINDOW,
 } from '../js/deck.js';
@@ -327,4 +327,16 @@ test('alternatives are added once, kept through a save, and count as meanings', 
     'sits with the meaning, above the history');
   assert.ok(!serializeDeck([card()]).includes('alternatives'), 'absent when empty');
   assert.ok(!('alternatives' in normalizeCard({ front: 'a', back: 'b', alternatives: ['', '  '] })));
+});
+
+test('setPattern marks a pattern, and unmarks only a pattern', () => {
+  assert.deepEqual(setPattern({ front: 'hễ … là …' }, true), { front: 'hễ … là …', type: 'pattern' });
+  assert.deepEqual(setPattern({ front: 'x', type: 'Pattern' }, false), { front: 'x' });
+  /* A type someone wrote by hand is theirs: "not a pattern" does not argue
+     with "phrase". */
+  assert.deepEqual(setPattern({ front: 'x', type: 'phrase' }, false), { front: 'x', type: 'phrase' });
+  assert.deepEqual(setPattern({ front: 'x', type: 'phrase' }, true), { front: 'x', type: 'pattern' });
+  /* And it survives a save, like any key the card carries. */
+  const [back] = parseDeck(serializeDeck([normalizeCard(setPattern({ front: 'A mà B', back: 'A but B' }, true))])).cards;
+  assert.equal(isPattern(back), true);
 });

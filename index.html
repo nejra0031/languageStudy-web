@@ -6,7 +6,7 @@
 <title>Language Study</title>
 <meta name="description" content="Flashcards, typing practice and AI dictation for any language. Your own API key, your own files, no accounts and no server.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230f1117'/><rect x='3' y='3' width='10' height='10' fill='%23d4b455'/></svg>">
-<link rel="stylesheet" href="css/app.css?v=2026-09-25.7">
+<link rel="stylesheet" href="css/app.css?v=2026-09-25.8">
 <!-- Cache-busting. GitHub Pages lets a browser keep any file for ten minutes,
      so without this a deploy can leave you with a new index.html and an old
      module, or the reverse, and the page fails to start. Every module is
@@ -18,29 +18,32 @@
 <script type="importmap">
 {
   "imports": {
-    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-25.7",
-    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-25.7",
-    "./js/bundle.js": "./js/bundle.js?v=2026-09-25.7",
-    "./js/convert-audio.js": "./js/convert-audio.js?v=2026-09-25.7",
-    "./js/deck.js": "./js/deck.js?v=2026-09-25.7",
-    "./js/defaults.js": "./js/defaults.js?v=2026-09-25.7",
-    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-25.7",
-    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-25.7",
-    "./js/gemini.js": "./js/gemini.js?v=2026-09-25.7",
-    "./js/opus.js": "./js/opus.js?v=2026-09-25.7",
-    "./js/recorder.js": "./js/recorder.js?v=2026-09-25.7",
-    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-25.7",
-    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-25.7",
-    "./js/speech.js": "./js/speech.js?v=2026-09-25.7",
-    "./js/storage.js": "./js/storage.js?v=2026-09-25.7",
-    "./js/store.js": "./js/store.js?v=2026-09-25.7",
-    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-25.7",
-    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-25.7",
-    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-25.7",
-    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-25.7",
-    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-25.7",
-    "./js/text.js": "./js/text.js?v=2026-09-25.7",
-    "./js/zip.js": "./js/zip.js?v=2026-09-25.7"
+    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-25.8",
+    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-25.8",
+    "./js/bundle.js": "./js/bundle.js?v=2026-09-25.8",
+    "./js/convert-audio.js": "./js/convert-audio.js?v=2026-09-25.8",
+    "./js/deck.js": "./js/deck.js?v=2026-09-25.8",
+    "./js/defaults.js": "./js/defaults.js?v=2026-09-25.8",
+    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-25.8",
+    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-25.8",
+    "./js/gemini.js": "./js/gemini.js?v=2026-09-25.8",
+    "./js/lookup.js": "./js/lookup.js?v=2026-09-25.8",
+    "./js/lookup-popup.js": "./js/lookup-popup.js?v=2026-09-25.8",
+    "./js/opus.js": "./js/opus.js?v=2026-09-25.8",
+    "./js/recorder.js": "./js/recorder.js?v=2026-09-25.8",
+    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-25.8",
+    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-25.8",
+    "./js/speech.js": "./js/speech.js?v=2026-09-25.8",
+    "./js/storage.js": "./js/storage.js?v=2026-09-25.8",
+    "./js/store.js": "./js/store.js?v=2026-09-25.8",
+    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-25.8",
+    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-25.8",
+    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-25.8",
+    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-25.8",
+    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-25.8",
+    "./js/text.js": "./js/text.js?v=2026-09-25.8",
+    "./js/translate.js": "./js/translate.js?v=2026-09-25.8",
+    "./js/zip.js": "./js/zip.js?v=2026-09-25.8"
   }
 }
 </script>
@@ -156,6 +159,9 @@
         <label class="field"><span>Shadowing — listens to you</span>
           <select id="set-shadowmodel"></select>
         </label>
+        <label class="field"><span>Notes — writes card notes</span>
+          <select id="set-notesmodel"></select>
+        </label>
       </div>
       <p class="note">Pick the same model for two jobs and they share its allowance, exactly as they already do at Google's end. Speech is the one that really has to differ: only the TTS models return audio.</p>
       <p class="note">If a model ID is wrong the API's own error is shown verbatim, so a 404 here means exactly that. There is deliberately no hidden fallback list: the model that answers is the one you typed, and nothing quietly spends on another.</p>
@@ -184,6 +190,29 @@
       </div>
       <p class="note">Any language the model writes is fine; type its English name. Answer checking is language-agnostic: it compares accents and diacritics exactly, and aligns words with them stripped, which works the same for Vietnamese tones, Spanish acutes and German umlauts.</p>
     </div>
+  </div>
+
+  <div class="block">
+    <div class="block-head"><h2>Add from selected text</h2><span class="hint" id="lookup-hint"></span></div>
+    <div class="block-body">
+      <p class="note">Select a word or a short phrase anywhere on the page, such as a new word in a dictation sentence, and a small form opens under it. It shows the word, its translation and an empty notes box, and <strong>Add</strong> puts the word into the deck below as a new card. If that deck already has the word, the form shows the card as it is stored and the button reads <strong>Update</strong>. Updating changes the meaning, the notes and whether the card is a grammar pattern, and keeps the card's score and history. Tick <strong>Grammar pattern</strong> for a construction such as <em>hễ … là …</em>; it ticks itself when the word has a <code>…</code> in it. You can select text in either language: text in your own language is taken as the meaning, and the word is looked up from it.</p>
+      <div class="row">
+        <label class="voice" style="flex:1 1 240px"><input type="checkbox" id="set-lookup-on"><span>Open a card form when I select text</span></label>
+      </div>
+      <div class="grid">
+        <label class="field"><span>Language you are learning</span>
+          <select id="set-lookup-learning"></select>
+        </label>
+        <label class="field"><span>Your language</span>
+          <select id="set-lookup-native"></select>
+        </label>
+        <label class="field"><span>Add new cards to</span>
+          <select id="set-lookup-deck"></select>
+        </label>
+      </div>
+      <p class="note"><strong>The translation comes from Google Translate</strong>, through the free public address its own website uses. It needs no key and spends nothing from your budget. It is also unofficial: Google can refuse it for a while, especially on a busy or shared network, and then the form says so and you type the meaning yourself. The selected text is sent to Google. <strong>Ask for notes</strong> is Gemini: it spends one call on the Notes model above and uses the notes prompt below.</p>
+    </div>
+    <div class="status" id="lookup-status"></div>
   </div>
 
   <div class="block">
@@ -285,6 +314,21 @@
       <p class="note prompt-warn" id="prompt-warn-shadowing" hidden></p>
       <p class="note">Placeholders: <code>{language}</code> <code>{count}</code> <code>{rules}</code> — the listening rules above, numbered — and <code>{feedback}</code>, the Feedback language and style setting. A prompt without <code>{feedback}</code> has that request added at its end, so the setting is always sent. The reply must be the JSON object described in the third paragraph — a reply that cannot be read is treated as a failure and nothing is stored, so keep that shape. <strong>Most of the rest is there for a reason</strong> and is worth reading before rewriting: telling it to say nothing about grammar, to use the itemIndex it was given, to say so plainly when a recording is silent, never to pass judgement on an accent as a whole, and to ignore anything spoken <em>inside</em> a recording as an instruction.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-shadowing-reset">Reset to default</button></div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="set-prompt-notes">Notes prompt — notes model</label>
+          <div class="seg" role="group" aria-label="Show the notes prompt as" data-prompt="notes">
+            <button type="button" data-view="edit" aria-pressed="true">Edit</button>
+            <button type="button" data-view="preview" aria-pressed="false">Preview</button>
+          </div>
+        </div>
+        <textarea id="set-prompt-notes" rows="14" spellcheck="false"></textarea>
+        <textarea id="prompt-preview-notes" class="prompt-preview" rows="14" readonly spellcheck="false" aria-label="Notes prompt, as it will be sent" hidden></textarea>
+      </div>
+      <p class="note prompt-warn" id="prompt-warn-notes" hidden></p>
+      <p class="note">Sent when you press <em>Ask for notes</em> in the form that opens on selected text. Placeholders: <code>{language}</code> and <code>{nativeLanguage}</code>, the two languages under Add from selected text; <code>{front}</code> and <code>{back}</code>, the word and its meaning; <code>{context}</code>, the sentence the word was selected from; <code>{pattern}</code>, which for a grammar pattern asks for the construction to be explained and is empty otherwise; <code>{level}</code> and <code>{languageNote}</code>. The reply goes into the notes box exactly as it comes, so ask for plain text.</p>
+      <div class="row"><button class="btn btn--sm" id="prompt-notes-reset">Reset to default</button></div>
     </div>
   </div>
 
@@ -572,6 +616,9 @@
 
 </main>
 
-<script type="module" src="js/app.js?v=2026-09-25.7"></script>
+<!-- The selection popup: filled and placed by lookup-popup.js, under whatever was selected. -->
+<div class="lookup-pop" id="lookup-pop" role="dialog" aria-label="Add the selection as a flashcard" hidden></div>
+
+<script type="module" src="js/app.js?v=2026-09-25.8"></script>
 </body>
 </html>

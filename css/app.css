@@ -1007,6 +1007,66 @@ textarea { resize: vertical; font: 13px/1.6 var(--mono); }
 .gate h3 { font-size: 15px; color: var(--fg-warm); margin-bottom: 8px; }
 .gate p { font-size: 13px; color: var(--fg-muted); max-width: 54ch; margin: 0 auto 14px; }
 
+/* ── the selection popup ──────────────────────────────────────── */
+
+/* Opens under selected text on any tab, so it is the one thing on the page
+   that floats: it gets the menu's shadow, and otherwise the same hairline
+   rectangles as everything else. Placed in page coordinates by
+   lookup-popup.js, which also keeps it inside the page's gutter. */
+.lookup-pop {
+  position: absolute;
+  z-index: 30;
+  width: min(360px, calc(100vw - 32px));
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .35);
+}
+.lookup-pop[hidden] { display: none; }
+.lookup-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 6px 6px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 11.5px;
+  color: var(--fg-dim);
+}
+.lookup-deck b { font-family: var(--mono); font-weight: 400; color: var(--fg-warm); }
+.lookup-close {
+  appearance: none;
+  background: none;
+  border: 0;
+  color: var(--fg-dim);
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.lookup-close:hover { color: var(--fg); }
+.lookup-body { display: grid; gap: 10px; padding: 12px; }
+.lookup-pair {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 6px;
+  align-items: end;
+}
+.lookup-pair input { font-size: 14px; }
+#lp-front { color: var(--fg-warm); }
+.lookup-swap { padding: 7px 8px; line-height: 1; }
+.lookup-pattern {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+.lookup-pattern input { width: auto; margin: 0; accent-color: var(--accent); }
+.lookup-pattern em { font-style: normal; color: var(--fg-dim); font-size: 11px; margin-left: auto; }
+.lookup-pop textarea { font: 13px/1.5 var(--sans); }
+.lookup-pop .status { padding: 7px 12px; }
+.lookup-pop .status:empty { display: none; }
+
 /* ── responsive ───────────────────────────────────────────────── */
 
 @media (max-width: 720px) {

@@ -46,6 +46,29 @@ EN: <its English translation>`;
    steers delivery, because Gemini TTS follows style instructions. */
 export const DEFAULT_SPEECH_PROMPT = '{sentence}';
 
+/* Sent to the notes model when Ask for notes is pressed in the selection
+   popup. The style asked for is the starter deck's: the word taken apart,
+   then one example with its translation — short enough to read in the middle
+   of practice. {context} is the sentence the word was selected from, so the
+   sense explained is the one the student actually met. The reply is used as
+   it comes, so it is asked for as plain text. */
+export const DEFAULT_NOTES_PROMPT = `Write a short study note for a flashcard. The learner is an {level} learner of {language}; their own language is {nativeLanguage}.
+{languageNote}
+
+The card:
+{language}: {front}
+{nativeLanguage}: {back}
+{pattern}
+
+It was met in this sentence: {context}
+
+Write, in {nativeLanguage}:
+- If the {language} term is made of parts, what each part means, on one line, like "part = meaning; part = meaning".
+- One natural everyday example sentence in {language} using the term in the sense above, then " = " and its {nativeLanguage} translation, like: E.g. "<{language} sentence>" = "<translation>".
+- If the term has a register, a common confusion or a usage point worth knowing, one short line on it.
+
+Plain text only, at most three lines. No markdown, no headings, no labels, and do not repeat the term and its meaning on a line of their own. Every accent and diacritic must be correct.`;
+
 /* The learner's "Feedback language and style" setting, sent as a block of
    its own so that any request fits: one language, several, or a tone or a
    level of detail. Without it the model answered in whichever language the
@@ -209,14 +232,15 @@ export function upgradePrompts(prompts) {
 export const DEFAULT_SHADOW_SOUNDS =
   'the six tones (ngang, huyền, sắc, hỏi, ngã, nặng), the unreleased final consonants -c, -ch, -t, -p, -n, -ng, and the vowels ư, ơ and â';
 
-/* The three jobs a model can be given, in the order they are shown, each
-   paired with the settings key that names the model doing it. Every part of
-   the app that asks "which models are in use?" walks this list, so adding a
-   fourth job is a line here rather than a search for the other two. */
+/* The jobs a model can be given, in the order they are shown, each paired
+   with the settings key that names the model doing it. Every part of the app
+   that asks "which models are in use?" walks this list, so adding a job is a
+   line here rather than a search for the others. */
 export const MODEL_ROLES = [
   ['textModel', 'Text', 'writes the sentence'],
   ['ttsModel', 'Speech', 'reads it aloud'],
   ['shadowModel', 'Shadowing', 'listens to you'],
+  ['notesModel', 'Notes', 'writes card notes'],
 ];
 
 /* The catalogue a fresh install starts with: two models, because the default
@@ -253,6 +277,10 @@ export const DEFAULT_SETTINGS = {
      in common with writing a sentence. It defaults to the same model as the
      text job, and so by default to the same allowance. */
   shadowModel: 'gemini-3.6-flash',
+  /* Writes a card's notes, on request, in the selection popup. A settings
+     file from before this job existed gives it the text model instead — see
+     withDefaults(). */
+  notesModel: 'gemini-3.6-flash',
   termsPerSentence: 3,
   sentenceWords: { min: 8, max: 16 },
   /* How many lines a shadowing set asks for. A set is whatever is actually
@@ -278,6 +306,7 @@ export const DEFAULT_SETTINGS = {
     sentence: DEFAULT_SENTENCE_PROMPT,
     speech: DEFAULT_SPEECH_PROMPT,
     shadowing: DEFAULT_SHADOW_PROMPT,
+    notes: DEFAULT_NOTES_PROMPT,
   },
   voices: VOICE_NAMES.slice(),
   fallbackVoice: 'Kore',
@@ -295,6 +324,15 @@ export const DEFAULT_SETTINGS = {
      is open" — the honest answer on a fresh install, where there is only one.
      The Flashcards tab keeps this list and never lets it empty out. */
   practiceDecks: [],
+  /* Selecting text anywhere opens a popup that turns it into a card. Off
+     until asked for: a popup under every selection is a surprise otherwise.
+     The two languages are Google Translate codes; an empty learning language
+     means "whatever the target language is". The deck is a name, and an
+     empty or vanished one means the deck open in the editor. */
+  lookupEnabled: false,
+  lookupLearning: '',
+  lookupNative: 'en',
+  lookupDeck: '',
   theme: 'dark',
   /* When the last backup (zip or bundle) was taken, when the app started
      counting if there has been none, and until when Later puts the reminder
@@ -374,6 +412,7 @@ function modelsFromLegacyLimits(s, loaded) {
     textModel: { rpm: limits.textRpm, rpd: limits.textRpd },
     ttsModel: { rpm: limits.ttsRpm, rpd: limits.ttsRpd },
     shadowModel: { rpm: limits.shadowRpm, rpd: limits.shadowRpd },
+    notesModel: { rpm: limits.textRpm, rpd: limits.textRpd },
   };
   return MODEL_ROLES.map(([key]) => ({ id: s[key], ...byRole[key] }));
 }
@@ -428,6 +467,12 @@ export function rolesUsing(settings, id) {
    Anything the user's file does not mention keeps its default. */
 export function withDefaults(loaded) {
   const s = { ...DEFAULT_SETTINGS, ...(loaded || {}) };
+  /* A settings file from before the notes job gives it the text model: that
+     is a model this user already has, with limits they chose. The default id
+     might be one their catalogue lacks, and would then be added unlimited. */
+  if (loaded && !String(loaded.notesModel || '').trim() && String(loaded.textModel || '').trim()) {
+    s.notesModel = loaded.textModel;
+  }
   /* Every job names a model by id; a blank one falls back to the default
      rather than to nothing, since the catalogue is built from these. */
   for (const [key] of MODEL_ROLES) {
@@ -468,5 +513,8 @@ export function withDefaults(loaded) {
      not here, so a deck that is temporarily missing is not forgotten. */
   s.practiceDecks = Array.isArray(s.practiceDecks)
     ? [...new Set(s.practiceDecks.map(String).filter(Boolean))] : [];
+  s.lookupEnabled = s.lookupEnabled === true;
+  for (const key of ['lookupLearning', 'lookupNative', 'lookupDeck']) s[key] = String(s[key] || '').trim();
+  if (!s.lookupNative) s.lookupNative = DEFAULT_SETTINGS.lookupNative;
   return s;
 }

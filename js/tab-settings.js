@@ -5,9 +5,12 @@ import * as storage from './storage.js';
 import * as store from './store.js';
 import {
   VOICES, MODEL_ROLES, rolesUsing,
-  DEFAULT_SENTENCE_PROMPT, DEFAULT_SPEECH_PROMPT, DEFAULT_SHADOW_PROMPT,
+  DEFAULT_SENTENCE_PROMPT, DEFAULT_SPEECH_PROMPT, DEFAULT_SHADOW_PROMPT, DEFAULT_NOTES_PROMPT,
 } from './defaults.js';
-import { fillTemplate, sentenceVars, formatWait, GeminiError, QuotaError, shadowSystem } from './gemini.js';
+import {
+  fillTemplate, sentenceVars, notesVars, formatWait, GeminiError, QuotaError, shadowSystem,
+} from './gemini.js';
+import { LANGUAGES, codeFor, nameFor } from './lookup.js';
 import { rulesToText, totalOf, RATINGS } from './shadow-rules.js';
 import { serializeDeck } from './deck.js';
 import { serializeBundle, parseBundle, describeBundle, bundleFilename } from './bundle.js';
@@ -44,6 +47,7 @@ export function init() {
   wireVoices();
   wireSpeech();
   wireShadowing();
+  wireLookup();
 
   store.subscribe('settings', render);
   store.subscribe('folder', renderStore);
@@ -535,10 +539,13 @@ function render() {
   const sp = $('set-prompt-sentence');
   const pp = $('set-prompt-speech');
   const hp = $('set-prompt-shadowing');
+  const np = $('set-prompt-notes');
   if (document.activeElement !== sp) sp.value = s.prompts.sentence;
   if (document.activeElement !== pp) pp.value = s.prompts.speech;
   if (document.activeElement !== hp) hp.value = s.prompts.shadowing;
+  if (document.activeElement !== np) np.value = s.prompts.notes;
   renderModels();
+  renderLookup();
   renderVoices();
   renderShadowing();
   renderPreview();
@@ -551,7 +558,7 @@ function render() {
    second, read-only textarea that takes the editor's place rather than the
    editor's own text being swapped out: the editor is what draftSettings()
    reads, and what a blur commits, so it must never hold rendered text. */
-const PROMPT_VIEWS = ['sentence', 'speech', 'shadowing'];
+const PROMPT_VIEWS = ['sentence', 'speech', 'shadowing', 'notes'];
 
 function wirePrompts() {
   const sp = $('set-prompt-sentence');
@@ -578,6 +585,15 @@ function wirePrompts() {
   $('prompt-shadowing-reset').addEventListener('click', () => {
     hp.value = DEFAULT_SHADOW_PROMPT;
     store.saveSettings({ prompts: { ...store.state.settings.prompts, shadowing: DEFAULT_SHADOW_PROMPT } });
+    renderPreview();
+  });
+
+  const np = $('set-prompt-notes');
+  np.addEventListener('input', renderPreview);
+  np.addEventListener('change', () => store.saveSettings({ prompts: { ...store.state.settings.prompts, notes: np.value } }));
+  $('prompt-notes-reset').addEventListener('click', () => {
+    np.value = DEFAULT_NOTES_PROMPT;
+    store.saveSettings({ prompts: { ...store.state.settings.prompts, notes: DEFAULT_NOTES_PROMPT } });
     renderPreview();
   });
 
@@ -623,10 +639,21 @@ function renderPreview() {
     '',
     '(then one text part per line, each followed by your recording of it)',
   ].join('\n');
+  const card = sample[0];
+  $('prompt-preview-notes').value = [
+    `── to ${draft.notesModel} ──`,
+    fillTemplate(draft.prompts.notes, notesVars(draft, {
+      front: card.front,
+      back: card.back,
+      context: '<the sentence the word was selected from>',
+      learningName: draft.lookupLearning ? nameFor(draft.lookupLearning) : draft.targetLanguage,
+      nativeName: nameFor(draft.lookupNative),
+    })),
+  ].join('\n');
 
   /* The warnings sit under their own prompt, outside the preview, so they
      are seen while editing — which is when they can be acted on. */
-  const warnings = { sentence: [], speech: [], shadowing: [] };
+  const warnings = { sentence: [], speech: [], shadowing: [], notes: [] };
   if (!draft.prompts.sentence.includes('{terms}')) {
     warnings.sentence.push('The sentence prompt has no {terms} placeholder, so the model is never told which words to use.');
   }
@@ -643,6 +670,9 @@ function renderPreview() {
     /* A prompt edited before rules existed lands here: the unedited old
        default is upgraded on load, but an edited one is the user's to fix. */
     warnings.shadowing.push('The shadowing prompt has no {rules} placeholder, so the listening rules are never sent and your ratings cannot improve anything. Your prompt was edited before listening rules existed: press Reset to default under it, or add {rules} to it yourself.');
+  }
+  if (!draft.prompts.notes.includes('{front}')) {
+    warnings.notes.push('The notes prompt has no {front} placeholder, so the model is never told which word the notes are for.');
   }
   for (const name of PROMPT_VIEWS) {
     const el = $(`prompt-warn-${name}`);
@@ -669,6 +699,7 @@ function draftSettings() {
       sentence: $('set-prompt-sentence').value,
       speech: $('set-prompt-speech').value,
       shadowing: $('set-prompt-shadowing').value,
+      notes: $('set-prompt-notes').value,
     },
   };
 }
@@ -681,6 +712,7 @@ const ROLE_FIELD = {
   textModel: 'set-textmodel',
   ttsModel: 'set-ttsmodel',
   shadowModel: 'set-shadowmodel',
+  notesModel: 'set-notesmodel',
 };
 
 /* A row typed into but not yet stored. A model with no id is not a model, so
@@ -941,6 +973,68 @@ function sentenceList(items) {
 
 function capitalise(text) {
   return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/* ── add from selected text ──────────────────────────────────────────── */
+
+/* A switch and three dropdowns. The popup itself is lookup-popup.js; these
+   are only the settings it reads each time it opens. */
+function wireLookup() {
+  $('set-lookup-on').addEventListener('change', (e) => store.saveSettings({ lookupEnabled: e.target.checked }));
+  $('set-lookup-learning').addEventListener('change', (e) => { store.saveSettings({ lookupLearning: e.target.value }); renderPreview(); });
+  $('set-lookup-native').addEventListener('change', (e) => { store.saveSettings({ lookupNative: e.target.value }); renderPreview(); });
+  $('set-lookup-deck').addEventListener('change', (e) => store.saveSettings({ lookupDeck: e.target.value }));
+  store.subscribe('deck', renderLookup);
+  store.subscribe('folder', renderLookup);
+}
+
+function languageOptions(first) {
+  return first + LANGUAGES
+    .map(([code, name]) => `<option value="${escapeAttr(code)}">${escapeAttr(name)}</option>`)
+    .join('');
+}
+
+/* A select is refilled only when its options changed, so one being looked
+   at is not rebuilt under the pointer by an unrelated save. */
+function fillSelect(sel, html, value) {
+  if (sel.dataset.drawn !== html) {
+    sel.innerHTML = html;
+    sel.dataset.drawn = html;
+  }
+  sel.value = value;
+}
+
+function renderLookup() {
+  const s = store.state.settings;
+  $('set-lookup-on').checked = s.lookupEnabled;
+
+  /* "Same as target language" is a choice of its own, so changing the
+     target language carries the popup with it. It says what it currently
+     means — or that the target language is not one Google Translate knows
+     by that name, which is when a language has to be picked here instead. */
+  const followed = codeFor(s.targetLanguage);
+  const same = `<option value="">Same as target language (${escapeAttr(followed ? nameFor(followed) : `${s.targetLanguage}, not recognised`)})</option>`;
+  fillSelect($('set-lookup-learning'), languageOptions(same), s.lookupLearning);
+  fillSelect($('set-lookup-native'), languageOptions(''), s.lookupNative);
+
+  const decks = store.state.deckNames.length ? store.state.deckNames : [store.state.deckName];
+  const deck = store.lookupDeck();
+  fillSelect($('set-lookup-deck'),
+    decks.map((n) => `<option value="${escapeAttr(n)}">${escapeAttr(n)}.json</option>`).join(''), deck);
+
+  const learning = s.lookupLearning || followed;
+  $('lookup-hint').textContent = s.lookupEnabled ? 'on' : 'off';
+  const el = $('lookup-status');
+  if (!learning) {
+    el.textContent = `"${s.targetLanguage}" is not a language Google Translate knows by that name. Choose the language you are learning above.`;
+    el.className = 'status is-warn';
+  } else if (s.lookupEnabled) {
+    el.textContent = `On: selected text is translated between ${nameFor(learning)} and ${nameFor(s.lookupNative)}, and new cards go into ${deck}.json.`;
+    el.className = 'status is-ok';
+  } else {
+    el.textContent = 'Off: selecting text does nothing.';
+    el.className = 'status';
+  }
 }
 
 /* ── budget ──────────────────────────────────────────────────────────── */

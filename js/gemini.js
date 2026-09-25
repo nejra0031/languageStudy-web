@@ -70,6 +70,38 @@ export function sentenceVars(settings, terms) {
   };
 }
 
+/* Said in the notes prompt about a pattern card, in place of {pattern}.
+   Without it the model takes "hễ … là …" apart word by word, which explains
+   two words and not the construction, and its example leaves the gaps as
+   dots. */
+export const NOTES_PATTERN_LINE = 'This is a grammar pattern, not a single word: each … (or capital letter) is a gap for other words. Explain what the construction means and how it is built rather than taking it apart word by word, and fill every gap in the example.';
+
+/* What the notes prompt is filled with. The two language names are English
+   names, as {language} is everywhere else; `context` is the sentence the
+   word was selected from, or a plain "(none)" so the prompt still reads. */
+export function notesVars(settings, { front, back, context, learningName, nativeName, pattern = false }) {
+  return {
+    pattern: pattern ? NOTES_PATTERN_LINE : '',
+    language: learningName || settings.targetLanguage,
+    nativeLanguage: nativeName || 'English',
+    level: settings.learnerLevel,
+    languageNote: settings.languageNote || '',
+    front: String(front || '').trim(),
+    back: String(back || '').trim(),
+    context: String(context || '').trim() || '(none)',
+  };
+}
+
+/* The notes reply, made fit to put in a card: code fences and a leading
+   "Notes:" label taken off, blank lines closed up. */
+export function cleanNotes(text) {
+  return String(text || '')
+    .replace(/^```\w*\s*|\s*```$/g, '')
+    .replace(/^\s*\**notes?\**\s*:\s*/i, '')
+    .split('\n').map((l) => l.trim()).filter(Boolean).join('\n')
+    .trim();
+}
+
 /* Pulls the two labelled lines back out. Falls back to the first two non-empty
    lines, so a model that ignores the format still usually yields something. */
 export function parseSentence(text) {
@@ -707,9 +739,35 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     if (why) throw new QuotaError(why, limiter.waitFor(s.shadowModel, l.rpm, l.rpd));
   }
 
+  /* ── card notes ────────────────────────────────────────────────────── */
+
+  /* Refuses before spending, like the other preflights: the notes job has a
+     model of its own, which may or may not share an allowance with the
+     others. */
+  function notesPreflight() {
+    const s = getSettings();
+    const l = modelLimits(s, s.notesModel);
+    const why = limiter.why(s.notesModel, l.rpm, l.rpd);
+    if (why) throw new QuotaError(why, limiter.waitFor(s.notesModel, l.rpm, l.rpd));
+  }
+
+  /* One call, for the selection popup's Ask for notes. */
+  async function writeNotes(card) {
+    notesPreflight();
+    const s = getSettings();
+    const l = modelLimits(s, s.notesModel);
+    const data = await callWithoutThinking(s.notesModel, {
+      contents: [{ parts: [{ text: fillTemplate(s.prompts.notes, notesVars(s, card)) }] }],
+      generationConfig: { temperature: 0.5, maxOutputTokens: 4096 },
+    }, l.rpm, l.rpd);
+    const notes = cleanNotes(firstText(data));
+    if (!notes) throw new GeminiError(`${s.notesModel} wrote no notes.`);
+    return notes;
+  }
+
   return {
     call, testKey, generateCard, preflight, gradeShadowing, shadowPreflight,
-    draftShadowRules, reviseShadowRules, rulesPreflight,
+    draftShadowRules, reviseShadowRules, rulesPreflight, notesPreflight, writeNotes,
   };
 }
 

@@ -1,5 +1,5 @@
 /* The model catalogue: every model entered once, with the limits that belong
-   to it, and three jobs pointing into the list. The rules worth pinning down
+   to it, and four jobs pointing into the list. The rules worth pinning down
    are the ones a settings file can break — a duplicate id, a job naming a
    model nobody has, and a file written before the catalogue existed. */
 
@@ -77,9 +77,31 @@ test('rolesUsing names every job a model is doing', () => {
     models: [{ id: 'flash', rpm: 4, rpd: 20 }, { id: 'tts', rpm: 2, rpd: 10 }],
     textModel: 'flash', ttsModel: 'tts', shadowModel: 'flash',
   });
-  assert.deepEqual(rolesUsing(s, 'flash'), ['Text', 'Shadowing']);
+  /* Notes is on flash too: a file that never named a notes model gives the
+     job its text model. */
+  assert.deepEqual(rolesUsing(s, 'flash'), ['Text', 'Shadowing', 'Notes']);
   assert.deepEqual(rolesUsing(s, 'tts'), ['Speech']);
   assert.deepEqual(rolesUsing(s, 'idle'), []);
+});
+
+test('a settings file from before the notes job gives it the text model', () => {
+  const s = withDefaults({
+    models: [{ id: 'my-flash', rpm: 4, rpd: 20 }, { id: 'tts', rpm: 2, rpd: 10 }],
+    textModel: 'my-flash', ttsModel: 'tts', shadowModel: 'my-flash',
+  });
+  assert.equal(s.notesModel, 'my-flash');
+  /* Nothing is added to the catalogue behind the user's back: the default
+     notes model is not one this user has. */
+  assert.deepEqual(s.models.map((m) => m.id), ['my-flash', 'tts']);
+});
+
+test('a notes model that was chosen is kept', () => {
+  const s = withDefaults({
+    models: [{ id: 'flash', rpm: 4, rpd: 20 }, { id: 'lite', rpm: 0, rpd: 0 }],
+    textModel: 'flash', notesModel: 'lite',
+  });
+  assert.equal(s.notesModel, 'lite');
+  assert.deepEqual(rolesUsing(s, 'lite'), ['Notes']);
 });
 
 /* ── the migration ───────────────────────────────────────────────────── */

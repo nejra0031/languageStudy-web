@@ -7,6 +7,7 @@ import * as flashcards from './tab-flashcards.js';
 import * as typing from './tab-typing.js';
 import * as dictation from './tab-dictation.js';
 import * as shadowing from './tab-shadowing.js';
+import * as lookup from './lookup-popup.js';
 
 const TABS = {
   settings: { module: settings },
@@ -72,6 +73,8 @@ async function boot() {
   wireTheme();
 
   for (const { module } of Object.values(TABS)) module.init();
+  /* Not a tab: it opens over whichever tab holds the text that was selected. */
+  lookup.init();
 
   let start = 'settings';
   try { start = localStorage.getItem('lsw.tab') || 'settings'; } catch (e) { /* ignore */ }

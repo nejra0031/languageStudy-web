@@ -33,6 +33,8 @@ without knowing anything about any of them.
 
 **Settings** — where your data is saved, your API key, the language, the models, the call
 budget, the prompts, the read-aloud voice, and which Gemini voices may read to you.
+It is also where you turn on [adding a card from selected
+text](#adding-a-card-from-selected-text), which works on every tab.
 
 **Flashcards** — a text box containing the deck file exactly as it is stored.
 There is no form over the top of it and no hidden second file: what you read is
@@ -219,7 +221,7 @@ recordings** in Settings removes the lot and leaves the sentence bank alone.
 
 **One call per hand-in**, however many lines are in it, because every ticked
 recording goes up together. Handing a set in piece by piece costs one call per
-piece. Shadowing is one of the three jobs you assign a model to in
+piece. Shadowing is one of the jobs you assign a model to in
 Settings. Give it a model of its own and its budget is its own — a shadowing
 budget that has run down cannot stop you writing a sentence, and vice versa.
 Give it the same model as the text job, which is the default, and the two share
@@ -255,6 +257,50 @@ create or import starts ticked, since you presumably made it to study it.
 The choice is saved in `settings.json` as `practiceDecks`, and it is filtered
 through the decks that actually exist every time it is read — delete or rename
 a deck outside the app and practice quietly carries on with what is left.
+
+## Adding a card from selected text
+
+Turn on **Settings → Add from selected text** and you can select a word or a
+short phrase anywhere on the page, such as a new word in a dictation sentence
+once it is revealed. A small form then opens right under the selection:
+
+- **the word**, in the language you are learning, and **its translation**, in
+  your own. Both can be edited, and ⇄ swaps them.
+- **Grammar pattern**, a tickbox that makes the card a
+  [pattern](#the-deck-format) (`"type": "pattern"`). Select *hễ trời mưa là*,
+  edit the word to `hễ … là …`, and the box ticks itself as soon as the word
+  has a `…` or `...` in it; untick it if that was not what you meant. A
+  capital letter never ticks it, since it may be a word. For a card the deck
+  already has, the box says what the card is, and Update can change it.
+- **Notes**, empty, for you to fill in. **Ask for notes** has the Notes model
+  write some: the word taken apart, and an example sentence with its
+  translation. It is told the sentence you selected the word from, so the notes
+  are about the sense you actually met.
+- **Add**, which puts the card into the deck chosen in Settings. If that deck
+  already has the word, the form shows the card as it is stored and the button
+  reads **Update** instead. Updating changes the meaning, the notes and the
+  Grammar pattern mark, and keeps the card's score and history.
+
+You can select text in either language. Google Translate says which language it
+is: text in your own language is taken as the meaning, and the word you are
+learning is looked up from it, so selecting *window* gives you *cửa sổ*. A word
+is matched against the deck the way answers are marked, ignoring case and
+punctuation but not accents: *tien loi* is not *tiện lợi*. Only the chosen deck
+is checked. The form stays shut when you select inside a text box, such as the
+deck editor or an answer you are typing, or when the selection runs past eight
+words. Escape, ×, or a click anywhere else closes it.
+
+Settings has three choices besides the switch. **Language you are learning**
+follows the target language unless you pick another. **Your language** is
+English to start with. **Add new cards to** is the deck new cards go into, and
+it falls back to the open deck if that deck is deleted.
+
+**The translation is Google Translate's free public address**, the one its own
+website uses. It needs no key, costs nothing, and is not counted against your
+Gemini budget. It is also unofficial: Google can refuse it for a while,
+especially on a busy or shared network. The form then says so, and you type the
+meaning yourself. The selected text is sent to Google to be translated. A word
+the deck already has is shown without asking Google at all.
 
 ### Dictation draws from one deck at a time
 
@@ -535,8 +581,10 @@ never see, you need a server, and this project deliberately does not have one.
 
 **Settings → Models** is a list: every Gemini model you use, entered once, each
 with its own calls-per-minute and calls-per-day. **Settings → What each model
-does** then hands out the three jobs — writing the sentence, speaking it, and
-listening to your shadowing — from that list.
+does** then hands out the four jobs — writing the sentence, speaking it,
+listening to your shadowing, and writing a card's notes when you ask for them
+in the [selection form](#adding-a-card-from-selected-text) — from that list. A
+settings file from before the notes job existed gives it the text model.
 
 The limits belong to the model, not to the job, because that is how Google
 counts them. So `gemini-3.6-flash` is typed once even when it both writes
@@ -566,7 +614,7 @@ key is worse than no card at all.
 
 ### Prompts
 
-All three prompts sent to the API are yours to edit, in **Settings → Prompts**.
+All four prompts sent to the API are yours to edit, in **Settings → Prompts**.
 The switch beside each one turns its box from **Edit** to **Preview**: exactly
 what will be sent, filled in with your settings and three of your cards, and
 kept up to date as you type. The preview cannot be edited; switch back to make
@@ -604,6 +652,16 @@ the **Feedback language and style** setting. A prompt without it gets that
 request added at its end, so the setting is never left unsent. The prompts that draft and
 revise the rules are not in Settings; they are in `js/shadow-rules.js`.
 
+The notes prompt is sent when you press **Ask for notes** in the
+[selection form](#adding-a-card-from-selected-text). It takes `{language}` and
+`{nativeLanguage}` (the two languages chosen for that form), `{front}` and
+`{back}` (the word and its meaning), `{context}` (the sentence the word was
+selected from), `{level}` and `{languageNote}`. `{pattern}` is empty for a word,
+and for a pattern card asks for the construction to be explained, rather than
+its words taken apart one by one, with every gap in the example filled. The reply goes into the notes
+box as it comes, only with code fences and a leading "Notes:" label taken off,
+so ask for plain text.
+
 ## Running it locally
 
 It is plain ES modules with no build step and no dependencies, but modules do
@@ -635,6 +693,9 @@ tests fail if either is forgotten.
 index.html            the page
 css/app.css           one stylesheet
 js/text.js            comparison, diacritics, word diff
+js/lookup.js          selection → card: direction, matching, the sentence around it
+js/translate.js       the one Google Translate request
+js/lookup-popup.js    the form that opens under selected text, on every tab
 js/deck.js            deck format, scoring, card selection
 js/speech.js          the device's own voices, for reading words aloud
 js/recorder.js        the microphone: MediaRecorder, and releasing it again

@@ -206,6 +206,27 @@ export async function cardAnswered(...cards) {
    question either one is really asking. */
 export const saveCardDecks = cardAnswered;
 
+/* A card made outside the editor — from the selection popup — joins its deck
+   here, so the deck it belongs to is recorded like any other card's. The
+   card is in the deck even when the write fails, as an answered card is;
+   `ok` says whether it reached the store. */
+export async function addCard(name, raw) {
+  const card = normalizeCard(raw);
+  if (!state.decks[name]) state.decks[name] = [];
+  state.decks[name].push(card);
+  cardDeck.set(card, name);
+  return { card, ok: await saveDeck(name) };
+}
+
+/* The deck the selection popup adds to. Derived, like practiceDecks(): the
+   saved name while that deck exists, the open deck otherwise, so a deck
+   deleted or renamed elsewhere cannot leave new cards going nowhere. */
+export function lookupDeck() {
+  const names = state.deckNames.length ? state.deckNames : [state.deckName];
+  const wanted = state.settings.lookupDeck;
+  return wanted && names.includes(wanted) ? wanted : state.deckName;
+}
+
 export async function refreshDeckList() {
   state.deckNames = state.persistent ? await storage.listDecks() : [state.deckName];
   for (const name of Object.keys(state.decks)) {
@@ -249,6 +270,8 @@ export async function renameDeck(label) {
   if (ticked.includes(previous)) {
     await setPracticeDecks(ticked.map((n) => (n === previous ? next : n)));
   }
+  /* So does the selection popup's choice of deck. */
+  if (state.settings.lookupDeck === previous) await saveSettings({ lookupDeck: next });
   return next;
 }
 

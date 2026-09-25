@@ -151,6 +151,15 @@ export function isPattern(card) {
   return String((card && card.type) || '').trim().toLowerCase() === 'pattern';
 }
 
+/* Marks a card as a pattern, or takes the mark off. Taking it off removes
+   only a pattern's own `type`: a `word` or `phrase` someone wrote by hand is
+   theirs, and "not a pattern" says nothing against it. */
+export function setPattern(card, on) {
+  if (on) card.type = 'pattern';
+  else if (isPattern(card)) delete card.type;
+  return card;
+}
+
 /* Can this card be a dictation target?
 
    The question is "could this be heard and matched word for word?", which is

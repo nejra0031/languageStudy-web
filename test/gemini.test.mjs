@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   fillTemplate, buildTermListing, sentenceVars, parseSentence, sentenceProblem,
   RateLimiter, QuotaError, pcmToWav, createClient, formatWait, nextBankId, sidecarText, pickVoice,
+  notesVars, cleanNotes, NOTES_PATTERN_LINE,
 } from '../js/gemini.js';
 import { DEFAULT_SETTINGS, withDefaults } from '../js/defaults.js';
 
@@ -371,4 +372,49 @@ test('a 400 about something else costs one retry, is reported, and is not rememb
   sent.length = 0;
   await assert.rejects(client.generateCard(TERMS, [], 'default'), /HTTP 400/);
   assert.deepEqual(thinking(sent[0].body), { thinkingBudget: 0 }, 'thinking is still turned off next time');
+});
+
+/* ── card notes ──────────────────────────────────────────────────────── */
+
+test('the notes prompt is filled with both languages, the card and where it was met', () => {
+  const s = withDefaults({ targetLanguage: 'Vietnamese', learnerLevel: 'intermediate' });
+  const text = fillTemplate(s.prompts.notes, notesVars(s, {
+    front: ' tiện lợi ', back: 'convenient', context: 'Điện thoại này rất tiện lợi.', nativeName: 'Dutch',
+  }));
+  assert.ok(text.includes('Vietnamese: tiện lợi'));
+  assert.ok(text.includes('Dutch: convenient'));
+  assert.ok(text.includes('Điện thoại này rất tiện lợi.'));
+  assert.equal(text.match(/\{\w+\}/g), null, 'no placeholder is left unfilled');
+});
+
+test('notes with no sentence to go on still read', () => {
+  const s = withDefaults(null);
+  const vars = notesVars(s, { front: 'x', back: 'y', learningName: 'Spanish' });
+  assert.equal(vars.context, '(none)');
+  assert.equal(vars.language, 'Spanish', 'the language chosen for the popup wins over the target language');
+  assert.equal(vars.nativeLanguage, 'English');
+});
+
+test('a notes reply loses its fences and label, and nothing else', () => {
+  assert.equal(cleanNotes('```\nNotes: tiện = convenient\n\nE.g. "..." = "..."\n```'), 'tiện = convenient\nE.g. "..." = "..."');
+  assert.equal(cleanNotes('  plain line  '), 'plain line');
+  assert.equal(cleanNotes(''), '');
+});
+
+test('notes are asked of the notes model, with thinking off', async () => {
+  const { client, sent } = fakeClient(() => ({ candidates: [{ content: { parts: [{ text: 'tiện = convenient; lợi = benefit' }] } }] }),
+    { models: [{ id: 'flash', rpm: 0, rpd: 0 }, { id: 'lite', rpm: 0, rpd: 0 }], textModel: 'flash', notesModel: 'lite' });
+  const notes = await client.writeNotes({ front: 'tiện lợi', back: 'convenient' });
+  assert.equal(notes, 'tiện = convenient; lợi = benefit');
+  assert.equal(sent[0].model, 'lite');
+  assert.deepEqual(thinking(sent[0].body), { thinkingBudget: 0 });
+});
+
+test('a pattern card asks for the construction to be explained, a word card does not', () => {
+  const s = withDefaults(null);
+  const word = fillTemplate(s.prompts.notes, notesVars(s, { front: 'tiện lợi', back: 'convenient' }));
+  const pattern = fillTemplate(s.prompts.notes, notesVars(s, { front: 'hễ … là …', back: 'whenever … then …', pattern: true }));
+  assert.ok(!word.includes(NOTES_PATTERN_LINE));
+  assert.ok(pattern.includes(NOTES_PATTERN_LINE));
+  assert.equal(word.match(/{w+}/g), null, 'an empty {pattern} leaves nothing behind');
 });

@@ -50,6 +50,14 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
 - `zip.js` and `bundle.js` are the two backups: a zip laid out like the data
   folder (keeps the audio), and one readable JSON file (decks and settings).
 - `shadowing.js` is Shadowing's pure logic; `tab-shadowing.js` its DOM.
+- The selection popup (Add from selected text) is not a tab: it opens over
+  whichever tab holds the selected text. `lookup.js` is its pure logic
+  (which way round, is the word a card already, the sentence around it),
+  `translate.js` the one request to Google Translate's keyless endpoint, and
+  `lookup-popup.js` its DOM, started by `app.js` after the tabs. A card it
+  adds goes through `store.addCard`, so its deck is recorded like any other
+  card's; an Update changes the meaning, the notes and the pattern mark
+  (`deck.setPattern`, which never removes a `type` it did not set) only.
 - `shadow-rules.js` is the per-language listening rules the shadowing model
   grades by: seeded once per language, rated note by note, revised from the
   ratings. The ratings are the only signal. A malformed seed or revision
@@ -95,7 +103,7 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
 
 Unit tests cover the modules without a DOM — `deck.js`, `text.js`,
 `gemini.js`, the model catalogue, `speech.js`, `zip.js`, `bundle.js`,
-`opus.js`, `convert-audio.js`, `shadowing.js` and `shadow-rules.js` — not the tabs. For
+`opus.js`, `convert-audio.js`, `shadowing.js`, `shadow-rules.js` and `lookup.js` — not the tabs. For
 anything a user sees, drive the
 real page. Playwright's WebKit is Safari's engine and works well; some quirks
 cost time the first time:
