@@ -22,6 +22,7 @@ import { withDefaults, STARTER_DECK, DEFAULT_SETTINGS } from './defaults.js';
 import { parseDeck, serializeDeck, normalizeCard, slugify } from './deck.js';
 import { makeBundle, bundleCards } from './bundle.js';
 import { RateLimiter, createClient } from './gemini.js';
+import { handinsOf } from './shadowing.js';
 import {
   rulesFor, withRules, languageKey, seedEntry, applyRevision, undoRevision,
   editRules, shouldRevise, ratingsFor, collectRated, countRatings, totalOf,
@@ -447,6 +448,9 @@ function summariseSession(session) {
     rulesGeneration: fb && Number.isInteger(fb.rulesGeneration) ? fb.rulesGeneration : null,
     ratings: countRatings(fb && fb.notes),
     ratingsByGeneration: ratingsByGeneration(fb),
+    /* Each hand-in's number, lines and date, so History can list a set's
+       hand-ins as sub-rows without opening the set's file. */
+    handins: handinsOf(fb).map((h) => ({ n: h.n, lines: h.lines, at: String(h.gradedAt || '').slice(0, 10) })),
   };
 }
 

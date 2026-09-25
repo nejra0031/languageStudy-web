@@ -124,10 +124,17 @@ everything new. But the ticks are yours to change:
 The buttons beside **Hand in** tick the lines still waiting for feedback
 (**Waiting**), every recorded line (**All recorded**), or nothing (**None**).
 The model is told how many of how many lines it is given, so a line you kept
-back is never mistaken for one you muffed. The summary at the top of the
-feedback is about your last hand-in, and says which lines it covered. A
-hand-in that fails takes nothing away: the error shows above the feedback you
-already had.
+back is never mistaken for one you muffed. A hand-in that fails takes nothing
+away: the error shows above the feedback you already had.
+
+**Each hand-in is its own block.** Handing in 4 lines of a 10-line set puts
+those 4 in a box headed *Hand-in 1 · lines 1–4*, with their notes and a *How
+you sounded* written about those 4 lines and no others. The next hand-in gets
+the next box, and the lines not yet handed in wait underneath. A line handed
+in again moves to the new box. Its earlier box keeps, dimmed, what was said
+about the earlier take, so each summary still sits beside what it was about.
+In the history list, a set handed in more than once shows each hand-in as a
+row of its own, which opens the set at that hand-in.
 
 ### The language of the feedback
 

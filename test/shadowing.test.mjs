@@ -6,6 +6,7 @@ import {
   attachableClips, buildGradingParts, extractTrailingJson, normalise,
   readGrading, focusFor, AUDIO_BUDGET_BYTES,
   takeOf, noteIsCurrent, pendingIndices, sessionStatus, mergeGrading,
+  handinsOf, groupByHandin, lineList,
 } from '../js/shadowing.js';
 
 /* ── ids and filenames ───────────────────────────────────────────────── */
@@ -336,8 +337,8 @@ test('a set handed in half now and half later ends up with every note', () => {
   s.feedback = mergeGrading(s.feedback, grading([2, 3]), s.items, NOW);
   assert.deepEqual(s.feedback.notes.map((n) => n.itemIndex), [0, 1, 2, 3]);
   assert.equal(sessionStatus(s), 'done');
-  assert.deepEqual(s.feedback.covers, [2, 3], 'overall is about the last hand-in only');
-  assert.equal(s.feedback.overall, 'about 2,3');
+  assert.deepEqual(s.feedback.handins.map((h) => [h.n, h.lines, h.overall]),
+    [[1, [0, 1], 'about 0,1'], [2, [2, 3], 'about 2,3']], 'each overall stays with the lines it was about');
 });
 
 test('a retake leaves the other notes alone, and its old note is marked as about an earlier take', () => {
@@ -398,4 +399,70 @@ test('a set saved before takes were counted reads as fully current', () => {
   };
   assert.deepEqual(pendingIndices(old), []);
   assert.equal(sessionStatus(old), 'done');
+});
+
+/* ── hand-ins as their own subsets ───────────────────────────────────── */
+
+test('each hand-in is kept as its own subset, and every line is drawn once', () => {
+  const s = setOf(10);
+  [0, 1, 2, 3].forEach((i) => record(s, i));
+  s.feedback = mergeGrading(s.feedback, grading([0, 1, 2, 3]), s.items, NOW);
+  [4, 5].forEach((i) => record(s, i));
+  s.feedback = mergeGrading(s.feedback, grading([4, 5]), s.items, NOW);
+
+  const { groups, rest } = groupByHandin(s);
+  assert.deepEqual(groups.map((g) => [g.handin.n, g.rows.map((r) => r.index)]), [[1, [0, 1, 2, 3]], [2, [4, 5]]]);
+  assert.ok(groups.every((g) => g.rows.every((r) => r.current)));
+  assert.deepEqual(rest, [6, 7, 8, 9], 'lines never handed in come last');
+  assert.deepEqual(s.feedback.notes.map((n) => n.handin), [1, 1, 1, 1, 2, 2]);
+});
+
+test('a line handed in again moves to the new hand-in, and the old one keeps what it said', () => {
+  const s = setOf(4);
+  [0, 1, 2, 3].forEach((i) => record(s, i));
+  s.feedback = mergeGrading(s.feedback, grading([0, 1, 2, 3]), s.items, NOW);
+  record(s, 1);
+  s.feedback = mergeGrading(s.feedback, grading([1], { overall: 'retake' }), s.items, NOW);
+
+  const { groups, rest } = groupByHandin(s);
+  const first = groups[0].rows.find((r) => r.index === 1);
+  assert.equal(first.current, false);
+  assert.equal(first.replacedBy, 2);
+  assert.equal(first.said.comment, 'note 1', 'the first hand-in still shows what it said about line 2');
+  assert.equal(first.said.take, 1);
+  assert.deepEqual(groups[1].rows, [{ index: 1, current: true }]);
+  assert.equal(groups[0].handin.overall, 'about 0,1,2,3', 'the first summary is untouched');
+  assert.deepEqual(rest, []);
+  const drawn = groups.flatMap((g) => g.rows.filter((r) => r.current).map((r) => r.index)).concat(rest);
+  assert.deepEqual(drawn.sort(), [0, 1, 2, 3], 'each line has its controls exactly once');
+});
+
+test('a set graded before hand-ins were kept reads as one hand-in', () => {
+  const old = {
+    items: [0, 1, 2].map((index) => ({ index, text: 't', file: 'x' })),
+    feedback: {
+      notes: [0, 1].map((itemIndex) => ({ itemIndex, comment: `c${itemIndex}`, rating: 'useful' })),
+      overall: 'the old overall', covers: [0, 1], model: 'm', rulesGeneration: 2,
+    },
+  };
+  const [only] = handinsOf(old.feedback);
+  assert.deepEqual([only.n, only.lines, only.overall, only.rulesGeneration], [1, [0, 1], 'the old overall', 2]);
+  assert.equal('rating' in only.notes[0], false, 'a hand-in record keeps what was said, not the rating');
+  const { groups, rest } = groupByHandin(old);
+  assert.deepEqual(groups[0].rows.map((r) => r.current), [true, true]);
+  assert.deepEqual(rest, [2]);
+
+  /* Handing in again numbers on from it. */
+  old.items[2].take = 1;
+  old.feedback = mergeGrading(old.feedback, grading([2]), old.items, NOW);
+  assert.deepEqual(old.feedback.handins.map((h) => h.n), [1, 2]);
+  assert.equal(old.feedback.notes.find((n) => n.itemIndex === 0).rating, 'useful', 'old ratings survive the upgrade');
+});
+
+test('line lists read the way a learner counts', () => {
+  assert.equal(lineList([2]), 'line 3');
+  assert.equal(lineList([0, 1, 2, 3]), 'lines 1–4');
+  assert.equal(lineList([4, 5]), 'lines 5, 6');
+  assert.equal(lineList([9, 0, 1, 2, 6, 8]), 'lines 1–3, 7, 9, 10');
+  assert.equal(lineList([]), 'no lines');
 });
