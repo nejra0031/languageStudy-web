@@ -6,7 +6,7 @@ import {
   seedFromSounds, formatRulesBlock, buildSeedPrompt, buildRevisionPrompt,
   readRules, seedEntry, applyRevision, undoRevision, editRules, rulesToText,
   countRatings, ratingsFor, shouldRevise, collectRated, ruleStats, migrateSounds,
-  newEntry, MAX_LISTEN, MAX_STYLE, DEFAULT_STYLE_RULES, ratingsByGeneration, noteGeneration,
+  newEntry, MAX_LISTEN, MAX_STYLE, DEFAULT_STYLE_RULES, ratingsByGeneration, noteGeneration, highestGeneration,
 } from '../js/shadow-rules.js';
 import {
   withDefaults, upgradePrompts, DEFAULT_SHADOW_PROMPT, RETIRED_SHADOW_PROMPTS,
@@ -343,4 +343,39 @@ test('the feedback request is sent as typed, English when empty, and even with a
   const custom = shadowSystem({ ...s, prompts: { ...s.prompts, shadowing: 'Listen. {rules}' } }, 3);
   assert.match(custom, /^Listen\./);
   assert.match(custom, /<feedback_request>\nEnglish and Vietnamese\n<\/feedback_request>/, 'appended to a prompt without {feedback}');
+});
+
+/* ── version numbers are never reused ────────────────────────────────── */
+
+test('a language’s first rules number after every version its sets were graded under', () => {
+  const rows = [
+    { language: 'French', rulesGeneration: 1, ratingsByGeneration: { 1: { useful: 0, vague: 10, soft: 0, wrong: 0 } } },
+    { language: 'french', rulesGeneration: 3, ratingsByGeneration: { 2: { useful: 1, vague: 0, soft: 0, wrong: 0 }, 3: { useful: 0, vague: 0, soft: 0, wrong: 0 } } },
+    { language: 'German', rulesGeneration: 9 },
+    { language: 'French', rulesGeneration: null },
+  ];
+  assert.equal(highestGeneration(rows, 'French'), 3);
+  assert.equal(highestGeneration(rows, 'Thai'), 0);
+  assert.equal(highestGeneration([], 'French'), 0);
+
+  const reply = readRules('{"rules":[{"kind":"listen","text":"Nasal vowels."}]}');
+  assert.equal(seedEntry(reply, NOW).generation, 1, 'a language with no history starts at 1');
+  const fresh = seedEntry(reply, NOW, highestGeneration(rows, 'French'));
+  assert.equal(fresh.generation, 4);
+  assert.deepEqual(ratingsFor(rows, 'French', fresh.generation), { useful: 0, vague: 0, soft: 0, wrong: 0 },
+    'the new rules start with no ratings, not the old version 1’s ten');
+  assert.equal(shouldRevise(fresh, rows, 'French', 1), false);
+
+  assert.equal(editRules(null, 'Nasal vowels.', NOW, 3).generation, 4, 'rules written by hand number after too');
+});
+
+test('an undo is described as something that happened, including one saved with the old wording', () => {
+  let entry = entryOf(BASE, 1);
+  entry = applyRevision(entry, { rules: [{ id: 1, kind: 'listen', text: 'changed' }], changes: [], reason: 'r' }, NOW);
+  const back = undoRevision(entry, NOW);
+  assert.equal(back.reason, 'Undo restored the rules of version 1.');
+
+  const saved = cleanEntry({ ...back, reason: 'Back to the rules of version 1.' });
+  assert.equal(saved.reason, 'Undo restored the rules of version 1.');
+  assert.equal(cleanEntry({ ...back, reason: 'Edited by you.' }).reason, 'Edited by you.', 'other reasons are left alone');
 });

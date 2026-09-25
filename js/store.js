@@ -25,7 +25,7 @@ import { RateLimiter, createClient } from './gemini.js';
 import {
   rulesFor, withRules, languageKey, seedEntry, applyRevision, undoRevision,
   editRules, shouldRevise, ratingsFor, collectRated, countRatings, totalOf,
-  isRating, ratingsByGeneration,
+  isRating, ratingsByGeneration, highestGeneration,
 } from './shadow-rules.js';
 import { convertBank, isWavEntry } from './convert-audio.js';
 import { encodeOggOpus, OPUS_MIME } from './opus.js';
@@ -510,7 +510,14 @@ async function putRules(entry) {
 /* The first time a language is handed in, its rules are drafted. A language
    that already has rules costs nothing here. */
 export async function ensureRules() {
-  return currentRules() || putRules(seedEntry(await client.draftShadowRules()));
+  return currentRules() || putRules(seedEntry(await client.draftShadowRules(), new Date(), usedGenerations()));
+}
+
+/* How far this language's version numbers have already gone. Every path that
+   makes a first set of rules numbers after it, so no new version can inherit
+   the ratings of an old one that happened to share its number. */
+function usedGenerations() {
+  return highestGeneration(state.shadowSessions, state.settings.targetLanguage);
 }
 
 /* Drafted from scratch, as a new version so Undo brings the old ones back.
@@ -520,7 +527,7 @@ export async function redraftRules() {
   const entry = currentRules();
   return putRules(entry
     ? applyRevision(entry, { ...reply, changes: [], reason: 'Drafted again from scratch.' })
-    : seedEntry(reply));
+    : seedEntry(reply, new Date(), usedGenerations()));
 }
 
 export async function undoRules() {
@@ -530,18 +537,8 @@ export async function undoRules() {
 
 /* Null when the text says what the rules already say. */
 export async function editRulesText(text) {
-  const next = editRules(currentRules(), text);
+  const next = editRules(currentRules(), text, new Date(), usedGenerations());
   return next ? putRules(next) : null;
-}
-
-/* Forgets this language's rules entirely; the next set handed in drafts new
-   ones. Ratings already given stay on their sessions, pinned on a version
-   that no longer exists, and so count towards nothing. */
-export async function clearRules() {
-  const key = languageKey(state.settings.targetLanguage);
-  const map = { ...(state.settings.shadowRules || {}) };
-  delete map[key];
-  await saveSettings({ shadowRules: map });
 }
 
 export function rulesRatings(generation) {

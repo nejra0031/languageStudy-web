@@ -6,7 +6,7 @@
 <title>Language Study</title>
 <meta name="description" content="Flashcards, typing practice and AI dictation for any language. Your own API key, your own files, no accounts and no server.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230f1117'/><rect x='3' y='3' width='10' height='10' fill='%23d4b455'/></svg>">
-<link rel="stylesheet" href="css/app.css?v=2026-09-25.3">
+<link rel="stylesheet" href="css/app.css?v=2026-09-25.5">
 <!-- Cache-busting. GitHub Pages lets a browser keep any file for ten minutes,
      so without this a deploy can leave you with a new index.html and an old
      module, or the reverse, and the page fails to start. Every module is
@@ -18,29 +18,29 @@
 <script type="importmap">
 {
   "imports": {
-    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-25.3",
-    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-25.3",
-    "./js/bundle.js": "./js/bundle.js?v=2026-09-25.3",
-    "./js/convert-audio.js": "./js/convert-audio.js?v=2026-09-25.3",
-    "./js/deck.js": "./js/deck.js?v=2026-09-25.3",
-    "./js/defaults.js": "./js/defaults.js?v=2026-09-25.3",
-    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-25.3",
-    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-25.3",
-    "./js/gemini.js": "./js/gemini.js?v=2026-09-25.3",
-    "./js/opus.js": "./js/opus.js?v=2026-09-25.3",
-    "./js/recorder.js": "./js/recorder.js?v=2026-09-25.3",
-    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-25.3",
-    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-25.3",
-    "./js/speech.js": "./js/speech.js?v=2026-09-25.3",
-    "./js/storage.js": "./js/storage.js?v=2026-09-25.3",
-    "./js/store.js": "./js/store.js?v=2026-09-25.3",
-    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-25.3",
-    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-25.3",
-    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-25.3",
-    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-25.3",
-    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-25.3",
-    "./js/text.js": "./js/text.js?v=2026-09-25.3",
-    "./js/zip.js": "./js/zip.js?v=2026-09-25.3"
+    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-25.5",
+    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-25.5",
+    "./js/bundle.js": "./js/bundle.js?v=2026-09-25.5",
+    "./js/convert-audio.js": "./js/convert-audio.js?v=2026-09-25.5",
+    "./js/deck.js": "./js/deck.js?v=2026-09-25.5",
+    "./js/defaults.js": "./js/defaults.js?v=2026-09-25.5",
+    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-25.5",
+    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-25.5",
+    "./js/gemini.js": "./js/gemini.js?v=2026-09-25.5",
+    "./js/opus.js": "./js/opus.js?v=2026-09-25.5",
+    "./js/recorder.js": "./js/recorder.js?v=2026-09-25.5",
+    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-25.5",
+    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-25.5",
+    "./js/speech.js": "./js/speech.js?v=2026-09-25.5",
+    "./js/storage.js": "./js/storage.js?v=2026-09-25.5",
+    "./js/store.js": "./js/store.js?v=2026-09-25.5",
+    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-25.5",
+    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-25.5",
+    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-25.5",
+    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-25.5",
+    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-25.5",
+    "./js/text.js": "./js/text.js?v=2026-09-25.5",
+    "./js/zip.js": "./js/zip.js?v=2026-09-25.5"
   }
 }
 </script>
@@ -209,7 +209,6 @@
       <div class="row">
         <button class="btn btn--sm" id="rules-undo">Undo last change</button>
         <button class="btn btn--sm" id="rules-draft">Draft rules</button>
-        <button class="btn btn--sm btn--danger" id="rules-clear">Clear rules</button>
       </div>
       <div class="grid grid--tight">
         <label class="field"><span>Revise after this many rated notes</span><input type="number" id="set-revise-after" min="1" max="100"></label>
@@ -573,6 +572,6 @@
 
 </main>
 
-<script type="module" src="js/app.js?v=2026-09-25.3"></script>
+<script type="module" src="js/app.js?v=2026-09-25.5"></script>
 </body>
 </html>

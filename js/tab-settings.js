@@ -1172,12 +1172,6 @@ function wireRules() {
       btn.disabled = false;
     }
   });
-
-  $('rules-clear').addEventListener('click', async () => {
-    if (!store.currentRules()) return;
-    await store.clearRules();
-    setShadowStatus(`Cleared. The next set you hand in in ${store.state.settings.targetLanguage} drafts new rules first.`, 'is-ok');
-  });
 }
 
 function renderRules() {
@@ -1187,7 +1181,6 @@ function renderRules() {
   $('rules-label').textContent = `Listening rules for ${s.targetLanguage}`;
   if (document.activeElement !== box) box.value = entry ? rulesToText(entry.rules) : '';
   $('rules-undo').disabled = !(entry && entry.history && entry.history.length);
-  $('rules-clear').disabled = !entry;
   $('rules-draft').textContent = entry ? 'Draft rules again' : 'Draft rules';
 
   if (!entry) {
