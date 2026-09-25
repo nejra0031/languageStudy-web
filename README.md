@@ -68,7 +68,9 @@ Sentences are banked on disk and replay for free forever, and any one of them
 can be downloaded. The audio is saved as Ogg Opus, about a twelfth the size of
 the WAV Gemini sends, so a big bank stays small in storage and in backups; a
 browser without an Opus encoder (Safari before 26, Firefox before 130) saves
-WAV instead, and sentences banked as WAV before this keep playing. A target word you heard but mis-accented is
+WAV instead, and sentences banked as WAV before this keep playing. **Convert
+saved audio to Ogg**, in Settings beside the backups, shrinks those older ones
+too; it appears only while there are some. A target word you heard but mis-accented is
 flagged the same way Typing flags one, and Dictation has its own **Accents**
 filter for building sentences around those words.
 
@@ -529,6 +531,7 @@ js/recorder.js        the microphone: MediaRecorder, and releasing it again
 js/shadowing.js       building a set, laying out the grading call, reading it back
 js/gemini.js          API calls, call budget, WAV wrapping
 js/opus.js            dictation audio as Ogg Opus, through the browser's encoder
+js/convert-audio.js   turning a bank's older WAV sentences into Ogg, in place
 js/bundle.js          the export/import file format
 js/zip.js             just enough zip to write and read a backup
 js/storage.js         the store: layout, files, and which backend is live

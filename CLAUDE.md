@@ -82,8 +82,8 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
 ## Checking a change in a browser
 
 Unit tests cover the modules without a DOM — `deck.js`, `text.js`,
-`gemini.js`, the model catalogue, `speech.js`, `zip.js`, `bundle.js` and
-`shadowing.js` — not the tabs. For anything a user sees, drive the
+`gemini.js`, the model catalogue, `speech.js`, `zip.js`, `bundle.js`,
+`opus.js`, `convert-audio.js` and `shadowing.js` — not the tabs. For anything a user sees, drive the
 real page. Playwright's WebKit is Safari's engine and works well; some quirks
 cost time the first time:
 

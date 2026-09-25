@@ -430,8 +430,14 @@ async function playModel(index) {
   speech.stop();
   if (recordingIndex !== null) return;    // never play into an open microphone
 
-  if (item.source === 'bank' && item.audio) {
-    const url = await storage.readBlobUrl(item.audio);
+  /* The bank entry is asked first: its file can change after the set was
+     made (a WAV converted to Ogg), and the path kept on the item is only the
+     one it had then. */
+  const banked = item.source === 'bank' && item.bankId
+    ? store.state.manifest.find((e) => e.id === item.bankId) : null;
+  const audioPath = (banked && banked.file) || item.audio;
+  if (item.source === 'bank' && audioPath) {
+    const url = await storage.readBlobUrl(audioPath);
     if (!url) { showError('The recording for this line is missing from the sentence bank.'); return; }
     urls.add(url);
     player = new Audio(url);
