@@ -285,6 +285,7 @@ textarea { resize: vertical; font: 13px/1.6 var(--mono); }
 .grid--tight { gap: 10px; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
 
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.row[hidden] { display: none; }
 .row--end { justify-content: flex-end; }
 .spacer { flex: 1 1 auto; }
 

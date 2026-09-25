@@ -72,7 +72,9 @@ Sentences are banked on disk and replay for free forever, and any one of them
 can be downloaded. The audio is saved as Ogg Opus, about a twelfth the size of
 the WAV Gemini sends, so a big bank stays small in storage and in backups; a
 browser without an Opus encoder (Safari before 26, Firefox before 130) saves
-WAV instead, and sentences banked as WAV before this keep playing. A target word you heard but mis-accented is
+WAV instead, and sentences banked as WAV before this keep playing. **Convert
+saved audio to Ogg**, in Settings beside the backups, shrinks those older ones
+too; it appears only while there are some. A target word you heard but mis-accented is
 flagged the same way Typing flags one, and Dictation has its own **Accents**
 filter for building sentences around those words.
 
@@ -300,10 +302,24 @@ are deliberately not split on: in a sentence a comma is grammar, and half of one
 is not an answer. The `front` is held to the letter, accents and all — that is
 the skill being drilled.
 
-Those eight are the whole schema; nothing else affects how the app behaves. Any
-other field you add is still carried through every save untouched, though, so
-you can keep a `"type"`, a tag, or a page reference alongside the cards and the
-app will leave them alone rather than deleting what it does not recognise.
+A card can also be a **grammar pattern** rather than a word or phrase. Mark it
+with `"type": "pattern"` and write each gap as `…` (or `...`) or as a capital
+letter: `hễ … là …`, `không những … mà còn …`, `A có điều là B`. Dictation then
+counts a sentence as using the card when its fixed words appear in order, each
+one to the letter, with anything in the gaps — so `hễ … là …` is heard in *Hễ
+trời mưa là tôi ở nhà*, and the sentence is asked for with the gaps filled. A
+pattern needs at least two fixed words to be a dictation target: `… được` would
+be matched by any sentence with *được* in it, in whatever sense. Shadowing
+leaves patterns out, since there is nothing to read aloud. Without the `type`,
+a capital letter is a word (Spanish `A veces`) and a front with `…` is skipped
+by Dictation, as before; any other `type` — `word`, `phrase` — is kept but
+changes nothing.
+
+Those eight, and `"type": "pattern"`, are the whole schema; nothing else
+affects how the app behaves. Any other field you add is still carried through
+every save untouched, though, so you can keep a tag, a date or a page
+reference alongside the cards and the app will leave them alone rather than
+deleting what it does not recognise.
 
 ### How scoring works
 
@@ -612,6 +628,7 @@ js/shadowing.js       building a set, laying out the grading call, reading it ba
 js/shadow-rules.js    shadowing's listening rules: seeding, rating, revising, undo
 js/gemini.js          API calls, call budget, WAV wrapping
 js/opus.js            dictation audio as Ogg Opus, through the browser's encoder
+js/convert-audio.js   turning a bank's older WAV sentences into Ogg, in place
 js/bundle.js          the export/import file format
 js/zip.js             just enough zip to write and read a backup
 js/storage.js         the store: layout, files, and which backend is live

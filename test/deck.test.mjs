@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  recordResult, stats, isDictatable, normalizeCard, parseDeck, serializeDeck,
+  recordResult, stats, isDictatable, isPattern, normalizeCard, parseDeck, serializeDeck,
   importWatchlist, parseDeckFile, amendLastToRight, addAlternative, meanings,
   pickWeighted, pickGroup, cardWeight, inScope, slugify, WINDOW,
 } from '../js/deck.js';
@@ -67,6 +67,35 @@ test('isDictatable keeps phrases and rejects what has no single string', () => {
   assert.equal(isDictatable({ front: 'sự + danh từ' }), false);
   assert.equal(isDictatable({ front: 'a b c d e f g' }), false, 'too long to hear as a unit');
   assert.equal(isDictatable({ front: '' }), false);
+});
+
+test('a card is a pattern only when it says so', () => {
+  assert.equal(isPattern({ front: 'A mà B', type: 'pattern' }), true);
+  assert.equal(isPattern({ front: 'A mà B', type: ' Pattern ' }), true);
+  assert.equal(isPattern({ front: 'A mà B' }), false);
+  assert.equal(isPattern({ front: 'A veces', type: 'phrase' }), false);
+});
+
+test('a pattern card is a dictation target when it has two fixed words or more', () => {
+  const p = (front) => isDictatable({ front, type: 'pattern' });
+  assert.equal(p('hễ … là …'), true);
+  assert.equal(p('không … nữa'), true);
+  assert.equal(p('không những … mà còn …'), true);
+  assert.equal(p('càng… càng'), true);
+  assert.equal(p('A có điều là B'), true);
+  assert.equal(p('nói đến … người ta nghĩ ngay đến …'), true, 'six words or fewer in each part');
+  assert.equal(p('a b c d e f g …'), false);
+  assert.equal(p('… được'), false, 'one common word tests nothing');
+  assert.equal(p('A mà B'), false);
+  assert.equal(p('A, B, cả C'), false);
+  assert.equal(p('A được B + động từ'), false, 'a formula is still not a string');
+  assert.equal(p('một đống / một mớ'), false);
+  assert.equal(p('…'), false);
+});
+
+test('an unmarked card that looks like a pattern is judged as before', () => {
+  assert.equal(isDictatable({ front: 'hễ … là …' }), false);
+  assert.equal(isDictatable({ front: 'A mà B' }), true, 'three plain words, as far as anyone can tell');
 });
 
 test('a bare front/back pair is filled in', () => {

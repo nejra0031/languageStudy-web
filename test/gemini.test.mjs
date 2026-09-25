@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   fillTemplate, buildTermListing, sentenceVars, parseSentence, sentenceProblem,
-  RateLimiter, QuotaError, pcmToWav, formatWait, nextBankId, sidecarText, pickVoice, createClient,
+  RateLimiter, QuotaError, pcmToWav, createClient, formatWait, nextBankId, sidecarText, pickVoice,
 } from '../js/gemini.js';
 import { DEFAULT_SETTINGS, withDefaults } from '../js/defaults.js';
 
@@ -20,6 +20,21 @@ test('fillTemplate substitutes known keys and leaves unknown ones alone', () => 
 
 test('the term listing carries the meaning only when there is one', () => {
   assert.equal(buildTermListing(TERMS), '- "cải tiến" (to improve)\n- "tận hưởng"');
+});
+
+test('a pattern card is listed as one, to be used in its meaning with its gaps filled', () => {
+  const line = buildTermListing([{ front: 'mỗi … một …', back: 'each … (has its own) …', type: 'pattern' }]);
+  assert.match(line, /^- the grammar pattern "mỗi … một …", meaning "each … \(has its own\) …": /);
+  assert.match(line, /use this construction, in exactly this meaning/);
+  assert.match(line, /Each … \(or capital letter\) is a gap for your own words/);
+  assert.equal(buildTermListing([{ front: 'sắm', back: 'to buy', type: 'word' }]), '- "sắm" (to buy)', 'other cards as before');
+});
+
+test('sentenceProblem finds a pattern by its fixed words, and only on a pattern card', () => {
+  const s = withDefaults({});
+  const sentence = 'Anh nhớ để ý nhóm này vì chị ấy phụ trách mà anh lại rảnh.';
+  assert.equal(sentenceProblem(sentence, [{ front: 'A mà B', type: 'pattern' }], s), null);
+  assert.match(sentenceProblem(sentence, [{ front: 'A mà B' }], s), /missing target word/);
 });
 
 test('the default prompt renders with nothing left over', () => {
@@ -276,4 +291,84 @@ test('a model that refuses thinkingConfig with a bare 400 is retried without it,
   } finally {
     globalThis.fetch = saved;
   }
+});
+
+/* ── thinking ────────────────────────────────────────────────────────── */
+
+/* A client against a fake Gemini: `reply(model, body)` answers each request,
+   and every request is kept to be looked at. The limiter never refuses. */
+function fakeClient(reply, settings = {}) {
+  const sent = [];
+  const s = withDefaults({ targetLanguage: 'Vietnamese', ...settings });
+  globalThis.fetch = async (url, init) => {
+    const model = decodeURIComponent(/models\/([^:]+):/.exec(url)[1]);
+    const body = JSON.parse(init.body);
+    sent.push({ model, body });
+    const r = reply(model, body);
+    return r.status
+      ? { ok: false, status: r.status, text: async () => r.text }
+      : { ok: true, json: async () => r };
+  };
+  const limiter = { reserve: async () => {}, why: () => null, report: () => ({}), coolOff() {} };
+  const client = createClient({ getSettings: () => s, getApiKey: () => 'key', limiter });
+  return { client, sent, settings: s };
+}
+
+const SENTENCE = { candidates: [{ content: { parts: [{ text: 'TARGET: Tôi muốn cải tiến và tận hưởng mỗi buổi sáng ở đây.\nEN: I want to improve and enjoy every morning here.' }] } }] };
+const SPEECH = { candidates: [{ content: { parts: [{ inlineData: { mimeType: 'audio/L16;rate=24000', data: 'AAAAAA==' } }] } }] };
+const isSpeech = (body) => !!body.generationConfig.responseModalities;
+const thinking = (body) => body.generationConfig.thinkingConfig;
+
+test('the sentence is asked for with thinking off, so thought cannot eat the answer', async () => {
+  const { client, sent } = fakeClient((model, body) => (isSpeech(body) ? SPEECH : SENTENCE));
+  const { entry } = await client.generateCard(TERMS, [], 'default');
+  assert.ok(entry.sentence.includes('cải tiến'));
+  const text = sent.filter((r) => !isSpeech(r.body));
+  assert.equal(text.length, 1);
+  assert.deepEqual(thinking(text[0].body), { thinkingBudget: 0 });
+  assert.ok(text[0].body.generationConfig.maxOutputTokens >= 8192, 'room to answer even if it thinks');
+});
+
+test('a model that refuses thinkingConfig is asked again without it, and remembered', async () => {
+  const refusing = 'gemini-thinks-always';
+  const { client, sent, settings } = fakeClient((model, body) => {
+    if (isSpeech(body)) return SPEECH;
+    if (model === refusing && thinking(body)) {
+      return { status: 400, text: '{"error":{"message":"Thinking budget is not supported for this model."}}' };
+    }
+    return SENTENCE;
+  }, { textModel: refusing });
+
+  await client.generateCard(TERMS, [], 'default');
+  let text = sent.filter((r) => !isSpeech(r.body));
+  assert.equal(text.length, 2, 'one refusal, one retry');
+  assert.equal(thinking(text[1].body), undefined);
+
+  sent.length = 0;
+  await client.generateCard(TERMS, [], 'default');
+  text = sent.filter((r) => !isSpeech(r.body));
+  assert.equal(text.length, 1, 'the next card does not pay for the refusal again');
+  assert.equal(thinking(text[0].body), undefined);
+
+  /* Another model has not refused anything, so it is still asked not to think. */
+  settings.textModel = 'gemini-3.6-flash';
+  sent.length = 0;
+  await client.generateCard(TERMS, [], 'default');
+  text = sent.filter((r) => !isSpeech(r.body));
+  assert.deepEqual(thinking(text[0].body), { thinkingBudget: 0 });
+});
+
+/* Any 400 is taken as a possible refusal, because some models refuse the
+   field with a bare "invalid argument". A 400 about something else costs one
+   retry, is still reported, and is not remembered as a refusal. */
+test('a 400 about something else costs one retry, is reported, and is not remembered', async () => {
+  const { client, sent } = fakeClient(() => ({ status: 400, text: '{"error":{"message":"API key not valid."}}' }));
+  await assert.rejects(client.generateCard(TERMS, [], 'default'), /HTTP 400/);
+  assert.equal(sent.length, 2);
+  assert.deepEqual(thinking(sent[0].body), { thinkingBudget: 0 });
+  assert.equal(thinking(sent[1].body), undefined);
+
+  sent.length = 0;
+  await assert.rejects(client.generateCard(TERMS, [], 'default'), /HTTP 400/);
+  assert.deepEqual(thinking(sent[0].body), { thinkingBudget: 0 }, 'thinking is still turned off next time');
 });

@@ -95,7 +95,8 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
 
 Unit tests cover the modules without a DOM — `deck.js`, `text.js`,
 `gemini.js`, the model catalogue, `speech.js`, `zip.js`, `bundle.js`,
-`shadowing.js` and `shadow-rules.js` — not the tabs. For anything a user sees, drive the
+`opus.js`, `convert-audio.js`, `shadowing.js` and `shadow-rules.js` — not the tabs. For
+anything a user sees, drive the
 real page. Playwright's WebKit is Safari's engine and works well; some quirks
 cost time the first time:
 
@@ -104,6 +105,13 @@ cost time the first time:
   run on a fresh port.
 - OPFS needs a persistent context (`webkit.launchPersistentContext`); a plain
   `launch()` cannot save, and the app then says so.
+- On Windows, Playwright's WebKit does not keep what `createWritable` writes
+  to OPFS: a file written and read straight back is empty, even through the
+  raw API. Anything that reads a file back — reopening a shadowing set, a
+  deck after reload — fails there with a JSON parse error that is not the
+  app's. Check those steps in Chromium instead
+  (`chromium.launchPersistentContext(dir, { channel: 'chromium' })`), whose
+  OPFS works; real Safari runs a different WebKit.
 - Headless browsers have no speech voices. Stub `window.speechSynthesis` and
   `SpeechSynthesisUtterance` with an init script to see what would be said.
 - The repo has no package.json, so Node detects the modules as ESM. Running

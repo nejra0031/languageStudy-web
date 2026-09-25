@@ -29,7 +29,7 @@
 
 import * as store from './store.js';
 import * as storage from './storage.js';
-import { isDictatable, inScope } from './deck.js';
+import { isDictatable, isPattern, inScope } from './deck.js';
 import { escapeHtml } from './text.js';
 import { formatWait, QuotaError } from './gemini.js';
 import { createRecorder, SUPPORTED as CAN_RECORD } from './recorder.js';
@@ -216,7 +216,9 @@ function setSeg(id, key, value) {
 /* ── the pool ────────────────────────────────────────────────────────── */
 
 function cardPool() {
-  return store.practiceCards().filter((c) => isDictatable(c) && inScope(c, scope));
+  /* A pattern card can be heard in a dictation sentence, but its front is
+     not something to read aloud — "hễ … là …" has no way to be said. */
+  return store.practiceCards().filter((c) => isDictatable(c) && !isPattern(c) && inScope(c, scope));
 }
 
 function bankPool() {
@@ -231,7 +233,7 @@ function renderPool() {
   const src = sources();
   const cards = src.cards ? cardPool().length : 0;
   const bank = src.bank ? bankPool().length : 0;
-  const slips = store.practiceCards().filter((c) => c.accent_slip && isDictatable(c)).length;
+  const slips = store.practiceCards().filter((c) => c.accent_slip && isDictatable(c) && !isPattern(c)).length;
   const el = $('sh-scope').querySelector('[data-scope="accents"]');
   if (el) el.textContent = slips ? `Accents (${slips})` : 'Accents';
 
@@ -520,8 +522,14 @@ async function playModel(index) {
   speech.stop();
   if (recordingIndex !== null) return;    // never play into an open microphone
 
-  if (item.source === 'bank' && item.audio) {
-    const url = await storage.readBlobUrl(item.audio);
+  /* The bank entry is asked first: its file can change after the set was
+     made (a WAV converted to Ogg), and the path kept on the item is only the
+     one it had then. */
+  const banked = item.source === 'bank' && item.bankId
+    ? store.state.manifest.find((e) => e.id === item.bankId) : null;
+  const audioPath = (banked && banked.file) || item.audio;
+  if (item.source === 'bank' && audioPath) {
+    const url = await storage.readBlobUrl(audioPath);
     if (!url) { showError('The recording for this line is missing from the sentence bank.'); return; }
     urls.add(url);
     player = new Audio(url);

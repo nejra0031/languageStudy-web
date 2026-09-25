@@ -15,6 +15,7 @@ import { makeZip, readZip } from './zip.js';
 import { backupDue, lastPractice, firstPractice, agoLabel, DAYS } from './backup-due.js';
 import * as speech from './speech.js';
 import * as azure from './azure-tts.js';
+import { canEncodeOpus } from './opus.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -49,7 +50,9 @@ export function init() {
   store.subscribe('quota', renderQuota);
   store.subscribe('deck', renderStore);
   store.subscribe('settings', renderBackupDue);
+  store.subscribe('bank', () => renderBankConvert());
   wireBackupDue();
+  wireBankConvert();
   render();
   renderStore();
   renderQuota();
@@ -372,6 +375,62 @@ function renderBackupDue() {
   $('backup-due-text').textContent = (state.never
     ? `You have practised for ${state.days} days without a backup. `
     : `Your last backup was ${agoLabel(state.days)}, and you have practised since. `) + risk;
+}
+
+/* ── converting old WAV sentences ────────────────────────────────────── */
+
+let converting = false;
+let convertResult = '';     // what the last run did, said until the next
+
+/* Offered only while there is something to convert. The note says what the
+   button will do before it is pressed, and what it did afterwards. */
+function renderBankConvert() {
+  if (converting) return;
+  const done = convertResult;
+  const wavs = store.bankWavCount();
+  const note = $('bank-convert-note');
+  const btn = $('bank-convert');
+  note.hidden = !wavs && !done;
+  $('bank-convert-row').hidden = !wavs;
+  btn.disabled = !canEncodeOpus() || !store.state.persistent;
+  const n = (k) => `${k} sentence${k === 1 ? '' : 's'}`;
+  const lead = done ? `${done} ` : '';
+  if (!wavs) { note.textContent = done || ''; return; }
+  note.innerHTML = lead + `<strong>${n(wavs)} in the dictation bank ${wavs === 1 ? 'is' : 'are'} saved as WAV</strong>, from before new audio was saved as Ogg Opus. Converting ${wavs === 1 ? 'it makes it' : 'them makes them'} about a twelfth the size, sounding the same; a backup you already have is not touched.`
+    + (canEncodeOpus() ? '' : ' <strong>This browser has no Opus encoder</strong> (Safari 26, Chrome, Edge or Firefox 130 and later have one), so it cannot convert them.');
+}
+
+function wireBankConvert() {
+  $('bank-convert').addEventListener('click', async () => {
+    if (converting) return;
+    converting = true;
+    const btn = $('bank-convert');
+    const note = $('bank-convert-note');
+    btn.disabled = true;
+    let summary = '';
+    try {
+      const r = await store.convertBankAudio((i, total) => {
+        note.textContent = `Converting ${i} of ${total}…`;
+      });
+      if (r) {
+        const left = [
+          r.missing ? `${r.missing} had no audio file` : '',
+          r.unusual ? `${r.unusual} ${r.unusual === 1 ? 'is' : 'are'} not a kind of WAV this app writes` : '',
+          r.failed ? `${r.failed} could not be encoded or saved` : '',
+        ].filter(Boolean);
+        summary = `Converted ${r.converted} of ${r.total}: ${size(r.before)} → ${size(r.after)}.`
+          + (left.length ? ` Left as WAV: ${left.join(', ')}.` : '');
+      }
+    } catch (e) {
+      console.error(e);
+      summary = `Converting stopped: ${e.message}. Every sentence still plays; what was converted is kept.`;
+    } finally {
+      converting = false;
+      convertResult = summary;
+      renderBankConvert();
+    }
+  });
+  renderBankConvert();
 }
 
 function setStoreStatus(text, cls) {

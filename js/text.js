@@ -40,28 +40,61 @@ export function base(w) {
     .replace(/đ/g, 'd');
 }
 
-/* True when the term appears once accents are ignored — the word was heard,
-   whether or not its marks were. Built on contains(), so it agrees with it on
-   everything except the accents. */
-export function containsLoosely(haystack, term) {
-  const t = String(term || '').replace(/\([^)]*\)/g, ' ');
-  return contains(haystack.map(base), words(t).map(base).join(' '));
+/* A card's front can be a pattern rather than a phrase: "hễ … là …",
+   "không những … mà còn …", "A mà B". A gap means any words may go there, so
+   a sentence uses the pattern when its fixed parts appear in order, each one
+   word for word. Without this, a pattern with a gap in the middle could never
+   be found in a real sentence — "hễ là" is not something anyone says.
+
+   An ellipsis (… or ...) is a gap wherever it appears. A lone capital Latin
+   letter is a gap only when the caller says the front is a pattern (the
+   card's type, see deck.js): on any other card it may be a real word —
+   Spanish "A veces", "Y tú" — and guessing which would be a rule for some
+   languages and not others. Parentheticals are usage notes, not part of the
+   string to match, so "đóng (học phí)" is matched on "đóng".
+
+   Returns the fixed parts as word lists; a plain phrase is one part. */
+const GAP = /…|\.{3,}/g;
+const SLOT = /(?<![\p{L}\p{N}])[A-Z](?![\p{L}\p{N}])/gu;
+
+export function termPieces(term, pattern = false) {
+  let t = String(term || '').replace(/\([^)]*\)/g, ' ');
+  if (pattern) t = t.replace(SLOT, ' … ');
+  return t.split(GAP).map(words).filter((p) => p.length);
 }
 
-/* True when the term's whole word sequence appears verbatim — accents and all
-   — somewhere in `haystack`. Parentheticals in the term are usage notes, not
-   part of the string to match, so "đóng (học phí)" is matched on "đóng". */
-export function contains(haystack, term) {
-  const t = words(String(term || '').replace(/\([^)]*\)/g, ' '));
-  if (!t.length) return false;
-  for (let i = 0; i + t.length <= haystack.length; i++) {
-    let hit = true;
-    for (let k = 0; k < t.length; k++) {
-      if (haystack[i + k] !== t[k]) { hit = false; break; }
+/* Each piece found whole, after the one before it. Taking the earliest place
+   each piece fits leaves the most room for the rest, so this finds a match
+   whenever there is one. */
+function inOrder(haystack, pieces) {
+  if (!pieces.length) return false;
+  let from = 0;
+  for (const piece of pieces) {
+    let at = -1;
+    for (let i = from; i + piece.length <= haystack.length; i++) {
+      let hit = true;
+      for (let k = 0; k < piece.length; k++) {
+        if (haystack[i + k] !== piece[k]) { hit = false; break; }
+      }
+      if (hit) { at = i; break; }
     }
-    if (hit) return true;
+    if (at === -1) return false;
+    from = at + piece.length;
   }
-  return false;
+  return true;
+}
+
+/* True when the term appears once accents are ignored — the word was heard,
+   whether or not its marks were. Built on the same pieces as contains(), so
+   it agrees with it on everything except the accents. */
+export function containsLoosely(haystack, term, pattern = false) {
+  return inOrder(haystack.map(base), termPieces(term, pattern).map((p) => p.map(base)));
+}
+
+/* True when the term appears verbatim — accents and all — somewhere in
+   `haystack`: a phrase as a run of words, a pattern as its parts in order. */
+export function contains(haystack, term, pattern = false) {
+  return inOrder(haystack, termPieces(term, pattern));
 }
 
 /* Longest common subsequence over base forms, returned as index pairs. */

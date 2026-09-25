@@ -12,6 +12,7 @@
    that a retry storm would eat a day's budget in a minute. */
 
 import { words, contains } from './text.js';
+import { isPattern } from './deck.js';
 import { VOICE_NAMES, modelLimits, FEEDBACK_REQUEST_BLOCK } from './defaults.js';
 import { buildGradingParts, readGrading, attachableClips } from './shadowing.js';
 import {
@@ -40,9 +41,21 @@ export function fillTemplate(template, vars) {
     (Object.prototype.hasOwnProperty.call(vars, name) ? String(vars[name]) : match));
 }
 
+/* A pattern card gets a line of its own. The prompt around the listing says
+   to use every term "exactly as written", which a pattern cannot be, and a
+   meaning in brackets reads as a gloss, not a requirement — so the model
+   would put the fixed words in order and stop there: "mỗi … lại sắm một
+   bộ đồ" for "mỗi … một …" (each … its own …), which has both words and
+   is not the pattern. The app can only check the words; the meaning has to
+   be asked for. Said plainly here, the line overrides "exactly as written"
+   for this one term, and holds even where a user has rewritten the prompt. */
 export function buildTermListing(terms) {
   return terms
-    .map((t) => `- "${t.front}"` + (t.back ? ` (${t.back})` : ''))
+    .map((t) => (isPattern(t)
+      ? `- the grammar pattern "${t.front}"` + (t.back ? `, meaning "${t.back}"` : '')
+        + ': use this construction, in exactly this meaning.'
+        + ' Each … (or capital letter) is a gap for your own words; the other words stay, in this order.'
+      : `- "${t.front}"` + (t.back ? ` (${t.back})` : '')))
     .join('\n');
 }
 
@@ -102,7 +115,7 @@ export function sentenceProblem(target, terms, settings) {
   if (w.length < min) return `too short (${w.length} words)`;
   if (w.length > max) return `too long (${w.length} words)`;
   if (target.trimStart().startsWith('>')) return 'looks like commentary, not a sentence';
-  const missing = terms.filter((t) => !contains(w, t.front)).map((t) => t.front);
+  const missing = terms.filter((t) => !contains(w, t.front, isPattern(t))).map((t) => t.front);
   if (missing.length) return 'missing target word(s): ' + missing.join(', ');
   return null;
 }
@@ -315,17 +328,59 @@ export function pcmToWav(bytes, mime) {
 /* The file a spoken sentence is saved as: Ogg Opus where the browser can
    encode it, a twelfth the size, and WAV where it cannot — see opus.js. A
    bank that already holds WAVs keeps them; each entry names its own file.
-   A payload that arrives already in a container is kept as it came. */
+
+   Gemini has sent the speech both ways: as bare PCM described by a mime type
+   like audio/L16;rate=24000, and as a finished audio/wav file. Either way the
+   samples are the same, so a plain 16-bit mono WAV is opened up and encoded
+   like bare PCM. Anything else that arrives already in a container is kept
+   as it came. */
 export async function speechFile(bytes, mime) {
-  const wav = pcmToWav(bytes, mime);
-  if (wav === bytes) {
-    const ogg = ascii4(bytes) === 'OggS';
-    return { bytes, ext: ogg ? 'ogg' : 'wav', type: ogg ? OPUS_MIME : 'audio/wav' };
+  const head = ascii4(bytes);
+  let pcm = null;
+  let rate = 24000;
+  if (head === 'RIFF') {
+    const inside = wavSamples(bytes);
+    if (inside) ({ pcm, rate } = inside);
+  } else if (head !== 'OggS' && head.slice(0, 3) !== 'ID3') {
+    const m = /rate=(\d+)/.exec(mime || '');
+    pcm = bytes;
+    if (m) rate = Number(m[1]);
   }
-  const m = /rate=(\d+)/.exec(mime || '');
-  const opus = await encodeOggOpus(bytes, m ? Number(m[1]) : 24000);
+
+  const opus = pcm && await encodeOggOpus(pcm, rate);
   if (opus) return { bytes: opus, ext: 'ogg', type: OPUS_MIME };
-  return { bytes: wav, ext: 'wav', type: 'audio/wav' };
+  if (head === 'OggS') return { bytes, ext: 'ogg', type: OPUS_MIME };
+  return { bytes: pcmToWav(bytes, mime), ext: 'wav', type: 'audio/wav' };
+}
+
+/* The samples and rate inside a WAV, when it is 16-bit mono PCM — the only
+   kind Gemini sends, and the only kind the encoder is given; or null. Walks
+   the chunks rather than assuming a 44-byte header, since a writer may put
+   others (LIST, fact) before the data. A data size larger than the file, as
+   a streaming writer leaves it, is read as "to the end". */
+export function wavSamples(bytes) {
+  if (bytes.length < 12 || ascii4(bytes) !== 'RIFF'
+      || String.fromCharCode(...bytes.slice(8, 12)) !== 'WAVE') return null;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let format = null;
+  for (let at = 12; at + 8 <= bytes.length;) {
+    const id = String.fromCharCode(...bytes.slice(at, at + 4));
+    const size = view.getUint32(at + 4, true);
+    const body = at + 8;
+    if (id === 'fmt ' && body + 16 <= bytes.length) {
+      format = {
+        code: view.getUint16(body, true),
+        channels: view.getUint16(body + 2, true),
+        rate: view.getUint32(body + 4, true),
+        bits: view.getUint16(body + 14, true),
+      };
+    } else if (id === 'data') {
+      if (!format || format.code !== 1 || format.channels !== 1 || format.bits !== 16) return null;
+      return { pcm: bytes.subarray(body, Math.min(body + size, bytes.length)), rate: format.rate };
+    }
+    at = body + size + (size & 1);               // chunks are padded to even
+  }
+  return null;
 }
 
 function ascii4(bytes) {
@@ -426,15 +481,66 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     if (why) throw new QuotaError(why, limiter.report(s).retryAfter);
   }
 
+  /* ── thinking ──────────────────────────────────────────────────────── */
+
+  /* Reasoning-capable Flash models think by default, and the thinking tokens
+     come out of the SAME budget as the visible answer — so the reasoning can
+     eat the whole maxOutputTokens and leave nothing: a grading reply cut off
+     mid-object, or a dictation sentence that never arrives at all
+     (finishReason MAX_TOKENS, no text, 2000+ thought tokens). Neither job
+     needs to reason; both need their answer. thinkingConfig turns it off,
+     but support and valid range vary by model, and an alias can start
+     pointing somewhere new with no change on our side.
+
+     So: try with the field, and if the API rejects the request, retry once
+     without and REMEMBER that for the rest of the page's life. Without the
+     memory every later call pays for two real requests and silently doubles
+     what the budget is spending. It is remembered per model: the sentence
+     writer and the grader can be different models, and one refusing says
+     nothing about the other.
+
+     Any HTTP 400 counts as a refusal, not only one that mentions thinking:
+     gemini-3.5-flash-lite answers the field with a bare "Request contains an
+     invalid argument". If the 400 was about something else, the retry fails
+     the same way and that error is the one reported, so guessing wrong costs
+     one call. And the refusal is remembered only once the request without
+     the field has worked, so a 400 about something else does not switch
+     thinking on for that model for good. */
+  const thinkingRejected = new Set();
+
+  function isBadRequest(err) {
+    return err instanceof GeminiError && /HTTP 400/.test(err.message);
+  }
+
+  /* call(), asking the model not to think. `request` is the body without
+     thinkingConfig; it is added here, or left off for a model that refused it. */
+  async function callWithoutThinking(model, request, rpm, rpd, waitUpTo = 0) {
+    const body = () => (thinkingRejected.has(model) ? request : {
+      ...request,
+      generationConfig: { ...request.generationConfig, thinkingConfig: { thinkingBudget: 0 } },
+    });
+    try {
+      return await call(model, body(), rpm, rpd, waitUpTo);
+    } catch (e) {
+      if (!isBadRequest(e) || thinkingRejected.has(model)) throw e;
+      const data = await call(model, request, rpm, rpd, waitUpTo);
+      thinkingRejected.add(model);
+      return data;
+    }
+  }
+
   async function writeSentence(terms) {
     const s = getSettings();
     const prompt = fillTemplate(s.prompts.sentence, sentenceVars(s, terms));
     const l = modelLimits(s, s.textModel);
     const problems = [];
     for (let attempt = 0; attempt < 3; attempt++) {
-      const data = await call(s.textModel, {
+      /* With thinking off a sentence needs a few dozen tokens. The ceiling is
+         for a model that refuses to stop thinking, so it still has room left
+         to answer; it is a cap, not a charge. */
+      const data = await callWithoutThinking(s.textModel, {
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 1.0, maxOutputTokens: 2048 },
+        generationConfig: { temperature: 1.0, maxOutputTokens: 8192 },
       }, l.rpm, l.rpd, attempt ? 75 : 0);
       const { target, english } = parseSentence(firstText(data));
       const why = sentenceProblem(target, terms, s);
@@ -509,51 +615,6 @@ export function createClient({ getSettings, getApiKey, limiter }) {
 
   /* ── shadowing ─────────────────────────────────────────────────────── */
 
-  /* Reasoning-capable Flash models think by default, and the thinking tokens
-     come out of the SAME budget as the visible answer — so the reasoning can
-     eat the whole maxOutputTokens and cut the JSON off mid-object, leaving
-     nothing parseable. thinkingConfig turns it off, but support and valid
-     range vary by model, and an alias can start pointing somewhere new with no
-     change on our side.
-
-     So: try with the field, and if the API rejects the request, retry once
-     without and REMEMBER that for the rest of the page's life. Without the
-     memory every later call pays for two real requests and silently doubles
-     what the budget is spending.
-
-     The memory is per model. A model that refuses the field says nothing
-     about the next one, and forgetting it for every model would turn thinking
-     back on for exactly the models the field exists to protect.
-
-     Any HTTP 400 counts as a refusal, not only one that mentions thinking:
-     some models answer a field they do not take with a bare "Request contains
-     an invalid argument". If the 400 was about something else, the retry
-     fails the same way and that error is the one reported, so the cost of
-     guessing wrong is one call, once per model. */
-  const thinkingRejected = new Set();
-
-  function isBadRequest(err) {
-    return err instanceof GeminiError && /HTTP 400/.test(err.message);
-  }
-
-  /* One call with thinking turned off where the model allows it. `body` is
-     handed whether to ask, so the retry is the same request minus the field. */
-  async function callUnthinking(model, body) {
-    const s = getSettings();
-    const l = modelLimits(s, model);
-    if (thinkingRejected.has(model)) return call(model, body({}), l.rpm, l.rpd);
-    try {
-      return await call(model, body({ thinkingConfig: { thinkingBudget: 0 } }), l.rpm, l.rpd);
-    } catch (e) {
-      if (!isBadRequest(e)) throw e;
-      /* Remembered only once the request without the field has worked, so a
-         400 about something else does not switch thinking on for good. */
-      const data = await call(model, body({}), l.rpm, l.rpd);
-      thinkingRejected.add(model);
-      return data;
-    }
-  }
-
   /* One call, carrying the reference text of every recorded line and the
      learner's recording of it. Returns normalised feedback, or throws — a
      reply that cannot be read is a failure, never a half grade, because a
@@ -570,11 +631,12 @@ export function createClient({ getSettings, getApiKey, limiter }) {
       items, clips: attach, focus, language: s.targetLanguage, itemCount,
     });
 
-    const data = await callUnthinking(s.shadowModel, (thinking) => ({
+    const l = modelLimits(s, s.shadowModel);
+    const data = await callWithoutThinking(s.shadowModel, {
       system_instruction: { parts: [{ text: system }] },
       contents: [{ parts: userParts }],
-      generationConfig: { temperature: 0.3, maxOutputTokens: 16384, ...thinking },
-    }));
+      generationConfig: { temperature: 0.3, maxOutputTokens: 16384 },
+    }, l.rpm, l.rpd);
 
     const graded = readGrading(firstText(data), itemCount);
     if (!graded) {
@@ -608,10 +670,11 @@ export function createClient({ getSettings, getApiKey, limiter }) {
   async function rulesCall(prompt, what) {
     rulesPreflight();
     const s = getSettings();
-    const data = await callUnthinking(s.textModel, (thinking) => ({
+    const l = modelLimits(s, s.textModel);
+    const data = await callWithoutThinking(s.textModel, {
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.4, maxOutputTokens: 8192, ...thinking },
-    }));
+      generationConfig: { temperature: 0.4, maxOutputTokens: 8192 },
+    }, l.rpm, l.rpd);
     const reply = readRules(firstText(data));
     if (!reply) {
       throw new GeminiError(`${s.textModel} replied with something that could not be read as ${what}. The listening rules were left as they were.`);

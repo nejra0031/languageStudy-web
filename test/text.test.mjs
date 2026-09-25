@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  normalize, words, base, contains, containsLoosely, diff,
+  normalize, words, base, contains, containsLoosely, diff, termPieces,
   compareAnswer, compareMeaning, meaningVariants, accentMarks,
 } from '../js/text.js';
 
@@ -74,6 +74,42 @@ test('accentMarks flags only the characters that differ', () => {
   const marks = accentMarks('cai tien', 'cải tiến');
   assert.equal(marks.length, 8);
   assert.deepEqual(marks.filter((m) => m.bad).map((m) => m.ch), ['a', 'e']);
+});
+
+test('a pattern front matches when its fixed parts appear in order, with words between', () => {
+  const w = (s) => words(s);
+  assert.ok(contains(w('Hễ trời mưa là tôi ở nhà.'), 'hễ … là …'));
+  assert.ok(contains(w('Không những đẹp mà còn rẻ.'), 'không những … mà còn …'));
+  assert.ok(contains(w('Tôi không ăn thịt nữa.'), 'không … nữa'));
+  assert.ok(contains(w('Chính là anh ấy.'), 'chính là ...'));
+  assert.ok(contains(w('Khi thì vui khi thì buồn.'), 'khi thì … khi thì …'));
+  assert.ok(!contains(w('Là tôi, hễ có dịp.'), 'hễ … là …'), 'order matters');
+  assert.ok(!contains(w('Khi thì vui.'), 'khi thì … khi thì …'), 'a repeated part must appear twice');
+  assert.ok(!contains(w('Tôi không ăn thịt nưa.'), 'không … nữa'), 'accents still count');
+});
+
+test('capital letters are gaps only on a pattern card', () => {
+  assert.deepEqual(termPieces('A mà B', true), [['mà']]);
+  assert.deepEqual(termPieces('A có điều là B', true), [['có', 'điều', 'là']]);
+  assert.deepEqual(termPieces('X mà còn …, huống chi Y', true), [['mà', 'còn'], ['huống', 'chi']]);
+  assert.ok(contains(words('Chị ấy phụ trách mà anh lại rảnh.'), 'A mà B', true));
+  assert.deepEqual(termPieces('A mà B'), [['a', 'mà', 'b']], 'not said to be a pattern: three words');
+  assert.deepEqual(termPieces('A veces'), [['a', 'veces']]);
+  assert.ok(contains(words('A veces llueve.'), 'A veces'));
+  assert.deepEqual(termPieces('Ánh sáng', true), [['ánh', 'sáng']], 'a capital with an accent is a word');
+  assert.deepEqual(termPieces('ABC', true), [['abc']], 'letters inside a word are not gaps');
+});
+
+test('a front of nothing but gaps matches nothing', () => {
+  assert.equal(contains(words('bất cứ câu nào'), '…'), false);
+  assert.equal(contains(words('bất cứ câu nào'), 'A, B', true), false);
+});
+
+test('containsLoosely hears a pattern whatever its accents, in order', () => {
+  const heard = words('Hê trời mưa la tôi ở nhà.');
+  assert.ok(!contains(heard, 'hễ … là …'));
+  assert.ok(containsLoosely(heard, 'hễ … là …'));
+  assert.ok(!containsLoosely(words('la tôi, hê'), 'hễ … là …'));
 });
 
 test('containsLoosely hears a word whatever its accents', () => {

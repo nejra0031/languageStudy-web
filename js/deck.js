@@ -18,7 +18,7 @@
    stored: a rolling window of 8 is the only history kept, so a second copy of
    the same numbers could only ever drift out of step with it. */
 
-import { words } from './text.js';
+import { words, termPieces } from './text.js';
 
 export const WINDOW = 8;
 export const SCORE_LABEL = ['', 'Very weak', 'Weak', 'Developing', 'Good', 'Mastered'];
@@ -141,19 +141,44 @@ export function inScope(card, scope) {
   return true;
 }
 
+/* A card whose front is a grammar pattern rather than a word or phrase:
+   "hễ … là …", "A mà B". Said by the card itself, in an optional
+   `"type": "pattern"`, rather than guessed from the front — a capital letter
+   is a placeholder in "A mà B" and a word in Spanish "A veces", and only the
+   card's author knows which. Any other `type` (word, phrase, sentence …) is
+   carried through untouched and changes nothing, as before. */
+export function isPattern(card) {
+  return String((card && card.type) || '').trim().toLowerCase() === 'pattern';
+}
+
 /* Can this card be a dictation target?
 
    The question is "could this be heard and matched word for word?", which is
    not the same as "could this be typed from a prompt". Grammar notes and usage
    entries are perfectly good dictation targets even though they make poor
    typing cards, and that is where the weak scores tend to live. What is
-   excluded is anything with no single matchable string: comparisons, slashed
-   alternatives, ellipsed patterns, and placeholder formulas. */
+   excluded is anything with no matchable string: comparisons, slashed
+   alternatives and placeholder formulas.
+
+   A pattern card is matched on its fixed words in order, gaps and all (see
+   text.js), so its ellipses and letters are no obstacle. It still needs two
+   fixed words or more: "… được" or "về …" would count as used by any
+   sentence with that one common word in it, in whatever sense, and typing it
+   back tests nothing about the pattern. The six-word limit a phrase has, so
+   it can be heard as a unit, applies to each fixed part of a pattern rather
+   than to all of them together. A card that only looks like a pattern but
+   is not marked as one is judged as before, so an ellipsis still keeps it
+   out. */
 export function isDictatable(card) {
   const t = String((card && card.front) || '');
   if (!t) return false;
   if (/\svs\.?\s/i.test(t)) return false;
-  if (t.includes('/') || t.includes('…') || t.includes('...') || t.includes('+')) return false;
+  if (t.includes('/') || t.includes('+')) return false;
+  if (isPattern(card)) {
+    const pieces = termPieces(t, true);
+    return pieces.flat().length >= 2 && pieces.every((p) => p.length <= 6);
+  }
+  if (t.includes('…') || t.includes('...')) return false;
   const core = words(t.replace(/\([^)]*\)/g, ' '));
   return core.length >= 1 && core.length <= 6;
 }

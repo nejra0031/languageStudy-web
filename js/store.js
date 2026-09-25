@@ -27,6 +27,8 @@ import {
   editRules, shouldRevise, ratingsFor, collectRated, countRatings, totalOf,
   isRating, ratingsByGeneration,
 } from './shadow-rules.js';
+import { convertBank, isWavEntry } from './convert-audio.js';
+import { encodeOggOpus, OPUS_MIME } from './opus.js';
 
 const SETTINGS_FILE = 'settings.json';
 const QUOTA_FILE = 'audio/quota.json';
@@ -341,6 +343,34 @@ export function findCard(front, preferred) {
 export async function saveManifest() {
   if (state.persistent) await storage.writeJson(MANIFEST_FILE, state.manifest);
   emit('bank');
+}
+
+/* Banked sentences still saved as WAV, from before audio was saved as Ogg
+   Opus — the ones convertBankAudio would shrink. */
+export function bankWavCount() {
+  return state.manifest.filter(isWavEntry).length;
+}
+
+/* Converts them in place; see convert-audio.js for the order that keeps each
+   sentence playable throughout. Only for a store that is saving: without one
+   there are no files to convert. */
+export async function convertBankAudio(onProgress) {
+  if (!state.persistent) return null;
+  try {
+    return await convertBank(state.manifest, {
+      read: async (path) => {
+        const blob = await storage.readBlob(path);
+        return blob ? new Uint8Array(await blob.arrayBuffer()) : null;
+      },
+      write: (path, bytes) => storage.writeBlob(path, new Blob([bytes], { type: OPUS_MIME })),
+      remove: (path) => storage.remove(path),
+      list: () => storage.listIn('audio'),
+      save: () => storage.writeJson(MANIFEST_FILE, state.manifest),
+      encode: encodeOggOpus,
+    }, { onProgress });
+  } finally {
+    emit('bank');
+  }
 }
 
 /* Whether a banked sentence belongs to the decks currently ticked.
