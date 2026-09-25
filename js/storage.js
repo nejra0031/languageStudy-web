@@ -14,7 +14,9 @@
                           browser cannot encode it)
      shadowing/manifest.json   the shadowing session index
      shadowing/<id>.json       one session: its lines and its feedback
-     shadowing/<id>_<n>.webm   your own voice, one file per line
+     shadowing/<id>_<n>_t<k>.webm   your own voice: take k of line n. Takes
+                               that were handed in are kept; one recorded
+                               over before a hand-in is not
      voice/<voice>_<hash>.mp3  a word read by an Azure voice, kept so it is
                                fetched once, ever — see azure-tts.js
 

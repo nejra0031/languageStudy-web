@@ -124,10 +124,17 @@ everything new. But the ticks are yours to change:
 The buttons beside **Hand in** tick the lines still waiting for feedback
 (**Waiting**), every recorded line (**All recorded**), or nothing (**None**).
 The model is told how many of how many lines it is given, so a line you kept
-back is never mistaken for one you muffed. The summary at the top of the
-feedback is about your last hand-in, and says which lines it covered. A
-hand-in that fails takes nothing away: the error shows above the feedback you
-already had.
+back is never mistaken for one you muffed. A hand-in that fails takes nothing
+away: the error shows above the feedback you already had.
+
+**Each hand-in is its own block.** Handing in 4 lines of a 10-line set puts
+those 4 in a box headed *Hand-in 1 · lines 1–4*, with their notes and a *How
+you sounded* written about those 4 lines and no others. The next hand-in gets
+the next box, and the lines not yet handed in wait underneath. A line handed
+in again moves to the new box. Its earlier box keeps, dimmed, what was said
+about the earlier take, so each summary still sits beside what it was about.
+In the history list, a set handed in more than once shows each hand-in as a
+row of its own, which opens the set at that hand-in.
 
 ### The language of the feedback
 
@@ -196,6 +203,13 @@ and dropping one to protect a surprise would be the worse trade.
 They are written into `shadowing/` as you make them — before you hand anything
 in, so a set is never lost — and they ride along in the `.zip` backup. When you
 hand a set in, the audio goes to Google with your API key, and nowhere else.
+
+**A take that was handed in is kept.** Record a line again after it has had
+feedback, and the new take is saved beside the old one instead of over it. The
+earlier hand-in's note gets a ▶ that plays the take it was about, so you can
+hear the difference. A take you record over *before* handing it in is not
+kept: re-record as often as you like, and nothing piles up. Takes recorded over
+before this was added are gone; their notes say so.
 
 Each past set is kept with its feedback so you can play back what the feedback
 is about. **Delete** removes one set and its recordings; **Delete all

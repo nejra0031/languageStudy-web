@@ -35,7 +35,8 @@ import { formatWait, QuotaError } from './gemini.js';
 import { createRecorder, SUPPORTED as CAN_RECORD } from './recorder.js';
 import {
   buildSet, nextSessionId, takePath, focusFor, takeOf, noteIsCurrent, notesByIndex,
-  pendingIndices, sessionStatus, mergeGrading,
+  pendingIndices, sessionStatus, mergeGrading, groupByHandin, lineList,
+  takeWasHandedIn, pinTakeFile,
 } from './shadowing.js';
 import { RATINGS, totalOf, languageKey, noteGeneration } from './shadow-rules.js';
 import { describe } from './tab-settings.js';
@@ -110,6 +111,7 @@ export function init() {
     }
     const btn = e.target.closest('button[data-act]');
     if (!btn) return;
+    if (btn.dataset.act === 'old') { playFile(btn.dataset.file); return; }
     const index = Number(btn.closest('[data-index]').dataset.index);
     if (btn.dataset.act === 'model') playModel(index);
     else if (btn.dataset.act === 'mine') playMine(index);
@@ -171,7 +173,8 @@ export function init() {
       render();
       return;
     }
-    if (e.target.closest('[data-act="open"]')) await openSession(id);
+    const open = e.target.closest('[data-act="open"]');
+    if (open) await openSession(id, Number(open.dataset.handin) || null);
   });
 
   scope = store.state.settings.shadowScope || 'all';
@@ -377,7 +380,7 @@ async function newSet() {
   render();
 }
 
-async function openSession(id) {
+async function openSession(id, handin = null) {
   const loaded = await store.loadSession(id);
   if (!loaded) { showError('That set could not be read back from the folder.'); return; }
   clearTakes();
@@ -387,7 +390,8 @@ async function openSession(id) {
   setSeg('sh-scope', 'scope', scope);
   showError('');
   render();
-  $('sh-lines').scrollIntoView({ block: 'start', behavior: 'smooth' });
+  const target = (handin && document.getElementById(`sh-handin-${handin}`)) || $('sh-lines');
+  target.scrollIntoView({ block: 'start', behavior: 'smooth' });
 }
 
 /* ── recording ───────────────────────────────────────────────────────── */
@@ -428,7 +432,10 @@ async function finishRecording() {
   /* Stopping is keeping: the take is saved the moment it exists, with no
      "do you want this one?" step in between. */
   const previous = item.file;
-  const path = takePath(session.id, index, blob.type);
+  const path = takePath(session.id, index, blob.type, takeOf(item) + 1);
+  /* Asked before anything changes, while the line still points at the take
+     being recorded over. */
+  const keepPrevious = takeWasHandedIn(session, index);
   if (store.state.persistent) {
     const written = await storage.writeBlob(path, blob);
     if (!written) {
@@ -436,10 +443,14 @@ async function finishRecording() {
       render();
       return;
     }
-    /* A different browser session can produce a different container, which
-       means a different filename — the old one would otherwise sit there
-       orphaned and ride along in every backup. */
-    if (previous && previous !== path) await storage.remove(previous);
+    /* The take being recorded over is kept if feedback was given on it, so
+       the note about it can still play what it heard. One that was never
+       handed in is removed: re-recording until it sounds right should not
+       fill the folder, and every backup, with takes nobody listened to. */
+    if (previous && previous !== path) {
+      if (keepPrevious) pinTakeFile(session, index);
+      else await storage.remove(previous);
+    }
     item.file = path;
   } else {
     item.file = path;      // nominal: nothing is on disk, but the set knows it has a take
@@ -553,6 +564,19 @@ async function playMine(index) {
   const url = held ? held.url : await storage.readBlobUrl(item.file);
   if (!url) { showError('That recording could not be read back.'); return; }
   if (!held) urls.add(url);
+  player = new Audio(url);
+  player.play().catch(() => {});
+}
+
+/* A take kept for an earlier hand-in's note, played from disk. */
+async function playFile(path) {
+  if (!path) return;
+  stopPlayer();
+  speech.stop();
+  if (recordingIndex !== null) return;
+  const url = await storage.readBlobUrl(path);
+  if (!url) { showError('That earlier take could not be read back.'); return; }
+  urls.add(url);
   player = new Audio(url);
   player.play().catch(() => {});
 }
@@ -785,39 +809,94 @@ function ratingRow(note) {
   return `<div class="sh-rate"><div class="seg" role="group" aria-label="How useful was this note?">${buttons}</div>${why}</div>`;
 }
 
+/* The set, laid out by hand-in. Each hand-in is its own block: the lines it
+   carried, what was said about each, and its own "How you sounded", so a
+   summary is never read as being about lines it did not hear. Every line
+   has its controls in exactly one place: the block of the hand-in that last
+   graded it, or "Not handed in yet". A line handed in again later still
+   appears in its earlier block, dimmed, as what was said then. */
 function renderLines() {
   const notes = notesByIndex(session);
-
-  $('sh-lines').innerHTML = session.items.map((item) => {
-    const isRec = recordingIndex === item.index;
-    const has = !!item.file;
-    const note = notes.get(item.index);
-    const comment = note && note.comment;
-    const current = noteIsCurrent(item, note);
-    /* The tick says what the next hand-in will carry. A line with feedback
-       about its current take is shown as such, so ticking it again is an
-       informed choice to ask twice. */
-    const status = !has ? '' : !note ? 'not handed in' : current ? 'feedback in' : 'new take';
-    const pick = `<label class="sh-pick" title="${has ? 'Include this line in the next hand-in' : 'Record the line first'}">
-        <input type="checkbox" data-pick ${has && chosen.has(item.index) ? 'checked' : ''} ${has && !busy ? '' : 'disabled'}>
-        <span>${status || 'no take yet'}</span>
-      </label>`;
-    return `<div class="sh-row${has ? ' is-done' : ''}" data-index="${item.index}">
-      <div class="sh-main">
-        <button class="play play--sm" data-act="model" title="${item.source === 'bank' ? 'Play the recording' : 'Read it aloud with your device’s voice'}" aria-label="Play line ${item.index + 1}">▶</button>
-        <div class="sh-text">
-          <div class="sh-line" lang="${escapeHtml(speech.languageCode(session.language) || '')}">${escapeHtml(item.text)}</div>
-          ${item.gloss ? `<div class="sh-gloss">${escapeHtml(item.gloss)}</div>` : ''}
-        </div>
-        <div class="sh-acts">
-          <button class="btn btn--sm${isRec ? ' btn--danger is-rec' : ''}" data-act="rec">${isRec ? '■ Stop' : (has ? '● Again' : '● Record')}</button>
-          <button class="play play--sm" data-act="mine" aria-label="Play your recording of line ${item.index + 1}" ${has ? '' : 'disabled'}>▶</button>
-        </div>
+  const { groups, rest } = groupByHandin(session);
+  const blocks = groups.map(({ handin: h, rows }) => `<section class="sh-handin" id="sh-handin-${h.n}">
+      <div class="sh-handin-head">
+        <strong>Hand-in ${h.n}</strong>
+        <span class="sh-meta">${escapeHtml([
+          lineList(h.lines),
+          String(h.gradedAt || '').slice(0, 10),
+          h.model,
+          Number.isInteger(h.rulesGeneration) ? (h.rulesGeneration ? `listening rules v${h.rulesGeneration}` : 'no listening rules') : '',
+        ].filter(Boolean).join(' · '))}</span>
       </div>
-      ${has ? pick : ''}
-      ${comment ? `<div class="sh-comment${current ? '' : ' is-stale'}">${current ? '' : '<span class="sh-stale">About your previous take. Hand this line in again for a note on the new one.</span>'}${escapeHtml(comment)}${canRate(note) ? ratingRow(note) : ''}</div>` : ''}
-    </div>`;
-  }).join('');
+      ${rows.map((row) => (row.current ? lineRow(session.items[row.index], notes.get(row.index)) : oldRow(session.items[row.index], row))).join('')}
+      ${h.overall || h.focusNote ? `<div class="sh-overall">
+        <strong>How you sounded in ${escapeHtml(lineList(h.lines))}</strong>
+        ${h.overall ? `<p>${escapeHtml(h.overall)}</p>` : ''}
+        ${h.focusNote ? `<p><strong>The accents you keep missing.</strong> ${escapeHtml(h.focusNote)}</p>` : ''}
+      </div>` : ''}
+    </section>`);
+
+  const restRows = rest.map((index) => lineRow(session.items[index], notes.get(index))).join('');
+  const restBlock = !rest.length ? ''
+    : groups.length ? `<section class="sh-handin sh-handin--rest">
+        <div class="sh-handin-head"><strong>Not handed in yet</strong><span class="sh-meta">${escapeHtml(lineList(rest))}</span></div>
+        ${restRows}
+      </section>`
+      : restRows;
+
+  $('sh-lines').innerHTML = blocks.join('') + restBlock;
+}
+
+/* A line with its controls: play, record, the tick for the next hand-in,
+   and its current note. */
+function lineRow(item, note) {
+  const isRec = recordingIndex === item.index;
+  const has = !!item.file;
+  const comment = note && note.comment;
+  const current = noteIsCurrent(item, note);
+  /* The tick says what the next hand-in will carry. A line with feedback
+     about its current take is shown as such, so ticking it again is an
+     informed choice to ask twice. */
+  const status = !has ? '' : !note ? 'not handed in' : current ? 'feedback in' : 'new take';
+  const pick = `<label class="sh-pick" title="${has ? 'Include this line in the next hand-in' : 'Record the line first'}">
+      <input type="checkbox" data-pick ${has && chosen.has(item.index) ? 'checked' : ''} ${has && !busy ? '' : 'disabled'}>
+      <span>${status || 'no take yet'}</span>
+    </label>`;
+  return `<div class="sh-row${has ? ' is-done' : ''}" data-index="${item.index}">
+    <div class="sh-main">
+      <button class="play play--sm" data-act="model" title="${item.source === 'bank' ? 'Play the recording' : 'Read it aloud with your device’s voice'}" aria-label="Play line ${item.index + 1}">▶</button>
+      <div class="sh-text">
+        <div class="sh-line" lang="${escapeHtml(speech.languageCode(session.language) || '')}"><span class="sh-num">${item.index + 1}</span>${escapeHtml(item.text)}</div>
+        ${item.gloss ? `<div class="sh-gloss">${escapeHtml(item.gloss)}</div>` : ''}
+      </div>
+      <div class="sh-acts">
+        <button class="btn btn--sm${isRec ? ' btn--danger is-rec' : ''}" data-act="rec">${isRec ? '■ Stop' : (has ? '● Again' : '● Record')}</button>
+        <button class="play play--sm" data-act="mine" aria-label="Play your recording of line ${item.index + 1}" ${has ? '' : 'disabled'}>▶</button>
+      </div>
+    </div>
+    ${has ? pick : ''}
+    ${comment ? `<div class="sh-comment${current ? '' : ' is-stale'}">${current ? '' : '<span class="sh-stale">About your previous take. Hand this line in again for a note on the new one.</span>'}${escapeHtml(comment)}${canRate(note) ? ratingRow(note) : ''}</div>` : ''}
+  </div>`;
+}
+
+/* A line this hand-in carried but a later one graded again: what was said
+   then, with no controls, since those are with the line's current note. */
+function oldRow(item, row) {
+  const file = row.said && row.said.file;
+  /* A take overwritten before takes were kept has no file to play. */
+  const play = file
+    ? `<button class="play play--sm" data-act="old" data-file="${escapeHtml(file)}" aria-label="Play the take this note was about">▶</button>`
+    : '';
+  return `<div class="sh-row sh-row--old">
+    <div class="sh-main">
+      <div class="sh-line" lang="${escapeHtml(speech.languageCode(session.language) || '')}"><span class="sh-num">${item.index + 1}</span>${escapeHtml(item.text)}</div>
+      ${play ? `<div class="sh-acts">${play}</div>` : ''}
+    </div>
+    <div class="sh-comment is-stale">
+      <span class="sh-stale">Handed in again${row.replacedBy ? ` in hand-in ${row.replacedBy}` : ''}. This is what was said about the earlier take${file ? ', which ▶ plays' : ', which was recorded before earlier takes were kept'}.</span>
+      ${escapeHtml((row.said && row.said.comment) || '')}
+    </div>
+  </div>`;
 }
 
 /* The waiting box and the finished feedback are the same box in the same
@@ -845,7 +924,7 @@ function renderFeedback() {
   const failed = session.status === 'grading' || session.failed;
   const failure = failed ? `<div class="notes-box sh-box">
       <strong>Automatic feedback didn’t come back for your last hand-in.</strong>
-      <p class="note" style="margin-top:8px">Your recordings are saved, nothing was lost, and any feedback you already had is still below. You can ask again.${session.error ? ` The API said: ${escapeHtml(session.error)}` : ''}</p>
+      <p class="note" style="margin-top:8px">Your recordings are saved, nothing was lost, and the feedback you already had is still above. You can ask again.${session.error ? ` The API said: ${escapeHtml(session.error)}` : ''}</p>
       <div class="row" style="margin-top:10px"><button class="btn btn--sm btn--primary" data-act="retry">Ask for feedback again</button></div>
       </div>` : '';
 
@@ -855,21 +934,20 @@ function renderFeedback() {
     return;
   }
 
-  const covers = Array.isArray(fb.covers) ? fb.covers : [];
-  const partly = covers.length && covers.length < session.items.length;
+  /* The summaries are with their hand-ins now. What is left here is about
+     the set as a whole: lines waiting, a note about the rules, and where the
+     ratings stand. */
   const waiting = pendingIndices(session).length;
-  const latest = (fb.notes || []).find((n) => covers.includes(n.itemIndex)) || (fb.notes || [])[0];
-  el.hidden = false;
-  el.innerHTML = `${failure}<div class="notes-box sh-box"${failed ? ' style="margin-top:10px"' : ''}>
-    <strong>How you sounded</strong>
-    ${partly ? `<p class="note" style="margin-top:6px">About your last hand-in: line${covers.length === 1 ? '' : 's'} ${covers.map((i) => i + 1).join(', ')}. The note on each line is kept until you hand that line in again.</p>` : ''}
-    ${fb.overall ? `<p style="margin-top:8px">${escapeHtml(fb.overall)}</p>` : ''}
-    ${fb.focusNote ? `<div style="margin-top:14px"><strong>The accents you keep missing</strong><p style="margin-top:6px">${escapeHtml(fb.focusNote)}</p></div>` : ''}
-    ${waiting ? `<p class="note" style="margin-top:12px">${waiting} line${waiting === 1 ? ' is' : 's are'} recorded and waiting for feedback. They are ticked for your next hand-in.</p>` : ''}
-    ${rulesNote ? `<p class="note" style="margin-top:12px">${escapeHtml(rulesNote)}</p>` : ''}
-    ${canRate(latest) ? `<p class="note" style="margin-top:12px">${escapeHtml(rateHint(fb.rulesGeneration))}</p>` : ''}
-    <div class="sh-meta" style="margin-top:12px">${escapeHtml(fb.model || '')}${fb.attached && fb.attached < session.items.length ? ` · ${fb.attached} of ${session.items.length} lines sent` : ''}${Number.isInteger(fb.rulesGeneration) ? ` · ${fb.rulesGeneration ? `listening rules v${fb.rulesGeneration}` : 'no listening rules'}` : ''}</div>
-    </div>`;
+  const latest = (fb.notes || []).find((n) => canRate(n));
+  const bits = [
+    waiting ? `${waiting} line${waiting === 1 ? ' is' : 's are'} recorded and waiting for feedback. ${waiting === 1 ? 'It is' : 'They are'} ticked for your next hand-in.` : '',
+    rulesNote,
+    latest ? rateHint(fb.rulesGeneration) : '',
+  ].filter(Boolean);
+  el.hidden = !failed && !bits.length;
+  el.innerHTML = failure + (bits.length ? `<div class="notes-box sh-box"${failed ? ' style="margin-top:10px"' : ''}>
+    ${bits.map((b, i) => `<p class="note"${i ? ' style="margin-top:8px"' : ''}>${escapeHtml(b)}</p>`).join('')}
+    </div>` : '');
 }
 
 /* Where the ratings stand, in the terms that matter: how far this version is
@@ -902,8 +980,18 @@ function renderHistory() {
           <span class="sh-hist-sub">${escapeHtml(r.created || '')} · ${r.recorded}/${r.itemCount} recorded · ${escapeHtml(statusWord(r.status))}${r.decks && r.decks.length ? ` · ${escapeHtml(r.decks.join(', '))}` : ''}</span>
         </button>
         <button class="btn btn--sm btn--danger" data-act="delete" title="Delete this set and its recordings">Delete</button>
-      </div>`).join('')
+      </div>${handinRows(r)}`).join('')
     : `<p class="note">Sets you hand in are kept here with their recordings, so you can listen back to what the feedback is about.</p>`;
+}
+
+/* A set's hand-ins as sub-rows, each opening the set at that hand-in. A set
+   handed in once, all at once, needs none: its row already says it all. */
+function handinRows(row) {
+  const handins = Array.isArray(row.handins) ? row.handins : [];
+  if (handins.length < 2 && !(handins.length === 1 && handins[0].lines.length < row.itemCount)) return '';
+  return `<div class="sh-hist-handins" data-session="${escapeHtml(row.id)}">${handins.map((h) => `
+    <button class="sh-hist-handin" data-act="open" data-handin="${h.n}">Hand-in ${h.n} · ${escapeHtml(lineList(h.lines))}${h.at ? ` · ${escapeHtml(h.at)}` : ''}</button>`).join('')}
+  </div>`;
 }
 
 function statusWord(status) {

@@ -46,8 +46,13 @@ export function extensionFor(mime) {
   }
 }
 
-export function takePath(sessionId, index, mime) {
-  return `shadowing/${sessionId}_${index}.${extensionFor(mime)}`;
+/* Each take has a name of its own, numbered, so that recording a line again
+   does not overwrite a take that feedback was given on: the earlier
+   hand-in's note stays playable next to the recording it was about. Take 0
+   is the name every take had before takes were numbered. */
+export function takePath(sessionId, index, mime, take = 0) {
+  const n = Math.round(Number(take)) || 0;
+  return `shadowing/${sessionId}_${index}${n > 0 ? `_t${n}` : ''}.${extensionFor(mime)}`;
 }
 
 /* ── building a set ──────────────────────────────────────────────────── */
@@ -320,37 +325,187 @@ export function sessionStatus(session) {
   return items.every((item) => noteIsCurrent(item, notes.get(item.index))) ? 'done' : 'partial';
 }
 
-/* One grading merged into the set's feedback. Every note that came back
-   replaces the line's old one, together with any rating given to it, since
-   that rating was about the old note. A line that was sent but got no note
-   back keeps whatever it had.
+/* One grading merged into the set's feedback, as a new hand-in.
 
-   Each new note is stamped with the take it heard, the rules version and
-   the model that wrote it, because a set can now hold notes from several
-   hand-ins made days apart. "overall" and "focusNote" describe one hand-in,
-   so they are replaced whole, with the lines they covered. */
+   The set keeps one current note per line: every note that came back
+   replaces that line's old one, together with any rating given to it,
+   since that rating was about the old note. A line that was sent but got
+   no note back keeps whatever it had.
+
+   Each hand-in is also kept as its own record: the lines it carried, what
+   was said about each, and its own "overall" and "focusNote". Those two
+   describe one hand-in and nothing else, so they are shown with the lines
+   they were about rather than as if they described the whole set. When a
+   line is handed in again, its current note moves to the new hand-in, and
+   the old hand-in still holds what it said then.
+
+   Each new note is stamped with its hand-in number, the take it heard, the
+   rules version and the model that wrote it, since a set can hold notes
+   from hand-ins made days apart. */
 export function mergeGrading(previous, graded, items, now = new Date()) {
   const byIndex = new Map((items || []).map((i) => [i.index, i]));
   const returned = new Set(graded.notes.map((n) => n.itemIndex));
-  const kept = ((previous && previous.notes) || []).filter((n) => !returned.has(n.itemIndex));
+  const earlier = handinsOf(previous);
+  const number = earlier.reduce((top, h) => Math.max(top, h.n), 0) + 1;
+  const kept = ((previous && previous.notes) || [])
+    .filter((n) => !returned.has(n.itemIndex))
+    /* A note from before hand-ins were numbered belongs to the one hand-in
+       such a set is read as. */
+    .map((n) => (Number.isInteger(n.handin) ? n : { ...n, handin: 1 }));
   const at = now.toISOString();
+  const generation = Number.isInteger(graded.rulesGeneration) ? graded.rulesGeneration : 0;
   const fresh = graded.notes.map((n) => ({
     ...n,
+    handin: number,
     take: takeOf(byIndex.get(n.itemIndex)),
-    rulesGeneration: Number.isInteger(graded.rulesGeneration) ? graded.rulesGeneration : 0,
+    rulesGeneration: generation,
     model: graded.model || '',
     gradedAt: at,
   }));
-  return {
-    notes: [...kept, ...fresh].sort((a, b) => a.itemIndex - b.itemIndex),
+  const lines = [...returned].sort((a, b) => a - b);
+  const handin = {
+    n: number,
+    lines,
+    notes: fresh.map((n) => snapshotNote(n, byIndex.get(n.itemIndex))).sort((a, b) => a.itemIndex - b.itemIndex),
     overall: graded.overall || null,
     focusNote: graded.focusNote || null,
-    covers: [...returned].sort((a, b) => a - b),
     model: graded.model || '',
     attached: graded.attached || returned.size,
-    rulesGeneration: Number.isInteger(graded.rulesGeneration) ? graded.rulesGeneration : 0,
+    rulesGeneration: generation,
     gradedAt: at,
   };
+  return {
+    notes: [...kept, ...fresh].sort((a, b) => a.itemIndex - b.itemIndex),
+    handins: [...earlier, handin],
+    /* The latest hand-in's figures, still read by the rating hint. */
+    model: handin.model,
+    attached: handin.attached,
+    rulesGeneration: generation,
+    gradedAt: at,
+  };
+}
+
+/* What a hand-in keeps of each note: enough to show what it said and to
+   play the take it heard, and no rating, since ratings belong to the line's
+   current note. */
+function snapshotNote(note, item) {
+  const out = { itemIndex: note.itemIndex, comment: note.comment, take: takeOf(note) };
+  if (Array.isArray(note.rules) && note.rules.length) out.rules = note.rules;
+  if (item && item.file) {
+    out.file = item.file;
+    out.mime = item.mime || '';
+  }
+  return out;
+}
+
+/* ── keeping the takes feedback was given on ─────────────────────────── */
+
+/* Whether the take a line has now was handed in, and so must be kept when
+   the line is recorded again. A take recorded over before it was ever
+   handed in is not kept: re-recording until it sounds right costs nothing
+   and leaves nothing behind. A hand-in names the file it heard; a set
+   graded before that is matched on the take number, or on the line's
+   current note being about this take. */
+export function takeWasHandedIn(session, index) {
+  const item = session && session.items && session.items[index];
+  if (!item || !item.file) return false;
+  const take = takeOf(item);
+  if (noteIsCurrent(item, notesByIndex(session).get(index))) return true;
+  return handinsOf(session.feedback).some((h) => (h.notes || []).some((n) => n.itemIndex === index
+    && (n.file ? n.file === item.file : takeOf(n) === take)));
+}
+
+/* Before a line's take is recorded over, the hand-ins that heard it are
+   told its file, so their notes can still play it. Sets graded before
+   hand-ins named their files learn it here. Their hand-ins become stored
+   records if they were only implied, so what is written down sticks. */
+export function pinTakeFile(session, index) {
+  const item = session && session.items && session.items[index];
+  if (!item || !item.file || !session.feedback) return session;
+  const take = takeOf(item);
+  const handins = handinsOf(session.feedback).map((h) => ({
+    ...h,
+    notes: (h.notes || []).map((n) => (n.itemIndex === index && !n.file && takeOf(n) === take
+      ? { ...n, file: item.file, mime: item.mime || '' }
+      : n)),
+  }));
+  if (handins.length) session.feedback = { ...session.feedback, handins };
+  return session;
+}
+
+/* The set's hand-ins, oldest first. A set graded before hand-ins were kept
+   one by one is read as a single hand-in: every note it has, under the one
+   overall it has, which is what that overall was about. */
+export function handinsOf(feedback) {
+  if (!feedback) return [];
+  if (Array.isArray(feedback.handins)) return feedback.handins;
+  const notes = feedback.notes || [];
+  if (!notes.length) return [];
+  const lines = Array.isArray(feedback.covers) && feedback.covers.length
+    ? feedback.covers.slice()
+    : notes.map((n) => n.itemIndex);
+  return [{
+    n: 1,
+    lines,
+    notes: notes.filter((n) => lines.includes(n.itemIndex)).map(snapshotNote),
+    overall: feedback.overall || null,
+    focusNote: feedback.focusNote || null,
+    model: feedback.model || '',
+    attached: feedback.attached || lines.length,
+    rulesGeneration: Number.isInteger(feedback.rulesGeneration) ? feedback.rulesGeneration : 0,
+    gradedAt: feedback.gradedAt || '',
+  }];
+}
+
+/* Which hand-in a line's current note came from, or null for a line that
+   has never been handed in. */
+function currentHandin(feedback, note) {
+  if (!note) return null;
+  return Number.isInteger(note.handin) ? note.handin : 1;
+}
+
+/* The set laid out by hand-in, for drawing. Each hand-in lists every line
+   it carried. A line whose current note is from that hand-in is "current"
+   there, and that is where its controls are drawn. A line handed in again
+   later is listed in the earlier hand-in only as what was said then, with
+   the number of the hand-in that replaced it. Lines never handed in come
+   last, so every line of the set appears exactly once with its controls. */
+export function groupByHandin(session) {
+  const feedback = session && session.feedback;
+  const notes = notesByIndex(session);
+  const handins = handinsOf(feedback);
+  const placed = new Set();
+  const groups = handins.map((h) => {
+    const said = new Map((h.notes || []).map((n) => [n.itemIndex, n]));
+    const rows = h.lines.map((index) => {
+      const now = currentHandin(feedback, notes.get(index));
+      if (now === h.n) {
+        placed.add(index);
+        return { index, current: true };
+      }
+      return { index, current: false, said: said.get(index) || null, replacedBy: now };
+    });
+    return { handin: h, rows };
+  });
+  const rest = ((session && session.items) || [])
+    .map((item) => item.index)
+    .filter((index) => !placed.has(index));
+  return { groups, rest };
+}
+
+/* "line 3", "lines 1–4", "lines 1–3, 7, 9–10": numbered from 1, as the
+   learner reads them. */
+export function lineList(indices) {
+  const sorted = [...new Set(indices || [])].sort((a, b) => a - b).map((i) => i + 1);
+  if (!sorted.length) return 'no lines';
+  const runs = [];
+  for (const n of sorted) {
+    const last = runs[runs.length - 1];
+    if (last && n === last[1] + 1) last[1] = n;
+    else runs.push([n, n]);
+  }
+  const text = runs.map(([a, b]) => (a === b ? `${a}` : b === a + 1 ? `${a}, ${b}` : `${a}–${b}`)).join(', ');
+  return `${sorted.length === 1 ? 'line' : 'lines'} ${text}`;
 }
 
 /* ── the focus block ─────────────────────────────────────────────────── */
