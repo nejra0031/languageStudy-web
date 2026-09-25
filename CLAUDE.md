@@ -50,6 +50,11 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
 - `zip.js` and `bundle.js` are the two backups: a zip laid out like the data
   folder (keeps the audio), and one readable JSON file (decks and settings).
 - `shadowing.js` is Shadowing's pure logic; `tab-shadowing.js` its DOM.
+- `shadow-rules.js` is the per-language listening rules the shadowing model
+  grades by: seeded once per language, rated note by note, revised from the
+  ratings. The ratings are the only signal. A malformed seed or revision
+  reply changes nothing, and a rule the user wrote is never dropped or
+  reworded by a revision. `store.js` runs the loop; the tabs only call it.
 
 ## Rules the code keeps
 
@@ -67,6 +72,13 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
   when something is missing say so in the UI rather than failing silently.
 - **Logic that can be a plain function is one**, in a module with no DOM, so
   `node --test` can cover it. The DOM stays in the `tab-*.js` files.
+- **Every release carries one version.** GitHub Pages lets browsers cache each
+  file for ten minutes, so `index.html` pins every module to `?v=<version>`
+  through an import map, and the entry script and stylesheet carry the same
+  `?v=`. Any change under `js/` or `css/` bumps that version everywhere it
+  appears in `index.html` (find and replace). A new module also needs its own
+  line in the import map. `test/importmap.test.mjs` fails when either is
+  forgotten.
 
 ## Conventions
 
@@ -83,7 +95,8 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
 
 Unit tests cover the modules without a DOM — `deck.js`, `text.js`,
 `gemini.js`, the model catalogue, `speech.js`, `zip.js`, `bundle.js`,
-`opus.js`, `convert-audio.js` and `shadowing.js` — not the tabs. For anything a user sees, drive the
+`opus.js`, `convert-audio.js`, `shadowing.js` and `shadow-rules.js` — not the tabs. For
+anything a user sees, drive the
 real page. Playwright's WebKit is Safari's engine and works well; some quirks
 cost time the first time:
 
@@ -92,6 +105,13 @@ cost time the first time:
   run on a fresh port.
 - OPFS needs a persistent context (`webkit.launchPersistentContext`); a plain
   `launch()` cannot save, and the app then says so.
+- On Windows, Playwright's WebKit does not keep what `createWritable` writes
+  to OPFS: a file written and read straight back is empty, even through the
+  raw API. Anything that reads a file back — reopening a shadowing set, a
+  deck after reload — fails there with a JSON parse error that is not the
+  app's. Check those steps in Chromium instead
+  (`chromium.launchPersistentContext(dir, { channel: 'chromium' })`), whose
+  OPFS works; real Safari runs a different WebKit.
 - Headless browsers have no speech voices. Stub `window.speechSynthesis` and
   `SpeechSynthesisUtterance` with an init script to see what would be said.
 - The repo has no package.json, so Node detects the modules as ESM. Running

@@ -13,8 +13,11 @@
 
 import { words, contains } from './text.js';
 import { isPattern } from './deck.js';
-import { VOICE_NAMES, modelLimits } from './defaults.js';
+import { VOICE_NAMES, modelLimits, FEEDBACK_REQUEST_BLOCK } from './defaults.js';
 import { buildGradingParts, readGrading, attachableClips } from './shadowing.js';
+import {
+  rulesFor, formatRulesBlock, buildSeedPrompt, buildRevisionPrompt, readRules,
+} from './shadow-rules.js';
 import { encodeOggOpus, OPUS_MIME } from './opus.js';
 
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent';
@@ -489,18 +492,24 @@ export function createClient({ getSettings, getApiKey, limiter }) {
      but support and valid range vary by model, and an alias can start
      pointing somewhere new with no change on our side.
 
-     So: try with the field, and if the API rejects the request because of it,
-     retry once without and REMEMBER that for the rest of the page's life.
-     Without the memory every later call pays for two real requests and
-     silently doubles what the budget is spending. It is remembered per model:
-     the sentence writer and the grader can be different models, and one
-     refusing says nothing about the other. */
+     So: try with the field, and if the API rejects the request, retry once
+     without and REMEMBER that for the rest of the page's life. Without the
+     memory every later call pays for two real requests and silently doubles
+     what the budget is spending. It is remembered per model: the sentence
+     writer and the grader can be different models, and one refusing says
+     nothing about the other.
+
+     Any HTTP 400 counts as a refusal, not only one that mentions thinking:
+     gemini-3.5-flash-lite answers the field with a bare "Request contains an
+     invalid argument". If the 400 was about something else, the retry fails
+     the same way and that error is the one reported, so guessing wrong costs
+     one call. And the refusal is remembered only once the request without
+     the field has worked, so a 400 about something else does not switch
+     thinking on for that model for good. */
   const thinkingRejected = new Set();
 
-  function looksLikeThinkingRejection(err) {
-    return err instanceof GeminiError
-      && /HTTP 400/.test(err.message)
-      && /thinking/i.test(err.message);
+  function isBadRequest(err) {
+    return err instanceof GeminiError && /HTTP 400/.test(err.message);
   }
 
   /* call(), asking the model not to think. `request` is the body without
@@ -513,9 +522,10 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     try {
       return await call(model, body(), rpm, rpd, waitUpTo);
     } catch (e) {
-      if (!looksLikeThinkingRejection(e) || thinkingRejected.has(model)) throw e;
+      if (!isBadRequest(e) || thinkingRejected.has(model)) throw e;
+      const data = await call(model, request, rpm, rpd, waitUpTo);
       thinkingRejected.add(model);
-      return call(model, body(), rpm, rpd, waitUpTo);
+      return data;
     }
   }
 
@@ -614,16 +624,8 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     const attach = attachableClips(clips);
     if (!attach.length) throw new GeminiError('There are no recordings to send.');
 
-    const system = fillTemplate(s.prompts.shadowing, {
-      language: s.targetLanguage,
-      count: itemCount,
-      /* The sounds clause hangs off the end of a sentence that reads properly
-         without it, so an empty setting is a legal state rather than a
-         dangling colon. */
-      sounds: s.shadowSounds && s.shadowSounds.trim()
-        ? ` ${s.targetLanguage} sounds worth listening for include ${s.shadowSounds.trim()}.`
-        : '',
-    });
+    const rules = rulesFor(s, s.targetLanguage);
+    const system = shadowSystem(s, itemCount, rules);
 
     const userParts = buildGradingParts({
       items, clips: attach, focus, language: s.targetLanguage, itemCount,
@@ -642,7 +644,59 @@ export function createClient({ getSettings, getApiKey, limiter }) {
         `${s.shadowModel} replied with something that could not be read as feedback. `
         + 'Nothing was saved — your recordings are still here, so you can ask again.');
     }
-    return { ...graded, model: s.shadowModel, attached: attach.length };
+    /* Which version of the rules graded this, so a rating given to it later
+       counts towards that version and no other. 0 is "graded without any". */
+    return {
+      ...graded,
+      model: s.shadowModel,
+      attached: attach.length,
+      rulesGeneration: rules ? rules.generation : 0,
+    };
+  }
+
+  /* ── listening rules ───────────────────────────────────────────────── */
+
+  /* Drafting and revising the rules are writing jobs, not listening ones, so
+     they go to the text model and spend its allowance — the shadowing budget
+     is left for the thing you actually press Hand in for. Both return the
+     rules read back, or throw; a reply that cannot be read changes nothing. */
+  function rulesPreflight() {
+    const s = getSettings();
+    const l = modelLimits(s, s.textModel);
+    const why = limiter.why(s.textModel, l.rpm, l.rpd);
+    if (why) throw new QuotaError(why, limiter.waitFor(s.textModel, l.rpm, l.rpd));
+  }
+
+  async function rulesCall(prompt, what) {
+    rulesPreflight();
+    const s = getSettings();
+    const l = modelLimits(s, s.textModel);
+    const data = await callWithoutThinking(s.textModel, {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.4, maxOutputTokens: 8192 },
+    }, l.rpm, l.rpd);
+    const reply = readRules(firstText(data));
+    if (!reply) {
+      throw new GeminiError(`${s.textModel} replied with something that could not be read as ${what}. The listening rules were left as they were.`);
+    }
+    return reply;
+  }
+
+  async function draftShadowRules() {
+    const s = getSettings();
+    return rulesCall(buildSeedPrompt({
+      language: s.targetLanguage, level: s.learnerLevel, languageNote: s.languageNote,
+    }), 'listening rules');
+  }
+
+  async function reviseShadowRules({ entry, rated, current, previous }) {
+    const s = getSettings();
+    return rulesCall(buildRevisionPrompt({
+      language: s.targetLanguage,
+      level: s.learnerLevel,
+      languageNote: s.languageNote,
+      entry, rated, current, previous,
+    }), 'revised listening rules');
   }
 
   /* Refuses before spending, the way preflight() does for a dictation card. */
@@ -653,7 +707,36 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     if (why) throw new QuotaError(why, limiter.waitFor(s.shadowModel, l.rpm, l.rpd));
   }
 
-  return { call, testKey, generateCard, preflight, gradeShadowing, shadowPreflight };
+  return {
+    call, testKey, generateCard, preflight, gradeShadowing, shadowPreflight,
+    draftShadowRules, reviseShadowRules, rulesPreflight,
+  };
+}
+
+/* The shadowing system instruction, filled. {sounds} is the old setting's
+   placeholder: a prompt someone customised before rules existed may still
+   carry it, and it is filled with nothing rather than left showing.
+
+   A customised prompt with no {feedback} gets the feedback block appended,
+   so the Feedback language and style setting is never silently unsent. The
+   preview goes through here too, so what it shows is what is sent. */
+export function shadowSystem(settings, count, rules = rulesFor(settings, settings.targetLanguage)) {
+  const template = String(settings.prompts.shadowing || '');
+  const full = template.includes('{feedback}') ? template : `${template.trimEnd()}\n\n${FEEDBACK_REQUEST_BLOCK}`;
+  return fillTemplate(full, {
+    language: settings.targetLanguage,
+    count,
+    rules: formatRulesBlock(rules ? rules.rules : []),
+    feedback: feedbackRequestText(settings.feedbackRequest),
+    sounds: '',
+  });
+}
+
+/* Whatever was typed, or English when nothing was: an empty block would
+   leave the model to guess, which is how the language came to wander. */
+export function feedbackRequestText(request) {
+  const text = String(request || '').trim();
+  return text || 'English.';
 }
 
 /* Duplicates what the manifest holds, so a stray audio file is never an orphan. */

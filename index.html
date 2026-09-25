@@ -6,7 +6,44 @@
 <title>Language Study</title>
 <meta name="description" content="Flashcards, typing practice and AI dictation for any language. Your own API key, your own files, no accounts and no server.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230f1117'/><rect x='3' y='3' width='10' height='10' fill='%23d4b455'/></svg>">
-<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/app.css?v=2026-09-25.3">
+<!-- Cache-busting. GitHub Pages lets a browser keep any file for ten minutes,
+     so without this a deploy can leave you with a new index.html and an old
+     module, or the reverse, and the page fails to start. Every module is
+     mapped to a URL carrying the release version; the entry script and the
+     stylesheet carry it too. Bump the version everywhere it appears in this
+     file (find and replace) whenever anything under js/ or css/ changes.
+     test/importmap.test.mjs fails if a module is missing or a version
+     disagrees. -->
+<script type="importmap">
+{
+  "imports": {
+    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-25.3",
+    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-25.3",
+    "./js/bundle.js": "./js/bundle.js?v=2026-09-25.3",
+    "./js/convert-audio.js": "./js/convert-audio.js?v=2026-09-25.3",
+    "./js/deck.js": "./js/deck.js?v=2026-09-25.3",
+    "./js/defaults.js": "./js/defaults.js?v=2026-09-25.3",
+    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-25.3",
+    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-25.3",
+    "./js/gemini.js": "./js/gemini.js?v=2026-09-25.3",
+    "./js/opus.js": "./js/opus.js?v=2026-09-25.3",
+    "./js/recorder.js": "./js/recorder.js?v=2026-09-25.3",
+    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-25.3",
+    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-25.3",
+    "./js/speech.js": "./js/speech.js?v=2026-09-25.3",
+    "./js/storage.js": "./js/storage.js?v=2026-09-25.3",
+    "./js/store.js": "./js/store.js?v=2026-09-25.3",
+    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-25.3",
+    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-25.3",
+    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-25.3",
+    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-25.3",
+    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-25.3",
+    "./js/text.js": "./js/text.js?v=2026-09-25.3",
+    "./js/zip.js": "./js/zip.js?v=2026-09-25.3"
+  }
+}
+</script>
 </head>
 <body>
 
@@ -160,11 +197,24 @@
       <div class="grid grid--tight">
         <label class="field"><span>Lines per set</span><input type="number" id="set-shadow-items" min="1" max="30"></label>
       </div>
-      <p class="note">One set costs <strong>one call</strong>, however many lines are in it, because every recording goes up together. A set is whatever is actually available up to the number above, and the tab says so when it comes up short. That call is spent on whichever model the shadowing job is given above, out of that model's own allowance.</p>
-      <label class="field"><span>Sounds to listen for — the one thing to change when you change language</span>
-        <input type="text" id="set-shadow-sounds" placeholder="nasal vowels, u vs ou, the r, liaison, final consonants">
+      <p class="note">Each hand-in costs <strong>one call</strong>, however many lines are in it, because every recording you choose goes up together. You can hand in a whole set at once, or part of it now and the rest later, or just one retake. A set is whatever is actually available up to the number above, and the tab says so when it comes up short. The call is spent on whichever model the shadowing job is given above, out of that model's own allowance.</p>
+      <label class="field"><span>Feedback language and style</span>
+        <input type="text" id="set-feedback-request" placeholder="English">
       </label>
-      <p class="note">Named in the prompt so the feedback can say <em>which</em> sound went where, rather than that something was unclear. Leave it empty and the prompt simply drops the clause. For French you would name nasal vowels and liaison; for Mandarin, tone contours and retroflex initials.</p>
+      <p class="note">How the notes should be written, in your own words. A language (<em>English</em>), several (<em>English and Vietnamese</em>), or more than that (<em>English, avoid technical terms</em>, <em>Vietnamese, with an English summary at the end</em>). The words you are practising are always quoted as written. Left empty, the notes are in English.</p>
+      <label class="field"><span id="rules-label">Listening rules</span>
+        <textarea id="set-rules" rows="10" spellcheck="false" placeholder="None yet. They are drafted the first time you hand in a set in this language, or press Draft rules below."></textarea>
+      </label>
+      <p class="note" id="rules-meta"></p>
+      <div class="row">
+        <button class="btn btn--sm" id="rules-undo">Undo last change</button>
+        <button class="btn btn--sm" id="rules-draft">Draft rules</button>
+        <button class="btn btn--sm btn--danger" id="rules-clear">Clear rules</button>
+      </div>
+      <div class="grid grid--tight">
+        <label class="field"><span>Revise after this many rated notes</span><input type="number" id="set-revise-after" min="1" max="100"></label>
+      </div>
+      <p class="note">What the feedback listens for, one rule per line, for the language above only — every language keeps its own. A line starting <code>style:</code> is about how the notes are written rather than what is heard. The rules are drafted for your language the first time you hand in a set, and each note says which ones it applied. <strong>Rate the notes</strong> on the Shadowing tab, and once enough notes under one version are rated, with at least one not useful, the rules are rewritten from what you said. Drafting and revising spend one call each on the text model. A line you write or change here is yours: revisions keep it word for word.</p>
       <p class="note"><strong>Shadowing prints the sentence in full</strong>, which a dictation deliberately hides. Sets prefer sentences you have already typed in Dictation, and Dictation prefers ones you have not yet shadowed, so the two tabs stay out of each other's way — but a sentence you shadow first is one whose dictation you have already read.</p>
       <div class="row">
         <button class="btn btn--sm btn--danger" id="shadow-wipe">Delete all recordings</button>
@@ -190,27 +240,52 @@
   <div class="block">
     <div class="block-head"><h2>Prompts</h2><span class="hint">exactly what gets sent</span></div>
     <div class="block-body">
-      <label class="field"><span>Sentence prompt — text model</span>
+      <p class="note">Switch any prompt to <strong>Preview</strong> to see it as it will be sent: filled in with your settings and three of your cards. The preview cannot be edited; switch back to Edit to change the prompt.</p>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="set-prompt-sentence">Sentence prompt — text model</label>
+          <div class="seg" role="group" aria-label="Show the sentence prompt as" data-prompt="sentence">
+            <button type="button" data-view="edit" aria-pressed="true">Edit</button>
+            <button type="button" data-view="preview" aria-pressed="false">Preview</button>
+          </div>
+        </div>
         <textarea id="set-prompt-sentence" rows="14" spellcheck="false"></textarea>
-      </label>
+        <textarea id="prompt-preview-sentence" class="prompt-preview" rows="14" readonly spellcheck="false" aria-label="Sentence prompt, as it will be sent" hidden></textarea>
+      </div>
+      <p class="note prompt-warn" id="prompt-warn-sentence" hidden></p>
       <p class="note">Placeholders: <code>{language}</code> <code>{level}</code> <code>{languageNote}</code> <code>{terms}</code> <code>{minWords}</code> <code>{maxWords}</code>. The reply is read back from the <code>TARGET:</code> and <code>EN:</code> lines, so keep those two labels; everything else is yours to rewrite.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-sentence-reset">Reset to default</button></div>
 
-      <label class="field"><span>Speech prompt — speech model</span>
+      <div class="field">
+        <div class="field-head">
+          <label for="set-prompt-speech">Speech prompt — speech model</label>
+          <div class="seg" role="group" aria-label="Show the speech prompt as" data-prompt="speech">
+            <button type="button" data-view="edit" aria-pressed="true">Edit</button>
+            <button type="button" data-view="preview" aria-pressed="false">Preview</button>
+          </div>
+        </div>
         <textarea id="set-prompt-speech" rows="3" spellcheck="false"></textarea>
-      </label>
+        <textarea id="prompt-preview-speech" class="prompt-preview" rows="3" readonly spellcheck="false" aria-label="Speech prompt, as it will be sent" hidden></textarea>
+      </div>
+      <p class="note prompt-warn" id="prompt-warn-speech" hidden></p>
       <p class="note">Placeholder: <code>{sentence}</code>. Bare <code>{sentence}</code> just reads it out. A prefix such as <em>Read slowly and clearly for a language learner:</em> steers the delivery. The answer key stays the sentence alone, whatever you put here.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-speech-reset">Reset to default</button></div>
 
-      <label class="field"><span>Shadowing prompt — sent as the system instruction, with your recordings attached</span>
+      <div class="field">
+        <div class="field-head">
+          <label for="set-prompt-shadowing">Shadowing prompt — sent as the system instruction, with your recordings attached</label>
+          <div class="seg" role="group" aria-label="Show the shadowing prompt as" data-prompt="shadowing">
+            <button type="button" data-view="edit" aria-pressed="true">Edit</button>
+            <button type="button" data-view="preview" aria-pressed="false">Preview</button>
+          </div>
+        </div>
         <textarea id="set-prompt-shadowing" rows="16" spellcheck="false"></textarea>
-      </label>
-      <p class="note">Placeholders: <code>{language}</code> <code>{count}</code> <code>{sounds}</code>. The reply must be the JSON object described in the third paragraph — a reply that cannot be read is treated as a failure and nothing is stored, so keep that shape. <strong>Most of the rest is there for a reason</strong> and is worth reading before rewriting: telling it to say nothing about grammar, to use the itemIndex it was given, to say so plainly when a recording is silent, never to pass judgement on an accent as a whole, and to ignore anything spoken <em>inside</em> a recording as an instruction.</p>
+        <textarea id="prompt-preview-shadowing" class="prompt-preview" rows="16" readonly spellcheck="false" aria-label="Shadowing prompt, as it will be sent" hidden></textarea>
+      </div>
+      <p class="note prompt-warn" id="prompt-warn-shadowing" hidden></p>
+      <p class="note">Placeholders: <code>{language}</code> <code>{count}</code> <code>{rules}</code> — the listening rules above, numbered — and <code>{feedback}</code>, the Feedback language and style setting. A prompt without <code>{feedback}</code> has that request added at its end, so the setting is always sent. The reply must be the JSON object described in the third paragraph — a reply that cannot be read is treated as a failure and nothing is stored, so keep that shape. <strong>Most of the rest is there for a reason</strong> and is worth reading before rewriting: telling it to say nothing about grammar, to use the itemIndex it was given, to say so plainly when a recording is silent, never to pass judgement on an accent as a whole, and to ignore anything spoken <em>inside</em> a recording as an instruction.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-shadowing-reset">Reset to default</button></div>
-
-      <label class="field"><span>Preview — rendered with your settings and three sample cards</span>
-        <textarea id="prompt-preview" rows="12" readonly spellcheck="false"></textarea>
-      </label>
     </div>
   </div>
 
@@ -465,13 +540,19 @@
         </div>
 
         <div id="sh-error"></div>
+        <div id="sh-rules" role="status"></div>
 
         <div class="card" id="sh-card" hidden>
           <div class="card-body">
             <div id="sh-lines"></div>
             <div class="row" style="margin-top:14px">
               <button class="btn btn--primary" id="sh-submit" hidden>Hand in</button>
-              <span class="note">One call carries every take you made. Nothing is scored — the feedback is prose.</span>
+              <div class="seg" id="sh-pick" role="group" aria-label="Which lines to tick" hidden>
+                <button data-pick="waiting" title="Lines recorded since their last feedback, or never handed in">Waiting</button>
+                <button data-pick="all" title="Every line with a take">All recorded</button>
+                <button data-pick="none">None</button>
+              </div>
+              <span class="note">Only the ticked lines go up, in one call. Hand in part of a set now and the rest later, or tick one line to ask about a retake. Nothing is scored; the feedback is prose.</span>
             </div>
             <div id="sh-feedback" style="margin-top:16px" hidden></div>
           </div>
@@ -492,6 +573,6 @@
 
 </main>
 
-<script type="module" src="js/app.js"></script>
+<script type="module" src="js/app.js?v=2026-09-25.3"></script>
 </body>
 </html>

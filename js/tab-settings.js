@@ -7,7 +7,8 @@ import {
   VOICES, MODEL_ROLES, rolesUsing,
   DEFAULT_SENTENCE_PROMPT, DEFAULT_SPEECH_PROMPT, DEFAULT_SHADOW_PROMPT,
 } from './defaults.js';
-import { fillTemplate, sentenceVars, formatWait, GeminiError, QuotaError } from './gemini.js';
+import { fillTemplate, sentenceVars, formatWait, GeminiError, QuotaError, shadowSystem } from './gemini.js';
+import { rulesToText, totalOf, RATINGS } from './shadow-rules.js';
 import { serializeDeck } from './deck.js';
 import { serializeBundle, parseBundle, describeBundle, bundleFilename } from './bundle.js';
 import { makeZip, readZip } from './zip.js';
@@ -494,8 +495,9 @@ const FIELDS = [
   ['set-language', 'targetLanguage', 'text'],
   ['set-level', 'learnerLevel', 'text'],
   ['set-note', 'languageNote', 'text'],
-  ['set-shadow-sounds', 'shadowSounds', 'text'],
   ['set-shadow-items', 'shadowItems', 'int'],
+  ['set-feedback-request', 'feedbackRequest', 'text'],
+  ['set-revise-after', 'shadowReviseAfter', 'int'],
   ['set-wmin', 'sentenceWords.min', 'int'],
   ['set-wmax', 'sentenceWords.max', 'int'],
   ['set-terms', 'termsPerSentence', 'int'],
@@ -545,6 +547,12 @@ function render() {
 
 /* ── prompts ─────────────────────────────────────────────────────────── */
 
+/* Each prompt has an Edit and a Preview view of one box. The preview is a
+   second, read-only textarea that takes the editor's place rather than the
+   editor's own text being swapped out: the editor is what draftSettings()
+   reads, and what a blur commits, so it must never hold rendered text. */
+const PROMPT_VIEWS = ['sentence', 'speech', 'shadowing'];
+
 function wirePrompts() {
   const sp = $('set-prompt-sentence');
   const pp = $('set-prompt-speech');
@@ -572,50 +580,75 @@ function wirePrompts() {
     store.saveSettings({ prompts: { ...store.state.settings.prompts, shadowing: DEFAULT_SHADOW_PROMPT } });
     renderPreview();
   });
+
+  for (const name of PROMPT_VIEWS) {
+    const seg = document.querySelector(`.seg[data-prompt="${name}"]`);
+    seg.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-view]');
+      if (btn) showPromptView(name, btn.dataset.view === 'preview');
+    });
+  }
+}
+
+function showPromptView(name, preview) {
+  const editor = $(`set-prompt-${name}`);
+  const shown = $(`prompt-preview-${name}`);
+  /* The preview opens at whatever height the editor was dragged to, so
+     switching back and forth does not make the page jump. */
+  if (preview && !editor.hidden) shown.style.height = `${editor.offsetHeight}px`;
+  if (!preview && !shown.hidden) editor.style.height = `${shown.offsetHeight}px`;
+  editor.hidden = preview;
+  shown.hidden = !preview;
+  for (const btn of document.querySelectorAll(`.seg[data-prompt="${name}"] button`)) {
+    btn.setAttribute('aria-pressed', String((btn.dataset.view === 'preview') === preview));
+  }
 }
 
 function renderPreview() {
   const draft = draftSettings();
   const terms = store.state.cards.slice(0, 3).map((c) => ({ front: c.front, back: c.back }));
   const sample = terms.length ? terms : SAMPLE_TERMS;
-  const sentence = fillTemplate(draft.prompts.sentence, sentenceVars(draft, sample));
-  const spoken = fillTemplate(draft.prompts.speech, { sentence: '<the sentence it just wrote>' });
 
-  const shadowing = fillTemplate(draft.prompts.shadowing, {
-    language: draft.targetLanguage,
-    count: draft.shadowItems,
-    sounds: draft.shadowSounds && draft.shadowSounds.trim()
-      ? ` ${draft.targetLanguage} sounds worth listening for include ${draft.shadowSounds.trim()}.`
-      : '',
-  });
+  $('prompt-preview-sentence').value = [
+    `── to ${draft.textModel} ──`,
+    fillTemplate(draft.prompts.sentence, sentenceVars(draft, sample)),
+  ].join('\n');
+  $('prompt-preview-speech').value = [
+    `── to ${draft.ttsModel} ──`,
+    fillTemplate(draft.prompts.speech, { sentence: '<the sentence it just wrote>' }),
+  ].join('\n');
+  $('prompt-preview-shadowing').value = [
+    `── to ${draft.shadowModel}, as the system instruction ──`,
+    shadowSystem(draft, draft.shadowItems),
+    '',
+    '(then one text part per line, each followed by your recording of it)',
+  ].join('\n');
 
-  const warnings = [];
+  /* The warnings sit under their own prompt, outside the preview, so they
+     are seen while editing — which is when they can be acted on. */
+  const warnings = { sentence: [], speech: [], shadowing: [] };
   if (!draft.prompts.sentence.includes('{terms}')) {
-    warnings.push('! The sentence prompt has no {terms} placeholder, so the model is never told which words to use.');
+    warnings.sentence.push('The sentence prompt has no {terms} placeholder, so the model is never told which words to use.');
   }
   if (!draft.prompts.speech.includes('{sentence}')) {
-    warnings.push('! The speech prompt has no {sentence} placeholder, so it will not read the sentence.');
+    warnings.speech.push('The speech prompt has no {sentence} placeholder, so it will not read the sentence.');
   }
   /* The one part of the shadowing prompt that is not taste: a reply that
      cannot be read is treated as a failure and nothing is stored, so a prompt
      that stops asking for this shape would never produce any feedback. */
   if (!draft.prompts.shadowing.includes('notes') || !draft.prompts.shadowing.includes('itemIndex')) {
-    warnings.push('! The shadowing prompt no longer asks for "notes" keyed by "itemIndex". A reply that cannot be read is treated as a failure, so no feedback would ever be stored.');
+    warnings.shadowing.push('The shadowing prompt no longer asks for "notes" keyed by "itemIndex". A reply that cannot be read is treated as a failure, so no feedback would ever be stored.');
   }
-
-  $('prompt-preview').value = [
-    ...(warnings.length ? [...warnings, ''] : []),
-    `── to ${draft.textModel} ──`,
-    sentence,
-    '',
-    `── to ${draft.ttsModel} ──`,
-    spoken,
-    '',
-    `── to ${draft.shadowModel}, as the system instruction ──`,
-    shadowing,
-    '',
-    '(then one text part per line, each followed by your recording of it)',
-  ].join('\n');
+  if (!draft.prompts.shadowing.includes('{rules}')) {
+    /* A prompt edited before rules existed lands here: the unedited old
+       default is upgraded on load, but an edited one is the user's to fix. */
+    warnings.shadowing.push('The shadowing prompt has no {rules} placeholder, so the listening rules are never sent and your ratings cannot improve anything. Your prompt was edited before listening rules existed: press Reset to default under it, or add {rules} to it yourself.');
+  }
+  for (const name of PROMPT_VIEWS) {
+    const el = $(`prompt-warn-${name}`);
+    el.textContent = warnings[name].join(' ');
+    el.hidden = !warnings[name].length;
+  }
 }
 
 /* The preview follows what is typed, before it is committed on blur. */
@@ -626,8 +659,8 @@ function draftSettings() {
     targetLanguage: $('set-language').value.trim() || s.targetLanguage,
     learnerLevel: $('set-level').value.trim() || s.learnerLevel,
     languageNote: $('set-note').value,
-    shadowSounds: $('set-shadow-sounds').value,
     shadowItems: Number($('set-shadow-items').value) || s.shadowItems,
+    feedbackRequest: $('set-feedback-request').value,
     sentenceWords: {
       min: Number($('set-wmin').value) || s.sentenceWords.min,
       max: Number($('set-wmax').value) || s.sentenceWords.max,
@@ -1103,7 +1136,77 @@ function wireShadowing() {
     setShadowStatus(`Deleted ${plural(n, 'set')} and every recording in them. The sentence bank is untouched.`, 'is-ok');
   });
 
+  wireRules();
   store.subscribe('shadow', renderShadowing);
+}
+
+/* The listening rules of the language being practised. The box saves on
+   blur, like the prompts; a box left exactly as it was makes no new version,
+   so tabbing through it costs nothing. */
+function wireRules() {
+  const box = $('set-rules');
+  box.addEventListener('change', async () => {
+    const next = await store.editRulesText(box.value);
+    if (next) setShadowStatus(`Saved as version ${next.generation}. Lines you wrote or changed are kept word for word through every revision.`, 'is-ok');
+  });
+
+  $('rules-undo').addEventListener('click', async () => {
+    const back = await store.undoRules();
+    setShadowStatus(back ? back.reason : 'There is no earlier version to go back to.', back ? 'is-ok' : 'is-warn');
+  });
+
+  $('rules-draft').addEventListener('click', async () => {
+    if (!storage.getApiKey()) {
+      setShadowStatus('Drafting rules needs an API key. Paste one above, or write the rules yourself.', 'is-warn');
+      return;
+    }
+    const btn = $('rules-draft');
+    btn.disabled = true;
+    setShadowStatus(`Drafting listening rules for ${store.state.settings.targetLanguage}…`, '');
+    try {
+      const entry = await store.redraftRules();
+      setShadowStatus(`Drafted version ${entry.generation}. Undo brings the previous rules back.`, 'is-ok');
+    } catch (e) {
+      setShadowStatus(describe(e), 'is-bad');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  $('rules-clear').addEventListener('click', async () => {
+    if (!store.currentRules()) return;
+    await store.clearRules();
+    setShadowStatus(`Cleared. The next set you hand in in ${store.state.settings.targetLanguage} drafts new rules first.`, 'is-ok');
+  });
+}
+
+function renderRules() {
+  const s = store.state.settings;
+  const entry = store.currentRules();
+  const box = $('set-rules');
+  $('rules-label').textContent = `Listening rules for ${s.targetLanguage}`;
+  if (document.activeElement !== box) box.value = entry ? rulesToText(entry.rules) : '';
+  $('rules-undo').disabled = !(entry && entry.history && entry.history.length);
+  $('rules-clear').disabled = !entry;
+  $('rules-draft').textContent = entry ? 'Draft rules again' : 'Draft rules';
+
+  if (!entry) {
+    $('rules-meta').textContent = `No rules for ${s.targetLanguage} yet.`;
+    return;
+  }
+  const counts = store.rulesRatings(entry.generation);
+  const rated = totalOf(counts);
+  const bits = [`Version ${entry.generation}`];
+  if (entry.revisedAt) bits.push(`since ${entry.revisedAt.slice(0, 10)}`);
+  bits.push(rated
+    ? `notes rated so far: ${RATINGS.filter(([k]) => counts[k]).map(([k, label]) => `${counts[k]} ${label.toLowerCase()}`).join(', ')}`
+    : 'no notes rated under it yet');
+  const verb = { add: 'Added', edit: 'Reworded', drop: 'Dropped' };
+  const changes = (entry.changes || []).filter((c) => c.why)
+    .map((c) => `${verb[c.kind]}${c.id ? ` rule ${c.id}` : ''}: ${c.why.replace(/\.$/, '')}`);
+  $('rules-meta').textContent = bits.join(' · ')
+    + (entry.reason ? `. ${entry.reason.replace(/\.$/, '')}.` : '.')
+    + (changes.length ? ` What changed: ${changes.join('; ')}.` : '');
 }
 
 function renderShadowing() {
@@ -1114,6 +1217,8 @@ function renderShadowing() {
 
   const on = [src.cards && 'flashcards', src.bank && 'the sentence bank'].filter(Boolean);
   $('shadow-hint').textContent = on.length ? on.join(' and ') : 'no source ticked';
+
+  renderRules();
 
   const rows = store.state.shadowSessions || [];
   const takes = rows.reduce((sum, r) => sum + (r.recorded || 0), 0);

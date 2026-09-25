@@ -5,6 +5,7 @@ import {
   nextSessionId, extensionFor, takePath, orderBank, buildSet,
   attachableClips, buildGradingParts, extractTrailingJson, normalise,
   readGrading, focusFor, AUDIO_BUDGET_BYTES,
+  takeOf, noteIsCurrent, pendingIndices, sessionStatus, mergeGrading,
 } from '../js/shadowing.js';
 
 /* ── ids and filenames ───────────────────────────────────────────────── */
@@ -166,10 +167,10 @@ test('a focus is one extra part, wrapped, before the clips and never in the syst
     without.length);
 });
 
-test('the intro says how many were recorded when the set was only partly done', () => {
+test('the intro says how many are handed in when it is only part of the set', () => {
   const items = [0, 1, 2].map((index) => ({ index, text: `Câu ${index}.` }));
   const partial = buildGradingParts({ items, clips: [clip(0), clip(2)], itemCount: 3 });
-  assert.match(partial[0].text, /shown 3 lines and recorded 2 of them/);
+  assert.match(partial[0].text, /shown 3 lines and is handing in 2 of them/);
   const full = buildGradingParts({ items, clips: [clip(0), clip(1), clip(2)], itemCount: 3 });
   assert.match(full[0].text, /Here are the 3 lines/);
 });
@@ -256,6 +257,19 @@ test('notes come back sorted, and a good note survives a bad neighbour', () => {
   assert.deepEqual(out.notes.map((n) => n.itemIndex), [0, 2]);
 });
 
+test('the rules a note cites are kept when sound and dropped when not', () => {
+  const out = normalise({
+    notes: [
+      { itemIndex: 0, comment: 'a', rules: [2, '3', 2, 0, -1, 1.5, 'x'] },
+      { itemIndex: 1, comment: 'b', rules: 'nope' },
+      { itemIndex: 2, comment: 'c' },
+    ],
+  }, 3);
+  assert.deepEqual(out.notes[0].rules, [2, 3]);
+  assert.equal('rules' in out.notes[1], false);
+  assert.equal('rules' in out.notes[2], false);
+});
+
 test('an over-long comment is truncated, not rejected', () => {
   const out = normalise({
     notes: [{ itemIndex: 0, comment: 'x'.repeat(900) }],
@@ -276,4 +290,112 @@ test('a focus is offered for the accents scope only', () => {
   assert.match(focusFor('accents', 'Vietnamese', items), /một/);
   /* Nothing to name means no focus, rather than a block about no words. */
   assert.equal(focusFor('accents', 'Vietnamese', []), '');
+});
+
+/* ── handing in part of a set ────────────────────────────────────────── */
+
+const NOW = new Date('2026-09-25T09:00:00Z');
+
+function setOf(n) {
+  return {
+    items: Array.from({ length: n }, (_, index) => ({ index, text: `Câu ${index}.`, file: '', take: 0 })),
+    feedback: null,
+  };
+}
+
+function record(session, index) {
+  const item = session.items[index];
+  item.file = `shadowing/s_${index}.webm`;
+  item.take = takeOf(item) + 1;
+}
+
+const grading = (indices, extra = {}) => ({
+  notes: indices.map((i) => ({ itemIndex: i, comment: `note ${i}` })),
+  overall: `about ${indices.join(',')}`,
+  focusNote: null,
+  model: 'm',
+  attached: indices.length,
+  rulesGeneration: 2,
+  ...extra,
+});
+
+test('a set handed in half now and half later ends up with every note', () => {
+  const s = setOf(4);
+  record(s, 0);
+  record(s, 1);
+  assert.deepEqual(pendingIndices(s), [0, 1]);
+  assert.equal(sessionStatus(s), 'recording');
+
+  s.feedback = mergeGrading(s.feedback, grading([0, 1]), s.items, NOW);
+  assert.equal(sessionStatus(s), 'partial');
+  assert.deepEqual(pendingIndices(s), []);
+
+  record(s, 2);
+  record(s, 3);
+  assert.deepEqual(pendingIndices(s), [2, 3]);
+  s.feedback = mergeGrading(s.feedback, grading([2, 3]), s.items, NOW);
+  assert.deepEqual(s.feedback.notes.map((n) => n.itemIndex), [0, 1, 2, 3]);
+  assert.equal(sessionStatus(s), 'done');
+  assert.deepEqual(s.feedback.covers, [2, 3], 'overall is about the last hand-in only');
+  assert.equal(s.feedback.overall, 'about 2,3');
+});
+
+test('a retake leaves the other notes alone, and its old note is marked as about an earlier take', () => {
+  const s = setOf(3);
+  [0, 1, 2].forEach((i) => record(s, i));
+  s.feedback = mergeGrading(s.feedback, grading([0, 1, 2]), s.items, NOW);
+  s.feedback.notes[0].rating = 'useful';
+
+  record(s, 1);
+  const byIndex = new Map(s.feedback.notes.map((n) => [n.itemIndex, n]));
+  assert.equal(noteIsCurrent(s.items[1], byIndex.get(1)), false);
+  assert.equal(noteIsCurrent(s.items[0], byIndex.get(0)), true);
+  assert.deepEqual(pendingIndices(s), [1]);
+  assert.equal(sessionStatus(s), 'partial');
+
+  s.feedback = mergeGrading(s.feedback, grading([1], { overall: 'retake' }), s.items, NOW);
+  const after = new Map(s.feedback.notes.map((n) => [n.itemIndex, n]));
+  assert.equal(after.get(0).rating, 'useful', 'a rating on a line not handed in again survives');
+  assert.equal(after.get(1).take, 2);
+  assert.equal(sessionStatus(s), 'done');
+});
+
+test('asking again about a graded line replaces its note and the rating on it', () => {
+  const s = setOf(1);
+  record(s, 0);
+  s.feedback = mergeGrading(s.feedback, grading([0]), s.items, NOW);
+  s.feedback.notes[0].rating = 'vague';
+  s.feedback = mergeGrading(s.feedback, grading([0], { notes: [{ itemIndex: 0, comment: 'second opinion' }] }), s.items, NOW);
+  assert.equal(s.feedback.notes.length, 1);
+  assert.equal(s.feedback.notes[0].comment, 'second opinion');
+  assert.equal('rating' in s.feedback.notes[0], false);
+});
+
+test('a line sent but skipped by the model keeps its old note', () => {
+  const s = setOf(2);
+  record(s, 0);
+  record(s, 1);
+  s.feedback = mergeGrading(s.feedback, grading([0, 1]), s.items, NOW);
+  s.feedback = mergeGrading(s.feedback, grading([0], { overall: 'only 0 came back' }), s.items, NOW);
+  assert.deepEqual(s.feedback.notes.map((n) => n.comment), ['note 0', 'note 1']);
+});
+
+test('each merged note carries the take, rules version and model it came from', () => {
+  const s = setOf(1);
+  record(s, 0);
+  record(s, 0);
+  s.feedback = mergeGrading(null, grading([0], { rulesGeneration: 5, model: 'lite' }), s.items, NOW);
+  assert.deepEqual(
+    { take: s.feedback.notes[0].take, g: s.feedback.notes[0].rulesGeneration, model: s.feedback.notes[0].model },
+    { take: 2, g: 5, model: 'lite' });
+  assert.equal(s.feedback.notes[0].gradedAt, NOW.toISOString());
+});
+
+test('a set saved before takes were counted reads as fully current', () => {
+  const old = {
+    items: [{ index: 0, text: 'a', file: 'x.webm' }, { index: 1, text: 'b', file: 'y.webm' }],
+    feedback: { notes: [{ itemIndex: 0, comment: 'c' }, { itemIndex: 1, comment: 'd' }], rulesGeneration: 1 },
+  };
+  assert.deepEqual(pendingIndices(old), []);
+  assert.equal(sessionStatus(old), 'done');
 });

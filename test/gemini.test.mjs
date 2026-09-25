@@ -252,6 +252,47 @@ test('a voice is always picked, even from a broken pool', () => {
   assert.equal(withDefaults({ voices: [] }).voices.length, 1, 'an empty pool falls back rather than staying empty');
 });
 
+/* ── thinking turned off, where the model allows it ─────────────────── */
+
+test('a model that refuses thinkingConfig with a bare 400 is retried without it, and remembered', async () => {
+  const sent = [];
+  const saved = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    const model = decodeURIComponent(url.match(/models\/([^:]+):/)[1]);
+    const body = JSON.parse(init.body);
+    const thinking = !!(body.generationConfig && body.generationConfig.thinkingConfig);
+    sent.push({ model, thinking });
+    if (model === 'lite' && thinking) {
+      return new Response('{"error":{"code":400,"message":"Request contains an invalid argument."}}', { status: 400 });
+    }
+    const text = '{"rules":[{"kind":"listen","text":"Nasal vowels."}]}';
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] }), { status: 200 });
+  };
+  try {
+    let settings = withDefaults({ textModel: 'lite', models: [{ id: 'lite' }, { id: 'flash' }] });
+    const client = createClient({
+      getSettings: () => settings,
+      getApiKey: () => 'k',
+      limiter: new RateLimiter({ now: () => 1_000_000 }),
+    });
+
+    await client.draftShadowRules();
+    assert.deepEqual(sent, [{ model: 'lite', thinking: true }, { model: 'lite', thinking: false }]);
+
+    sent.length = 0;
+    await client.draftShadowRules();
+    assert.deepEqual(sent, [{ model: 'lite', thinking: false }], 'the refusal is remembered: one call, not two');
+
+    /* Another model still gets thinking turned off. */
+    sent.length = 0;
+    settings = withDefaults({ ...settings, textModel: 'flash' });
+    await client.draftShadowRules();
+    assert.deepEqual(sent, [{ model: 'flash', thinking: true }]);
+  } finally {
+    globalThis.fetch = saved;
+  }
+});
+
 /* ── thinking ────────────────────────────────────────────────────────── */
 
 /* A client against a fake Gemini: `reply(model, body)` answers each request,
@@ -317,8 +358,17 @@ test('a model that refuses thinkingConfig is asked again without it, and remembe
   assert.deepEqual(thinking(text[0].body), { thinkingBudget: 0 });
 });
 
-test('any other 400 is not mistaken for a refusal of thinkingConfig', async () => {
+/* Any 400 is taken as a possible refusal, because some models refuse the
+   field with a bare "invalid argument". A 400 about something else costs one
+   retry, is still reported, and is not remembered as a refusal. */
+test('a 400 about something else costs one retry, is reported, and is not remembered', async () => {
   const { client, sent } = fakeClient(() => ({ status: 400, text: '{"error":{"message":"API key not valid."}}' }));
   await assert.rejects(client.generateCard(TERMS, [], 'default'), /HTTP 400/);
-  assert.equal(sent.length, 1);
+  assert.equal(sent.length, 2);
+  assert.deepEqual(thinking(sent[0].body), { thinkingBudget: 0 });
+  assert.equal(thinking(sent[1].body), undefined);
+
+  sent.length = 0;
+  await assert.rejects(client.generateCard(TERMS, [], 'default'), /HTTP 400/);
+  assert.deepEqual(thinking(sent[0].body), { thinkingBudget: 0 }, 'thinking is still turned off next time');
 });

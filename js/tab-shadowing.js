@@ -33,7 +33,11 @@ import { isDictatable, isPattern, inScope } from './deck.js';
 import { escapeHtml } from './text.js';
 import { formatWait, QuotaError } from './gemini.js';
 import { createRecorder, SUPPORTED as CAN_RECORD } from './recorder.js';
-import { buildSet, nextSessionId, takePath, focusFor } from './shadowing.js';
+import {
+  buildSet, nextSessionId, takePath, focusFor, takeOf, noteIsCurrent, notesByIndex,
+  pendingIndices, sessionStatus, mergeGrading,
+} from './shadowing.js';
+import { RATINGS, totalOf, languageKey, noteGeneration } from './shadow-rules.js';
 import { describe } from './tab-settings.js';
 import * as speech from './speech.js';
 
@@ -54,6 +58,31 @@ let inFlight = false;
 let micDenied = false;
 let player = null;
 let ticker = null;
+/* What the waiting box says while a set is out: drafting or revising the
+   listening rules comes first when either is due, then the grading itself. */
+let phase = '';
+/* Said once under the feedback when a set had to be graded without rules. */
+let rulesNote = '';
+/* The last thing that happened to the listening rules, shown until
+   dismissed: { entry } for a revision, { note } or { error } otherwise. */
+let rulesNews = null;
+/* The lines ticked to go up in the next hand-in, by index. It starts as the
+   lines waiting for feedback, and a line you record is ticked for you, but
+   it is yours to change: tick a graded line to ask about it again, untick
+   one to keep it back for later. Not saved: a set opened again starts from
+   whatever is waiting, which is what the ticks would mostly say anyway. */
+const chosen = new Set();
+
+function chooseWaiting() {
+  chosen.clear();
+  for (const index of pendingIndices(session)) chosen.add(index);
+  /* Lines whose hand-in failed are ticked again too, even when they already
+     had a note from before: otherwise "Ask for feedback again" on a set
+     reopened after a failure would have nothing to send. */
+  for (const index of (session && session.retry) || []) {
+    if (session.items[index] && session.items[index].file) chosen.add(index);
+  }
+}
 
 const recorder = createRecorder({ onChange: (s) => { micDenied = s.micDenied; } });
 
@@ -74,6 +103,11 @@ export function init() {
   $('sh-mic-test').addEventListener('click', micTest);
 
   $('sh-lines').addEventListener('click', (e) => {
+    const rate = e.target.closest('button[data-rate]');
+    if (rate) {
+      rateLine(Number(rate.closest('[data-index]').dataset.index), rate.dataset.rate);
+      return;
+    }
     const btn = e.target.closest('button[data-act]');
     if (!btn) return;
     const index = Number(btn.closest('[data-index]').dataset.index);
@@ -82,8 +116,49 @@ export function init() {
     else if (btn.dataset.act === 'rec') toggleRecord(index);
   });
 
+  $('sh-lines').addEventListener('change', (e) => {
+    const box = e.target.closest('input[data-pick]');
+    if (!box) return;
+    const index = Number(box.closest('[data-index]').dataset.index);
+    if (box.checked) chosen.add(index);
+    else chosen.delete(index);
+    syncSubmit();
+  });
+
+  $('sh-pick').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-pick]');
+    if (!btn || !session || busy) return;
+    chosen.clear();
+    if (btn.dataset.pick === 'waiting') chooseWaiting();
+    else if (btn.dataset.pick === 'all') {
+      for (const item of session.items) if (item.file) chosen.add(item.index);
+    }
+    renderLines();
+    syncSubmit();
+  });
+
+  /* What the note missed, in your words. Saved on change, so a half-typed
+     reason is never sent — and it is the only thing a revision hears from
+     you beyond the rating itself. */
+  $('sh-lines').addEventListener('change', (e) => {
+    const input = e.target.closest('input[data-why]');
+    if (!input || !session) return;
+    store.setNoteWhy(session, Number(input.closest('[data-index]').dataset.index), input.value);
+  });
+
   $('sh-feedback').addEventListener('click', (e) => {
     if (e.target.closest('[data-act="retry"]')) submit();
+  });
+
+  $('sh-rules').addEventListener('click', async (e) => {
+    if (e.target.closest('[data-act="rules-undo"]')) {
+      const back = await store.undoRules();
+      rulesNews = back ? { note: `${back.reason} That is version ${back.generation} now.` } : null;
+      renderRulesNews();
+    } else if (e.target.closest('[data-act="rules-dismiss"]')) {
+      rulesNews = null;
+      renderRulesNews();
+    }
   });
 
   $('sh-history').addEventListener('click', async (e) => {
@@ -181,7 +256,7 @@ function renderQuota() {
     el.className = 'quota is-bad';
   } else {
     const left = q.leftDay;
-    el.textContent = (left === null ? 'unlimited' : `${left} set${left === 1 ? '' : 's'} left`)
+    el.textContent = (left === null ? 'unlimited' : `${left} hand-in${left === 1 ? '' : 's'} left`)
       + ` · ${q.usedDay}/${q.rpd || '∞'} in 24h`;
     el.className = 'quota ' + (left !== null && left <= 1 ? 'is-bad' : 'is-ok');
   }
@@ -194,20 +269,32 @@ function renderQuota() {
    and never blocked; only the handing in costs anything. */
 function syncSubmit() {
   const el = $('sh-submit');
-  if (!el || !session) { if (el) el.hidden = true; return; }
+  const pick = $('sh-pick');
+  if (!el || !session) {
+    if (el) el.hidden = true;
+    if (pick) pick.hidden = true;
+    return;
+  }
+  const sending = picked().length;
   const recorded = session.items.filter((i) => i.file).length;
-  const total = session.items.length;
   const waiting = store.quotaReport().shadow.retryAfter > 0;
 
   el.hidden = false;
-  el.disabled = busy || !recorded || waiting;
-  el.textContent = session.status === 'done'
-    ? 'Ask again with these takes'
-    : !recorded ? 'Hand in'
-      : `Hand in ${recorded === total ? `all ${total}` : `these ${recorded}`}`;
+  pick.hidden = !recorded;
+  for (const b of pick.querySelectorAll('button')) b.disabled = busy;
+  el.disabled = busy || !sending || waiting;
+  el.textContent = !sending ? 'Hand in'
+    : sending === session.items.length ? `Hand in all ${sending}`
+      : `Hand in ${sending} line${sending === 1 ? '' : 's'}`;
   /* The quota line beside it already says how long, so the button does not
      need to count down as well. */
   el.title = waiting ? 'The shadowing budget is spent for the moment.' : '';
+}
+
+/* The ticked lines that can actually go up: a tick on a line with no take
+   yet means nothing. */
+function picked() {
+  return session ? session.items.filter((i) => i.file && chosen.has(i.index)) : [];
 }
 
 /* ── gating ──────────────────────────────────────────────────────────── */
@@ -264,6 +351,11 @@ async function newSet() {
     return;
   }
 
+  /* The ratings given to the last set are the ones most likely to make a
+     revision due, and between sets nobody is waiting on anything, so it runs
+     here in the background and says so when it lands. */
+  reviseRules();
+
   clearTakes();
   const s = store.state.settings;
   session = {
@@ -279,6 +371,7 @@ async function newSet() {
     feedback: null,
     failed: false,
   };
+  chosen.clear();
   showError('');
   await store.saveSession(session);
   render();
@@ -289,6 +382,7 @@ async function openSession(id) {
   if (!loaded) { showError('That set could not be read back from the folder.'); return; }
   clearTakes();
   session = loaded;
+  chooseWaiting();
   scope = loaded.scope || scope;
   setSeg('sh-scope', 'scope', scope);
   showError('');
@@ -351,19 +445,17 @@ async function finishRecording() {
     item.file = path;      // nominal: nothing is on disk, but the set knows it has a take
   }
   item.mime = blob.type || 'audio/webm';
+  /* A new take. Any note on this line is now about an earlier recording: it
+     stays, marked as such, and the rest of the set's feedback is untouched.
+     Re-recording one line no longer throws away the notes on the others. */
+  item.take = takeOf(item) + 1;
+  chosen.add(index);
 
   const old = takes.get(index);
   if (old) revoke(old.url);
   takes.set(index, { url: mintUrl(blob), mime: item.mime, blob });
 
-  /* A set that was graded and is now being re-recorded is a new attempt: the
-     old feedback described takes that no longer exist. */
-  if (session.status === 'done' || session.status === 'error') {
-    session.status = 'recording';
-    session.feedback = null;
-    session.failed = false;
-    session.error = null;
-  }
+  if (session.status !== 'grading') session.status = sessionStatus(session);
   await store.saveSession(session);
   render();
 }
@@ -471,8 +563,8 @@ async function submit() {
   if (busy || !session) return;
   if (recordingIndex !== null) await finishRecording();
 
-  const recorded = session.items.filter((i) => i.file);
-  if (!recorded.length) return;
+  const sending = picked();
+  if (!sending.length) return;
   if (!storage.getApiKey()) {
     showError('No API key. Paste your Gemini key into Settings to get feedback — your recordings are saved either way.');
     return;
@@ -492,29 +584,41 @@ async function submit() {
   render();
 
   try {
+    await prepareRules();
+    phase = '';
+    renderFeedback();
+
     const clips = [];
-    for (const item of recorded) {
+    for (const item of sending) {
       const bytes = await bytesFor(item);
       if (bytes && bytes.length) clips.push({ itemIndex: item.index, mime: item.mime, bytes });
     }
-    if (!clips.length) throw new Error('None of the recordings in this set could be read back.');
+    if (!clips.length) throw new Error('None of the recordings you ticked could be read back.');
 
     const graded = await store.client.gradeShadowing({
       items: session.items,
       clips,
-      focus: focusFor(scope, session.language, session.items),
+      /* The focus names the words to listen for, so only the lines that are
+         actually going up: a word the model will not hear is one it would
+         have to invent a verdict on. */
+      focus: focusFor(scope, session.language, sending),
       itemCount: session.items.length,
     });
 
-    session.feedback = graded;
-    session.status = 'done';
+    /* Merged, not replaced: notes on lines that were not sent this time stay
+       exactly as they were, ratings and all. Recording is blocked while a
+       call is out, so the takes stamped on the new notes are the ones sent. */
+    session.feedback = mergeGrading(session.feedback, graded, session.items);
+    session.status = sessionStatus(session);
     session.failed = false;
     session.error = null;
+    delete session.retry;
     session.graded_at = new Date().toISOString();
+    chooseWaiting();
 
-    /* The bank entries this set used have now been read in full, which is what
-       stops Dictation offering them as a blind dictation. */
-    const used = session.items
+    /* The bank entries this hand-in used have now been read in full, which is
+       what stops Dictation offering them as a blind dictation. */
+    const used = sending
       .filter((i) => i.source === 'bank' && i.bankId)
       .map((i) => store.state.manifest.find((e) => e.id === i.bankId))
       .filter(Boolean);
@@ -523,16 +627,109 @@ async function submit() {
     console.error(e);
     session.attempts = (session.attempts || 0) + 1;
     session.error = describe(e);
-    session.status = 'error';
+    /* A failed hand-in takes nothing away: notes from earlier hand-ins stay,
+       and the set is only "error" when it has no feedback at all. */
+    const status = sessionStatus(session);
+    session.status = status === 'recording' ? 'error' : status;
     session.failed = true;
+    session.retry = sending.map((i) => i.index);
     if (e instanceof QuotaError) showError(describe(e));
   } finally {
     busy = false;
     inFlight = false;
+    phase = '';
     await store.saveSession(session);
     render();
     renderQuota();
   }
+}
+
+/* ── the listening rules ─────────────────────────────────────────────── */
+
+/* Before a set goes up, a language with no rules gets them drafted, and one
+   whose rules are due a revision gets it, so the set is graded by the best
+   rules there are. Neither can stop the grading: if either fails, the set is
+   graded with whatever there is, and a line under the feedback says so. */
+async function prepareRules() {
+  rulesNote = '';
+  const language = store.state.settings.targetLanguage;
+  if (store.currentRules()) {
+    await reviseRules({ waiting: true });
+    return;
+  }
+  phase = `Drafting listening rules for ${language} first. This happens once per language…`;
+  renderFeedback();
+  try {
+    await store.ensureRules();
+  } catch (e) {
+    console.error(e);
+    rulesNote = `No listening rules could be drafted for ${language}, so this set was graded without them. ${describe(e)}`;
+  }
+}
+
+/* Revises the rules if your ratings say it is due, and does nothing (no
+   call, no message) when they do not. Running out of text-model budget is
+   not worth a message either: the revision is still due, and is tried again
+   at the next set. */
+async function reviseRules({ waiting = false } = {}) {
+  const s = store.state.settings;
+  if (waiting && store.shouldReviseRules()) {
+    phase = `Revising the ${s.targetLanguage} listening rules from your ratings first…`;
+    renderFeedback();
+  }
+  try {
+    const next = await store.reviseRulesIfDue(session);
+    if (next) rulesNews = { entry: next };
+  } catch (e) {
+    console.error(e);
+    if (!(e instanceof QuotaError)) {
+      rulesNews = { error: `The listening rules could not be revised this time, and were left as they were. ${describe(e)}` };
+    }
+  }
+  renderRulesNews();
+}
+
+async function rateLine(index, rating) {
+  if (!session || !session.feedback) return;
+  await store.rateNote(session, index, rating);
+  renderLines();
+  renderFeedback();
+  /* A rating that is not "useful" is most use with a reason, so the box for
+     one is where the cursor goes — typing nothing is fine. */
+  const why = $('sh-lines').querySelector(`[data-index="${index}"] input[data-why]`);
+  if (why && !why.value) why.focus();
+}
+
+function renderRulesNews() {
+  const el = $('sh-rules');
+  const news = rulesNews;
+  if (!news) { el.innerHTML = ''; return; }
+  const dismiss = '<button class="btn btn--sm" data-act="rules-dismiss">OK</button>';
+  if (news.error || news.note) {
+    el.innerHTML = `<div class="banner${news.error ? ' is-warn' : ''} sh-news">
+      <span>${escapeHtml(news.error || news.note)}</span><div class="row">${dismiss}</div></div>`;
+    return;
+  }
+  const entry = news.entry;
+  const tally = { add: 0, edit: 0, drop: 0 };
+  for (const c of entry.changes || []) tally[c.kind]++;
+  const summary = [
+    tally.add && `${tally.add} added`,
+    tally.edit && `${tally.edit} reworded`,
+    tally.drop && `${tally.drop} dropped`,
+  ].filter(Boolean).join(', ');
+  const verb = { add: 'Added', edit: 'Reworded', drop: 'Dropped' };
+  const whys = (entry.changes || []).filter((c) => c.why)
+    .map((c) => `<li>${escapeHtml(`${verb[c.kind]}${c.id ? ` rule ${c.id}` : ''}: ${c.why}`)}</li>`);
+  el.innerHTML = `<div class="banner sh-news">
+    <div>
+      <strong>Your ratings revised the ${escapeHtml(store.state.settings.targetLanguage)} listening rules. They are version ${entry.generation} now${summary ? `: ${summary}` : ''}.</strong>
+      ${entry.reason ? `<p class="note">${escapeHtml(entry.reason)}</p>` : ''}
+      ${whys.length ? `<details><summary>What changed</summary><ul>${whys.join('')}</ul></details>` : ''}
+      <p class="note">You can read and edit the rules in Settings → Shadowing.</p>
+    </div>
+    <div class="row"><button class="btn btn--sm" data-act="rules-undo">Undo</button>${dismiss}</div>
+    </div>`;
 }
 
 async function bytesFor(item) {
@@ -548,6 +745,7 @@ function render() {
   renderPool();
   renderQuota();
   renderHistory();
+  renderRulesNews();
 
   if (!session) {
     $('sh-card').hidden = true;
@@ -566,14 +764,44 @@ function render() {
   syncSubmit();
 }
 
+/* Only a note graded under a version of the rules can be rated. A rating on
+   one graded without them, or before rules existed, would count towards
+   nothing, and a button that does nothing should not be there. Each note is
+   judged on its own version, since one set can hold notes from hand-ins
+   graded under different rules. */
+function canRate(note) {
+  const fb = session && session.feedback;
+  if (!fb || !note || inFlight) return false;
+  const g = noteGeneration(fb, note);
+  return Number.isInteger(g) && g > 0;
+}
+
+function ratingRow(note) {
+  const buttons = RATINGS.map(([key, label]) =>
+    `<button data-rate="${key}" aria-pressed="${note.rating === key}">${label}</button>`).join('');
+  const why = note.rating && note.rating !== 'useful'
+    ? `<input type="text" data-why maxlength="200" aria-label="What the note missed" placeholder="What did it miss? (optional)" value="${escapeHtml(note.why || '')}">`
+    : '';
+  return `<div class="sh-rate"><div class="seg" role="group" aria-label="How useful was this note?">${buttons}</div>${why}</div>`;
+}
+
 function renderLines() {
-  const notes = new Map(((session.feedback && session.feedback.notes) || [])
-    .map((n) => [n.itemIndex, n.comment]));
+  const notes = notesByIndex(session);
 
   $('sh-lines').innerHTML = session.items.map((item) => {
     const isRec = recordingIndex === item.index;
     const has = !!item.file;
-    const comment = notes.get(item.index);
+    const note = notes.get(item.index);
+    const comment = note && note.comment;
+    const current = noteIsCurrent(item, note);
+    /* The tick says what the next hand-in will carry. A line with feedback
+       about its current take is shown as such, so ticking it again is an
+       informed choice to ask twice. */
+    const status = !has ? '' : !note ? 'not handed in' : current ? 'feedback in' : 'new take';
+    const pick = `<label class="sh-pick" title="${has ? 'Include this line in the next hand-in' : 'Record the line first'}">
+        <input type="checkbox" data-pick ${has && chosen.has(item.index) ? 'checked' : ''} ${has && !busy ? '' : 'disabled'}>
+        <span>${status || 'no take yet'}</span>
+      </label>`;
     return `<div class="sh-row${has ? ' is-done' : ''}" data-index="${item.index}">
       <div class="sh-main">
         <button class="play play--sm" data-act="model" title="${item.source === 'bank' ? 'Play the recording' : 'Read it aloud with your device’s voice'}" aria-label="Play line ${item.index + 1}">▶</button>
@@ -586,7 +814,8 @@ function renderLines() {
           <button class="play play--sm" data-act="mine" aria-label="Play your recording of line ${item.index + 1}" ${has ? '' : 'disabled'}>▶</button>
         </div>
       </div>
-      ${comment ? `<div class="sh-comment">${escapeHtml(comment)}</div>` : ''}
+      ${has ? pick : ''}
+      ${comment ? `<div class="sh-comment${current ? '' : ' is-stale'}">${current ? '' : '<span class="sh-stale">About your previous take. Hand this line in again for a note on the new one.</span>'}${escapeHtml(comment)}${canRate(note) ? ratingRow(note) : ''}</div>` : ''}
     </div>`;
   }).join('');
 }
@@ -601,34 +830,64 @@ function renderFeedback() {
   const fb = session.feedback;
 
   if (session.status === 'grading' && inFlight) {
-    const n = session.items.filter((i) => i.file).length;
+    const n = picked().length;
     el.hidden = false;
     el.innerHTML = `<div class="notes-box sh-box">
-      <div class="row"><span class="spinner"></span><strong>Your ${n} recording${n === 1 ? ' is' : 's are'} in, and ${n === 1 ? 'is' : 'are'} being listened to now.</strong></div>
+      <div class="row"><span class="spinner"></span><strong>${phase ? escapeHtml(phase) : `Your ${n} recording${n === 1 ? ' is' : 's are'} in, and ${n === 1 ? 'is' : 'are'} being listened to now.`}</strong></div>
       <p class="note" style="margin-top:8px">This page has no server behind it, so the request lives in this tab — keep it open until the feedback lands. Your recordings are saved either way.</p>
       </div>`;
     return;
   }
 
-  if (session.status === 'error' || (session.status === 'grading' && !inFlight)) {
-    el.hidden = false;
-    el.innerHTML = `<div class="notes-box sh-box">
-      <strong>Automatic feedback didn’t come back for this one.</strong>
-      <p class="note" style="margin-top:8px">Your recordings are saved — nothing was lost, and you can ask again.${session.error ? ` The API said: ${escapeHtml(session.error)}` : ''}</p>
+  /* A hand-in that failed, or one cut off by a reload, is said above any
+     feedback the set already has rather than instead of it: the notes from
+     earlier hand-ins are still true. */
+  const failed = session.status === 'grading' || session.failed;
+  const failure = failed ? `<div class="notes-box sh-box">
+      <strong>Automatic feedback didn’t come back for your last hand-in.</strong>
+      <p class="note" style="margin-top:8px">Your recordings are saved, nothing was lost, and any feedback you already had is still below. You can ask again.${session.error ? ` The API said: ${escapeHtml(session.error)}` : ''}</p>
       <div class="row" style="margin-top:10px"><button class="btn btn--sm btn--primary" data-act="retry">Ask for feedback again</button></div>
-      </div>`;
+      </div>` : '';
+
+  if (!fb) {
+    el.hidden = !failed;
+    el.innerHTML = failure;
     return;
   }
 
-  if (!fb) { el.hidden = true; el.innerHTML = ''; return; }
-
+  const covers = Array.isArray(fb.covers) ? fb.covers : [];
+  const partly = covers.length && covers.length < session.items.length;
+  const waiting = pendingIndices(session).length;
+  const latest = (fb.notes || []).find((n) => covers.includes(n.itemIndex)) || (fb.notes || [])[0];
   el.hidden = false;
-  el.innerHTML = `<div class="notes-box sh-box">
+  el.innerHTML = `${failure}<div class="notes-box sh-box"${failed ? ' style="margin-top:10px"' : ''}>
     <strong>How you sounded</strong>
+    ${partly ? `<p class="note" style="margin-top:6px">About your last hand-in: line${covers.length === 1 ? '' : 's'} ${covers.map((i) => i + 1).join(', ')}. The note on each line is kept until you hand that line in again.</p>` : ''}
     ${fb.overall ? `<p style="margin-top:8px">${escapeHtml(fb.overall)}</p>` : ''}
     ${fb.focusNote ? `<div style="margin-top:14px"><strong>The accents you keep missing</strong><p style="margin-top:6px">${escapeHtml(fb.focusNote)}</p></div>` : ''}
-    <div class="sh-meta" style="margin-top:12px">${escapeHtml(fb.model || '')}${fb.attached && fb.attached < session.items.length ? ` · ${fb.attached} of ${session.items.length} lines sent` : ''}</div>
+    ${waiting ? `<p class="note" style="margin-top:12px">${waiting} line${waiting === 1 ? ' is' : 's are'} recorded and waiting for feedback. They are ticked for your next hand-in.</p>` : ''}
+    ${rulesNote ? `<p class="note" style="margin-top:12px">${escapeHtml(rulesNote)}</p>` : ''}
+    ${canRate(latest) ? `<p class="note" style="margin-top:12px">${escapeHtml(rateHint(fb.rulesGeneration))}</p>` : ''}
+    <div class="sh-meta" style="margin-top:12px">${escapeHtml(fb.model || '')}${fb.attached && fb.attached < session.items.length ? ` · ${fb.attached} of ${session.items.length} lines sent` : ''}${Number.isInteger(fb.rulesGeneration) ? ` · ${fb.rulesGeneration ? `listening rules v${fb.rulesGeneration}` : 'no listening rules'}` : ''}</div>
     </div>`;
+}
+
+/* Where the ratings stand, in the terms that matter: how far this version is
+   from being revised, or why it is not going to be. */
+function rateHint(generation) {
+  const lead = 'Rate each note: your ratings are what the listening rules are rewritten from.';
+  const entry = store.currentRules();
+  if (!entry || entry.generation !== generation
+    || languageKey(session.language) !== languageKey(store.state.settings.targetLanguage)) {
+    return `${lead} These notes were graded under an earlier version of the rules, so rating them no longer changes anything.`;
+  }
+  const counts = store.rulesRatings(generation);
+  const rated = totalOf(counts);
+  const need = store.state.settings.shadowReviseAfter;
+  if (rated < need) return `${lead} ${rated} of ${need} rated under this version so far.`;
+  return rated > counts.useful
+    ? `${lead} That is enough: the rules are revised when you start the next set.`
+    : `${lead} Every note rated under this version was useful, so there is nothing to revise.`;
 }
 
 function renderHistory() {
@@ -649,6 +908,7 @@ function renderHistory() {
 
 function statusWord(status) {
   if (status === 'done') return 'feedback in';
+  if (status === 'partial') return 'partly handed in';
   if (status === 'error') return 'no feedback';
   if (status === 'grading') return 'unfinished';
   return 'in progress';
