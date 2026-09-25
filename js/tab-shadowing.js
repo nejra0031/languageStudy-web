@@ -29,7 +29,7 @@
 
 import * as store from './store.js';
 import * as storage from './storage.js';
-import { isDictatable, inScope } from './deck.js';
+import { isDictatable, isPattern, inScope } from './deck.js';
 import { escapeHtml } from './text.js';
 import { formatWait, QuotaError } from './gemini.js';
 import { createRecorder, SUPPORTED as CAN_RECORD } from './recorder.js';
@@ -141,7 +141,9 @@ function setSeg(id, key, value) {
 /* ── the pool ────────────────────────────────────────────────────────── */
 
 function cardPool() {
-  return store.practiceCards().filter((c) => isDictatable(c) && inScope(c, scope));
+  /* A pattern card can be heard in a dictation sentence, but its front is
+     not something to read aloud — "hễ … là …" has no way to be said. */
+  return store.practiceCards().filter((c) => isDictatable(c) && !isPattern(c) && inScope(c, scope));
 }
 
 function bankPool() {
@@ -156,7 +158,7 @@ function renderPool() {
   const src = sources();
   const cards = src.cards ? cardPool().length : 0;
   const bank = src.bank ? bankPool().length : 0;
-  const slips = store.practiceCards().filter((c) => c.accent_slip && isDictatable(c)).length;
+  const slips = store.practiceCards().filter((c) => c.accent_slip && isDictatable(c) && !isPattern(c)).length;
   const el = $('sh-scope').querySelector('[data-scope="accents"]');
   if (el) el.textContent = slips ? `Accents (${slips})` : 'Accents';
 

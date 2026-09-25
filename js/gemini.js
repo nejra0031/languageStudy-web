@@ -12,6 +12,7 @@
    that a retry storm would eat a day's budget in a minute. */
 
 import { words, contains } from './text.js';
+import { isPattern } from './deck.js';
 import { VOICE_NAMES, modelLimits } from './defaults.js';
 import { buildGradingParts, readGrading, attachableClips } from './shadowing.js';
 import { encodeOggOpus, OPUS_MIME } from './opus.js';
@@ -37,9 +38,21 @@ export function fillTemplate(template, vars) {
     (Object.prototype.hasOwnProperty.call(vars, name) ? String(vars[name]) : match));
 }
 
+/* A pattern card gets a line of its own. The prompt around the listing says
+   to use every term "exactly as written", which a pattern cannot be, and a
+   meaning in brackets reads as a gloss, not a requirement — so the model
+   would put the fixed words in order and stop there: "mỗi … lại sắm một
+   bộ đồ" for "mỗi … một …" (each … its own …), which has both words and
+   is not the pattern. The app can only check the words; the meaning has to
+   be asked for. Said plainly here, the line overrides "exactly as written"
+   for this one term, and holds even where a user has rewritten the prompt. */
 export function buildTermListing(terms) {
   return terms
-    .map((t) => `- "${t.front}"` + (t.back ? ` (${t.back})` : ''))
+    .map((t) => (isPattern(t)
+      ? `- the grammar pattern "${t.front}"` + (t.back ? `, meaning "${t.back}"` : '')
+        + ': use this construction, in exactly this meaning.'
+        + ' Each … (or capital letter) is a gap for your own words; the other words stay, in this order.'
+      : `- "${t.front}"` + (t.back ? ` (${t.back})` : '')))
     .join('\n');
 }
 
@@ -99,7 +112,7 @@ export function sentenceProblem(target, terms, settings) {
   if (w.length < min) return `too short (${w.length} words)`;
   if (w.length > max) return `too long (${w.length} words)`;
   if (target.trimStart().startsWith('>')) return 'looks like commentary, not a sentence';
-  const missing = terms.filter((t) => !contains(w, t.front)).map((t) => t.front);
+  const missing = terms.filter((t) => !contains(w, t.front, isPattern(t))).map((t) => t.front);
   if (missing.length) return 'missing target word(s): ' + missing.join(', ');
   return null;
 }

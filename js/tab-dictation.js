@@ -17,7 +17,7 @@
 
 import * as store from './store.js';
 import * as storage from './storage.js';
-import { isDictatable, inScope, pickWeighted, pickGroup, recordResult, SCORE_LABEL } from './deck.js';
+import { isDictatable, isPattern, inScope, pickWeighted, pickGroup, recordResult, SCORE_LABEL } from './deck.js';
 import { words, contains, containsLoosely, diff, escapeHtml, scoreMark } from './text.js';
 import { formatWait, QuotaError } from './gemini.js';
 import { describe } from './tab-settings.js';
@@ -450,16 +450,17 @@ function scoreTerms(usrWords) {
       rows.push(`<div>${escapeHtml(termText)} — no longer in the deck, not scored</div>`);
       continue;
     }
-    if (!contains(refWords, card.front)) {
+    const pattern = isPattern(card);
+    if (!contains(refWords, card.front, pattern)) {
       chips.push(`<span class="chip">${escapeHtml(card.front)}</span>`);
       rows.push(`<div>${escapeHtml(card.front)} — the sentence never used it, not scored</div>`);
       continue;
     }
 
-    const ok = contains(usrWords, card.front);
+    const ok = contains(usrWords, card.front, pattern);
     /* Heard but mis-accented is the same near miss the Typing tab flags, and
        it belongs on the same list. */
-    const accentSlip = !ok && containsLoosely(usrWords, card.front);
+    const accentSlip = !ok && containsLoosely(usrWords, card.front, pattern);
     chips.push(`<span class="chip ${ok ? 'chip--ok' : 'chip--bad'}">${escapeHtml(card.front)}</span>`);
     const move = recordResult(card, ok, { accentSlip });
     changed.push(card);

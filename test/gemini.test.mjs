@@ -22,6 +22,21 @@ test('the term listing carries the meaning only when there is one', () => {
   assert.equal(buildTermListing(TERMS), '- "cải tiến" (to improve)\n- "tận hưởng"');
 });
 
+test('a pattern card is listed as one, to be used in its meaning with its gaps filled', () => {
+  const line = buildTermListing([{ front: 'mỗi … một …', back: 'each … (has its own) …', type: 'pattern' }]);
+  assert.match(line, /^- the grammar pattern "mỗi … một …", meaning "each … \(has its own\) …": /);
+  assert.match(line, /use this construction, in exactly this meaning/);
+  assert.match(line, /Each … \(or capital letter\) is a gap for your own words/);
+  assert.equal(buildTermListing([{ front: 'sắm', back: 'to buy', type: 'word' }]), '- "sắm" (to buy)', 'other cards as before');
+});
+
+test('sentenceProblem finds a pattern by its fixed words, and only on a pattern card', () => {
+  const s = withDefaults({});
+  const sentence = 'Anh nhớ để ý nhóm này vì chị ấy phụ trách mà anh lại rảnh.';
+  assert.equal(sentenceProblem(sentence, [{ front: 'A mà B', type: 'pattern' }], s), null);
+  assert.match(sentenceProblem(sentence, [{ front: 'A mà B' }], s), /missing target word/);
+});
+
 test('the default prompt renders with nothing left over', () => {
   const out = fillTemplate(DEFAULT_SETTINGS.prompts.sentence, sentenceVars(DEFAULT_SETTINGS, TERMS));
   assert.equal(out.match(/\{\w+\}/g), null);
