@@ -6,7 +6,7 @@ import {
   seedFromSounds, formatRulesBlock, buildSeedPrompt, buildRevisionPrompt,
   readRules, seedEntry, applyRevision, undoRevision, editRules, rulesToText,
   countRatings, ratingsFor, shouldRevise, collectRated, ruleStats, migrateSounds,
-  newEntry, MAX_LISTEN, MAX_STYLE, DEFAULT_STYLE_RULES,
+  newEntry, MAX_LISTEN, MAX_STYLE, DEFAULT_STYLE_RULES, ratingsByGeneration, noteGeneration,
 } from '../js/shadow-rules.js';
 import {
   withDefaults, upgradePrompts, DEFAULT_SHADOW_PROMPT, RETIRED_SHADOW_PROMPTS,
@@ -307,7 +307,28 @@ test('a prompt you edited is left exactly as you wrote it', () => {
   assert.equal(withDefaults({ prompts: { shadowing: 'Mine.' } }).prompts.shadowing, 'Mine.');
 });
 
-/* ── the feedback request ─────────────────────────────────────────── */
+/* ── ratings across hand-ins, and the feedback request ───────────────── */
+
+test('ratings count towards the rules version each note was graded under', () => {
+  const fb = {
+    rulesGeneration: 3,
+    notes: [
+      { itemIndex: 0, rulesGeneration: 2, rating: 'vague' },
+      { itemIndex: 1, rulesGeneration: 3, rating: 'useful' },
+      { itemIndex: 2, rating: 'soft' },
+      { itemIndex: 3, rulesGeneration: 3 },
+    ],
+  };
+  assert.equal(noteGeneration(fb, fb.notes[2]), 3, 'a note from before per-note versions takes the set’s');
+  const by = ratingsByGeneration(fb);
+  assert.deepEqual(by[2], { useful: 0, vague: 1, soft: 0, wrong: 0 });
+  assert.deepEqual(by[3], { useful: 1, vague: 0, soft: 1, wrong: 0 });
+
+  const rows = [{ language: 'French', ratingsByGeneration: by }];
+  assert.deepEqual(ratingsFor(rows, 'French', 2), { useful: 0, vague: 1, soft: 0, wrong: 0 });
+  const session = { language: 'French', items: [0, 1, 2, 3].map((index) => ({ index, text: `l${index}` })), feedback: fb };
+  assert.deepEqual(collectRated([session], 'French', 3).map((n) => n.line), ['l1', 'l2']);
+});
 
 test('the feedback request is sent as typed, English when empty, and even with a custom prompt', () => {
   assert.equal(feedbackRequestText('  English, avoid technical terms '), 'English, avoid technical terms');

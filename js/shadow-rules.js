@@ -295,8 +295,34 @@ export function ratingsFor(rows, language, generation) {
   const key = languageKey(language);
   let out = emptyCounts();
   for (const row of rows || []) {
-    if (!row || languageKey(row.language) !== key || row.rulesGeneration !== generation) continue;
-    out = addCounts(out, row.ratings);
+    if (!row || languageKey(row.language) !== key) continue;
+    /* A set's notes can come from hand-ins graded under different versions,
+       so a row counts per version. A row written before that has one
+       version for the whole set. */
+    if (row.ratingsByGeneration && typeof row.ratingsByGeneration === 'object') {
+      out = addCounts(out, row.ratingsByGeneration[generation]);
+    } else if (row.rulesGeneration === generation) {
+      out = addCounts(out, row.ratings);
+    }
+  }
+  return out;
+}
+
+/* The rules version a note was graded under: its own since sets could be
+   handed in piece by piece, the set's for a note from before that. */
+export function noteGeneration(feedback, note) {
+  if (note && Number.isInteger(note.rulesGeneration)) return note.rulesGeneration;
+  return feedback && Number.isInteger(feedback.rulesGeneration) ? feedback.rulesGeneration : null;
+}
+
+/* Rating counts per rules version, for the history index. */
+export function ratingsByGeneration(feedback) {
+  const out = {};
+  for (const note of (feedback && feedback.notes) || []) {
+    const g = noteGeneration(feedback, note);
+    if (g === null || !isRating(note.rating)) continue;
+    out[g] = out[g] || emptyCounts();
+    out[g][note.rating]++;
   }
   return out;
 }
@@ -322,10 +348,10 @@ export function collectRated(sessions, language, generation) {
   for (const session of sessions || []) {
     if (!session || languageKey(session.language) !== key) continue;
     const fb = session.feedback;
-    if (!fb || fb.rulesGeneration !== generation) continue;
+    if (!fb) continue;
     const text = new Map((session.items || []).map((i) => [i.index, i.text]));
     for (const note of fb.notes || []) {
-      if (!isRating(note.rating)) continue;
+      if (!isRating(note.rating) || noteGeneration(fb, note) !== generation) continue;
       out.push({
         line: String(text.get(note.itemIndex) || ''),
         comment: String(note.comment || ''),

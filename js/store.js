@@ -25,7 +25,7 @@ import { RateLimiter, createClient } from './gemini.js';
 import {
   rulesFor, withRules, languageKey, seedEntry, applyRevision, undoRevision,
   editRules, shouldRevise, ratingsFor, collectRated, countRatings, totalOf,
-  isRating,
+  isRating, ratingsByGeneration,
 } from './shadow-rules.js';
 
 const SETTINGS_FILE = 'settings.json';
@@ -416,6 +416,7 @@ function summariseSession(session) {
     decks: [...new Set((session.items || []).map((i) => i.deck).filter(Boolean))],
     rulesGeneration: fb && Number.isInteger(fb.rulesGeneration) ? fb.rulesGeneration : null,
     ratings: countRatings(fb && fb.notes),
+    ratingsByGeneration: ratingsByGeneration(fb),
   };
 }
 
@@ -569,8 +570,8 @@ export async function reviseRulesIfDue(inHand = null) {
     const key = languageKey(s.targetLanguage);
     const sessions = [];
     for (const row of state.shadowSessions) {
-      if (languageKey(row.language) !== key || row.rulesGeneration !== entry.generation) continue;
-      if (!totalOf(row.ratings)) continue;
+      if (languageKey(row.language) !== key) continue;
+      if (!totalOf(ratingsFor([row], s.targetLanguage, entry.generation))) continue;
       const loaded = inHand && inHand.id === row.id ? inHand : await loadSession(row.id);
       if (loaded) sessions.push(loaded);
     }

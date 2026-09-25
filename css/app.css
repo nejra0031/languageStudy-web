@@ -892,6 +892,33 @@ textarea { resize: vertical; font: 13px/1.6 var(--mono); }
 .sh-news summary { cursor: pointer; color: var(--fg-muted); }
 .sh-news ul { margin: 6px 0 0 18px; }
 
+/* Which lines the next hand-in carries. A quiet line under the take, not a
+   column: it matters when handing in, and the words are what you listen to. */
+.sh-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: var(--fg-dim);
+  cursor: pointer;
+}
+.sh-pick input { margin: 0; }
+/* .seg is inline-flex, which would otherwise win over the hidden attribute
+   and show the tick shortcuts on a set with nothing recorded yet. */
+#sh-pick[hidden] { display: none; }
+.sh-pick input:disabled + span { opacity: 0.6; }
+
+/* A note about a take that has since been recorded over: still yours to
+   read, but plainly not about what you would hear if you pressed play. */
+.sh-comment.is-stale { color: var(--fg-dim); }
+.sh-stale {
+  display: block;
+  font: 11px/1.5 var(--mono);
+  color: var(--warn);
+  margin-bottom: 4px;
+}
+
 /* .notes-box keeps pre-wrap so a dictation sentence shows exactly as written.
    These boxes hold ordinary prose in real elements, so the newlines between
    those elements are markup, not content. */

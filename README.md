@@ -103,9 +103,29 @@ Record again obviously replaces what is there, hearing yourself and going again
 **A set is whatever you have.** Lines come from your flashcards and from the
 sentence bank — tick either or both in **Settings → Shadowing** — and if there
 are fewer than the number you asked for, you get fewer and the tab says so.
-You can hand in a set with only some lines recorded; the model is told how many
-of how many you did, so a line you skipped is never mistaken for one you
-muffed.
+
+### Choosing what to hand in
+
+Each recorded line has a tick box, and only the ticked lines go up. A line you
+record is ticked for you, so pressing **Hand in** straight away sends
+everything new. But the ticks are yours to change:
+
+- **Part now, the rest later.** Hand in the lines you have done, and close the
+  set. Open it again from the history list, record the rest, and hand those
+  in. The notes on the first lines stay where they are.
+- **One retake.** Record a line again and only that line is ticked. Its old
+  note stays, marked *About your previous take*, until the new take has its
+  own. Re-recording one line no longer throws away the notes on the others.
+- **Ask again.** Tick a line that already has feedback to get a second note on
+  the same take.
+
+The buttons beside **Hand in** tick the lines still waiting for feedback
+(**Waiting**), every recorded line (**All recorded**), or nothing (**None**).
+The model is told how many of how many lines it is given, so a line you kept
+back is never mistaken for one you muffed. The summary at the top of the
+feedback is about your last hand-in, and says which lines it covered. A
+hand-in that fails takes nothing away: the error shows above the feedback you
+already had.
 
 ### The language of the feedback
 
@@ -181,8 +201,9 @@ recordings** in Settings removes the lot and leaves the sentence bank alone.
 
 ### What it costs
 
-**One call per set**, however many lines are in it, because every recording
-goes up together. Shadowing is one of the three jobs you assign a model to in
+**One call per hand-in**, however many lines are in it, because every ticked
+recording goes up together. Handing a set in piece by piece costs one call per
+piece. Shadowing is one of the three jobs you assign a model to in
 Settings. Give it a model of its own and its budget is its own — a shadowing
 budget that has run down cannot stop you writing a sentence, and vice versa.
 Give it the same model as the text job, which is the default, and the two share

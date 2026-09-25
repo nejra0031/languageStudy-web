@@ -185,7 +185,7 @@ export function buildGradingParts({
 
   const heading = ordered.length === total
     ? `Here are the ${total} lines and the learner's recording of each.`
-    : `The learner was shown ${total} lines and recorded ${ordered.length} of them; you are given those ${ordered.length}.`;
+    : `The learner was shown ${total} lines and is handing in ${ordered.length} of them; you are given those ${ordered.length}.`;
 
   const parts = [{
     text: `${heading} The text of each line is what the recording they listened to says; `
@@ -268,6 +268,89 @@ export function normalise(parsed, itemCount) {
 
 export function readGrading(text, itemCount) {
   return normalise(extractTrailingJson(text), itemCount);
+}
+
+/* ── handing in part of a set ────────────────────────────────────────── */
+
+/* A set is no longer graded all at once. You choose which lines go up, and
+   can hand in some now and the rest later, or ask again about one retake.
+   So a note belongs to a line, not to the set, and a grading is merged into
+   what the set already had rather than replacing it.
+
+   What makes that safe is the take counter. Every recording of a line bumps
+   item.take, and a note records the take it was about. A note whose take is
+   not the line's current one describes a recording that no longer exists:
+   it is kept, because it is still your feedback, but it is shown as being
+   about an earlier take, and the line counts as waiting to be handed in.
+
+   Sets saved before this existed have no counters on either side, and both
+   read as 0, so every note in them is current, which is what they were. */
+
+export function takeOf(item) {
+  const n = item && Number(item.take);
+  return Number.isInteger(n) && n > 0 ? n : 0;
+}
+
+export function noteIsCurrent(item, note) {
+  return !!(item && note) && takeOf(note) === takeOf(item);
+}
+
+export function notesByIndex(session) {
+  const notes = (session && session.feedback && session.feedback.notes) || [];
+  return new Map(notes.map((n) => [n.itemIndex, n]));
+}
+
+/* Recorded lines with no note about their current take: never handed in,
+   or recorded again since. What a hand-in offers by default. */
+export function pendingIndices(session) {
+  const notes = notesByIndex(session);
+  return ((session && session.items) || [])
+    .filter((item) => item.file && !noteIsCurrent(item, notes.get(item.index)))
+    .map((item) => item.index);
+}
+
+/* The set's status follows from its lines: nothing graded yet is
+   "recording", every line holding a note about its current take is "done",
+   and anything between is "partial". "grading" and a failed hand-in are
+   decided by the caller, which knows whether a call is out. */
+export function sessionStatus(session) {
+  const items = (session && session.items) || [];
+  const notes = notesByIndex(session);
+  if (!notes.size) return 'recording';
+  return items.every((item) => noteIsCurrent(item, notes.get(item.index))) ? 'done' : 'partial';
+}
+
+/* One grading merged into the set's feedback. Every note that came back
+   replaces the line's old one, together with any rating given to it, since
+   that rating was about the old note. A line that was sent but got no note
+   back keeps whatever it had.
+
+   Each new note is stamped with the take it heard, the rules version and
+   the model that wrote it, because a set can now hold notes from several
+   hand-ins made days apart. "overall" and "focusNote" describe one hand-in,
+   so they are replaced whole, with the lines they covered. */
+export function mergeGrading(previous, graded, items, now = new Date()) {
+  const byIndex = new Map((items || []).map((i) => [i.index, i]));
+  const returned = new Set(graded.notes.map((n) => n.itemIndex));
+  const kept = ((previous && previous.notes) || []).filter((n) => !returned.has(n.itemIndex));
+  const at = now.toISOString();
+  const fresh = graded.notes.map((n) => ({
+    ...n,
+    take: takeOf(byIndex.get(n.itemIndex)),
+    rulesGeneration: Number.isInteger(graded.rulesGeneration) ? graded.rulesGeneration : 0,
+    model: graded.model || '',
+    gradedAt: at,
+  }));
+  return {
+    notes: [...kept, ...fresh].sort((a, b) => a.itemIndex - b.itemIndex),
+    overall: graded.overall || null,
+    focusNote: graded.focusNote || null,
+    covers: [...returned].sort((a, b) => a - b),
+    model: graded.model || '',
+    attached: graded.attached || returned.size,
+    rulesGeneration: Number.isInteger(graded.rulesGeneration) ? graded.rulesGeneration : 0,
+    gradedAt: at,
+  };
 }
 
 /* ── the focus block ─────────────────────────────────────────────────── */
