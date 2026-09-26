@@ -6,21 +6,21 @@
    near miss gets its own verdict, the offending characters are marked, and the
    card is flagged for the Accents filter until it is typed exactly.
 
-   Meanings are looser than words: there is more than one fair way to say
-   something in English. So a meaning is right if it matches the back or any of
-   the card's alternatives, and a miss can be accepted on the spot — which
-   records it as an alternative and turns the answer right.
+   There is often more than one fair answer, on either side. So an answer is
+   right if it matches the side asked for or any of that side's alternatives,
+   and a miss can be accepted on the spot — which records it as an
+   alternative and turns the answer right.
 
    With Read aloud on, a word that is the prompt is heard rather than read: it
    stays hidden until you ask to see it, or until you answer. */
 
 import * as store from './store.js';
 import {
-  pickWeighted, inScope, recordResult, amendLastToRight, addAlternative, setAlternatives, meanings,
-  stats, SCORE_LABEL,
+  pickWeighted, inScope, recordResult, amendLastToRight, addAlternative, setAlternatives, accepted,
+  ALT_KEY, stats, SCORE_LABEL,
 } from './deck.js';
 import * as speech from './speech.js';
-import { compareAnswer, compareMeaning, normalize, words, base, diff, accentMarks, escapeHtml, scoreMark } from './text.js';
+import { compareAnswer, compareMeaning, bestMatch, normalize, words, base, diff, accentMarks, escapeHtml, scoreMark } from './text.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -34,6 +34,8 @@ let previous = null;
 let justAnswered = null;
 /* The answer just checked, kept so it can still be accepted. */
 let last = null;
+/* What the feedback was drawn from, so an edit to the card can redraw it. */
+let drawn = null;
 const tally = { total: 0, right: 0, wrong: 0 };
 
 export function init() {
@@ -77,7 +79,8 @@ export function init() {
   $('ty-card').addEventListener('click', (e) => {
     const hit = (sel) => e.target.closest(sel);
     if (hit('[data-say]')) say(true);
-    else if (hit('#ty-accept')) acceptAnswer();
+    else if (hit('#ty-accept')) acceptAnswer(true);
+    else if (hit('#ty-mark')) acceptAnswer(false);
     else if (hit('#ty-notes-edit') || hit('#ty-fix-meaning')) renderNotes(true);
     else if (hit('#ty-notes-save')) saveNotes();
     else if (hit('#ty-notes-cancel')) renderNotes(false);
@@ -153,6 +156,7 @@ function next() {
   current = pickWeighted(p, 1)[0];
   answered = false;
   last = null;
+  drawn = null;
   const dir = store.state.settings.typingDirection;
   /* Accents live on the front, so that is always the side asked for when
      drilling them, whatever the direction setting says. */
@@ -374,10 +378,10 @@ function check() {
   if (hear && hear.value.trim()) checkHeard();
 
   answered = true;
-  const expected = shownSide === 'front' ? current.back : current.front;
-  const verdict = shownSide === 'front'
-    ? bestVerdict(typed, meanings(current))
-    : compareAnswer(typed, expected);
+  const { verdict, match } = bestMatch(typed, accepted(current, answerSide()), sameAs().compare);
+  /* An accent miss is shown against the answer it nearly was, which may be
+     an alternative; anything else against the card's own side. */
+  const expected = verdict === 'accent' ? match : current[answerSide()];
   const ok = verdict === 'exact';
 
   /* Only a slip in the language being learnt counts: an accent missed while
@@ -391,7 +395,7 @@ function check() {
 
   settle(ok);
 
-  $('ty-feedback').innerHTML = feedback(verdict, typed, expected, move);
+  showFeedback(verdict, typed, expected, move);
   last = { typed, expected, before: move.before, slipBefore };
   justAnswered = { shown: current[shownSide], expected, typed, verdict, notes: current.notes, words: wordMarks(verdict, typed, expected) };
   store.cardAnswered(current);
@@ -408,7 +412,7 @@ function reveal() {
   tally.wrong++;
   renderTally();
   settle(false);
-  $('ty-feedback').innerHTML = feedback('revealed', '', expected, move);
+  showFeedback('revealed', '', expected, move);
   last = null;
   justAnswered = { shown: current[shownSide], expected, typed: '', verdict: 'revealed', notes: current.notes };
   store.cardAnswered(current);
@@ -442,33 +446,66 @@ function settle(ok) {
   showWord();
 }
 
-/* The best of the verdicts against every accepted meaning. */
-function bestVerdict(typed, options) {
-  const verdicts = options.map((m) => compareMeaning(typed, m));
-  return verdicts.includes('exact') ? 'exact' : verdicts.includes('accent') ? 'accent' : 'wrong';
+/* The side being typed, which is the one the other is a translation of. */
+function answerSide() {
+  return shownSide === 'front' ? 'back' : 'front';
 }
 
-/* Two ways to overrule a miss. A meaning is saved as an alternative, since
-   English has many fair renderings and the same one will come up again. A
-   word in the language being learnt is only counted right, this once: the
-   card keeps the form it was written with, and nothing is added to it. */
-function acceptAnswer() {
+/* How answers on the typed side are compared: a meaning loosely, in its
+   parts, a word exactly. `same` is the test for "already one of the card's
+   answers", which only an exact match passes. */
+function sameAs() {
+  const compare = answerSide() === 'back' ? compareMeaning : compareAnswer;
+  return { compare, same: (a, b) => compare(a, b) === 'exact' };
+}
+
+/* Whether an answer is one the card now accepts on the side being typed. */
+function onCard(typed) {
+  const { same } = sameAs();
+  return accepted(current, answerSide()).some((m) => same(typed, m));
+}
+
+/* Ways to overrule a miss. Accept saves the answer as an alternative on the
+   side that was typed, since there is often more than one fair translation
+   and the same one will come up again. A word can also just be marked right,
+   this once, with nothing added: a slip the learner forgives is not another
+   way of writing the word. An edit that puts the answer on the card comes
+   here too, with nothing left to save. Either way the verdict follows the
+   card: the answer is accepted if the card now holds it, marked if not. */
+function acceptAnswer(save) {
   if (!last || !current) return;
-  const meaning = shownSide === 'front';
-  if (meaning) addAlternative(current, last.typed, (a, b) => compareMeaning(a, b) === 'exact');
+  const side = answerSide();
+  if (save) addAlternative(current, last.typed, sameAs().same, side);
   const move = { ...amendLastToRight(current), before: last.before };
-  /* Marked right, this answer's accents were not a slip after all — but a
+  /* Counted right, this answer's accents were not a slip after all — but a
      flag from an earlier miss is left for a real exact answer to clear. */
-  if (!meaning && !last.slipBefore) delete current.accent_slip;
+  if (side === 'front' && !last.slipBefore) delete current.accent_slip;
   tally.right++;
   tally.wrong--;
   renderTally();
   $('ty-input').className = 'answer-input is-ok';
-  $('ty-feedback').innerHTML = feedback(meaning ? 'accepted' : 'marked', last.typed, last.expected, move);
+  showFeedback(onCard(last.typed) ? 'accepted' : 'marked', last.typed, last.expected, move);
   if (justAnswered) justAnswered.verdict = 'exact';
   last = null;
   $('ty-next').focus();
-  store.cardAnswered(current);
+  return store.cardAnswered(current);
+}
+
+/* The feedback is drawn from the card as it stands, so it is kept to be
+   drawn again after an edit, rather than patched piece by piece. */
+function showFeedback(verdict, typed, expected, move) {
+  drawn = { verdict, typed, expected, move };
+  $('ty-feedback').innerHTML = feedback(verdict, typed, expected, move);
+}
+
+/* Where an accepted answer sits on the card as it is now — an edit may have
+   made it the card's own side rather than an alternative. */
+function acceptedNote(typed) {
+  const side = answerSide();
+  const quoted = `“${escapeHtml(typed)}”`;
+  const of = escapeHtml(current[shownSide]);
+  if (sameAs().same(typed, current[side])) return `${quoted} is now the card's own translation of ${of}`;
+  return `${quoted} is now saved as another translation of ${of}, beside <strong>${escapeHtml(current[side])}</strong>`;
 }
 
 function feedback(verdict, typed, expected, move) {
@@ -476,16 +513,14 @@ function feedback(verdict, typed, expected, move) {
     ? ` <span class="typed-back">${scoreMark(move.before)} → ${scoreMark(move.after, SCORE_LABEL[move.after].toLowerCase())}</span>`
     : '';
 
-  /* Drawn even with no alternatives, hidden, so that an edit which adds some
-     has a place to show them. */
-  const alts = shownSide === 'front'
-    ? `<div class="typed-back ty-alts" style="margin-top:6px"${altsText() ? '' : ' hidden'}>${escapeHtml(altsText())}</div>` : '';
+  const alts = altsText() ? `<div class="typed-back" style="margin-top:6px">${escapeHtml(altsText())}</div>` : '';
   const acceptBtn = shownSide === 'front'
     ? `<div class="row" style="margin-top:10px"><button class="btn btn--sm" id="ty-accept">Accept my answer</button>
        <button class="btn btn--sm" id="ty-fix-meaning">Change the meaning</button>
        <span class="note">Accept keeps the card's meaning and adds yours beside it; change it if the card's is wrong.</span></div>`
-    : `<div class="row" style="margin-top:10px"><button class="btn btn--sm" id="ty-accept">Mark as right</button>
-       <span class="note">Counts it as right this time. Nothing is saved to the card.</span></div>`;
+    : `<div class="row" style="margin-top:10px"><button class="btn btn--sm" id="ty-accept">Accept my answer</button>
+       <button class="btn btn--sm" id="ty-mark">Mark as right</button>
+       <span class="note">Accept saves yours on the card as another translation. Mark as right counts it this time and saves nothing.</span></div>`;
 
   let head;
   if (verdict === 'revealed') {
@@ -495,7 +530,7 @@ function feedback(verdict, typed, expected, move) {
       <div class="typed-back" style="margin-top:6px">you typed <strong>${escapeHtml(typed)}</strong> · the card says <strong>${escapeHtml(expected)}</strong></div>`;
   } else if (verdict === 'accepted') {
     head = `<div class="verdict is-ok">Accepted${moved}</div>
-      <div class="typed-back" style="margin-top:6px">“${escapeHtml(typed)}” is now saved as another meaning, beside <strong>${escapeHtml(expected)}</strong></div>`;
+      <div class="typed-back" style="margin-top:6px">${acceptedNote(typed)}</div>`;
   } else if (verdict === 'exact') {
     /* Right by one part of a longer meaning: show the whole of it, since the
        rest is worth reading too. */
@@ -528,19 +563,26 @@ function feedback(verdict, typed, expected, move) {
    that, any of it would give the answer away. Word, meaning, alternatives
    and notes together: cards are often written by a machine from someone's
    notes, and a meaning that makes no sense is found out mid-practice, which
-   is where it should be fixable. So is an alternative accepted by mistake. Saved straight into the deck the card came from,
-   exactly as if typed into the Flashcards tab. */
+   is where it should be fixable. So is an alternative accepted by mistake.
+   Saved straight into the deck the card came from, exactly as if typed into
+   the Flashcards tab.
+
+   The alternatives shown are those of the side being typed, and the label
+   names the side that was shown, word for word: "other meanings" is
+   ambiguous when the prompt was English and the answer the word. */
 function notesHtml(editing) {
   if (editing) {
     const lang = targetCode();
-    const alts = current.alternatives || [];
+    const alts = current[ALT_KEY[answerSide()]] || [];
+    const altsLang = answerSide() === 'front' ? lang : 'en';
     return `<div class="card-edit">
       <label class="field"><span>${escapeHtml(store.state.settings.targetLanguage || 'Word')}</span>
         <input type="text" id="ty-edit-front" lang="${lang}" spellcheck="false" autocomplete="off" value="${escapeHtml(current.front)}"></label>
       <label class="field"><span>Meaning</span>
         <input type="text" id="ty-edit-back" lang="en" spellcheck="false" autocomplete="off" value="${escapeHtml(current.back)}"></label>
-      <label class="field"><span>Also accepted, one per line</span>
-        <textarea id="ty-edit-alts" class="notes-edit" lang="en" rows="${Math.max(2, alts.length + 1)}" spellcheck="false">${escapeHtml(alts.join('\n'))}</textarea></label>
+      <label class="field"><span>Alternative translations of <span class="as-written">“${escapeHtml(current[shownSide])}”</span></span>
+        <textarea id="ty-edit-alts" class="notes-edit" lang="${altsLang}" rows="${Math.max(2, alts.length + 1)}" spellcheck="false"
+          placeholder="One per line, each accepted as right">${escapeHtml(alts.join('\n'))}</textarea></label>
       <label class="field"><span>Notes</span>
         <textarea id="ty-notes-input" class="notes-edit" rows="3" spellcheck="false">${escapeHtml(current.notes || '')}</textarea></label>
       <div class="row" style="margin-top:8px">
@@ -584,32 +626,45 @@ async function saveNotes() {
   current.front = front;
   current.back = back;
   /* One per line, since a meaning may itself hold a comma. Matched the way
-     Accept matches, so a line that only restates the meaning is dropped. */
-  setAlternatives(current, $('ty-edit-alts').value.split('\n'),
-    (a, b) => compareMeaning(a, b) === 'exact');
+     Accept matches, so a line that only restates the side is dropped. */
+  setAlternatives(current, $('ty-edit-alts').value.split('\n'), sameAs().same, answerSide());
   if (text) current.notes = text;
   else delete current.notes;
 
   /* Everything on screen that quoted the old card follows it: the prompt,
-     the answer an Accept would be judged against, and Last card's copy. */
+     the answer an Accept would be judged against, and Last card's copy. An
+     accent miss stays marked against the alternative it nearly was, while
+     the card still has it. */
   const prompt = document.getElementById('ty-prompt');
   if (prompt) prompt.textContent = current[shownSide];
-  const expected = shownSide === 'front' ? current.back : current.front;
-  for (const el of document.querySelectorAll('#ty-feedback .verdict .reveal')) el.textContent = expected;
-  for (const el of document.querySelectorAll('#ty-feedback .ty-alts')) {
-    el.textContent = altsText();
-    el.hidden = !el.textContent;
-  }
+  const expected = drawn && drawn.verdict === 'accent' && onCard(drawn.expected)
+    ? drawn.expected : current[answerSide()];
   if (last) last.expected = expected;
   if (justAnswered) Object.assign(justAnswered, { shown: current[shownSide], expected, notes: current.notes });
-  renderNotes(false);
+
+  /* A miss the edit has put on the card — the typed answer added as an
+     alternative, or made the card's own side — is now a right answer, and
+     is recorded as one exactly as Accept would, which also saves the card. */
+  if (last && onCard(last.typed)) {
+    await acceptAnswer(false);
+    return;
+  }
+  /* An answer already counted right says whether the card now holds it:
+     accepted if the edit left it there or put it there, marked right if the
+     edit took it off. */
+  if (drawn) {
+    const overruled = drawn.verdict === 'accepted' || drawn.verdict === 'marked';
+    const verdict = overruled ? (onCard(drawn.typed) ? 'accepted' : 'marked') : drawn.verdict;
+    showFeedback(verdict, drawn.typed, expected, drawn.move);
+  } else renderNotes(false);
+  $('ty-next').focus();
   /* Written back to this card's own deck, which in a multi-deck session is
      rarely the one open in the editor. */
   await store.saveCardDecks(current);
 }
 
 function altsText() {
-  const alts = current.alternatives || [];
+  const alts = current[ALT_KEY[answerSide()]] || [];
   return alts.length ? `also accepted: ${alts.join(' · ')}` : '';
 }
 

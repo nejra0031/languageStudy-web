@@ -269,6 +269,14 @@ textarea { resize: vertical; font: 13px/1.6 var(--mono); }
 }
 .field-head > label { margin-bottom: 0; }
 .field-head .seg { flex: none; }
+/* Card text quoted in a label keeps its own case: uppercasing a word being
+   learnt changes what it says. */
+.field > span .as-written {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+  color: var(--fg-muted);
+}
 
 /* A prompt as it will be sent. It stands where the prompt was, so it is set
    apart by its background rather than by its place: text that cannot be

@@ -5,7 +5,7 @@
    is lookup-popup.js and the one request is translate.js. */
 
 import { normalize } from './text.js';
-import { meanings } from './deck.js';
+import { accepted } from './deck.js';
 
 /* The languages Google Translate offers, by the code it takes and the
    English name the rest of the app uses for a language. The two dropdowns
@@ -112,17 +112,18 @@ export function resolveDirection(detected, learning, native) {
 
 /* Judged on normalize(), which keeps diacritics: a word with different
    accents is a different word, the rule text.js keeps everywhere. Case and
-   punctuation do not make a new card. `back` is the selection when it was in
-   the student's own language, and matches any meaning a card accepts. */
+   punctuation do not make a new card. Each side matches anything the card
+   accepts for it, alternatives included; `back` is the selection when it was
+   in the student's own language. */
 export function findCard(cards, { front = '', back = '' } = {}) {
   const f = normalize(front);
   const b = normalize(back);
   for (const card of cards || []) {
-    if (f && normalize(card.front) === f) return card;
+    if (f && accepted(card, 'front').some((w) => normalize(w) === f)) return card;
   }
   if (!b) return null;
   for (const card of cards || []) {
-    if (meanings(card).some((m) => normalize(m) === b)) return card;
+    if (accepted(card, 'back').some((m) => normalize(m) === b)) return card;
   }
   return null;
 }

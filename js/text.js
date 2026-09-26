@@ -206,6 +206,22 @@ export function compareMeaning(typed, meaning) {
   return best;
 }
 
+/* The best verdict over every accepted answer, and the answer it was given
+   against: the first exact one, else the first accent-only one, else the
+   first answer. The match is what an accent miss is marked against, since
+   the accents went astray from that answer and not from the card's own
+   side. `compare` is compareAnswer for a word and compareMeaning for a
+   meaning. */
+export function bestMatch(typed, options, compare) {
+  let accent = null;
+  for (const o of options) {
+    const verdict = compare(typed, o);
+    if (verdict === 'exact') return { verdict, match: o };
+    if (verdict === 'accent' && accent === null) accent = o;
+  }
+  return accent !== null ? { verdict: 'accent', match: accent } : { verdict: 'wrong', match: options[0] };
+}
+
 /* Character-level marks for an accent-only miss, so the offending letters can
    be highlighted. Lengths match because the base forms are equal. */
 export function accentMarks(typed, expected) {

@@ -63,8 +63,8 @@ test('with both languages the same, nothing is ever the wrong way round', () => 
 /* ── is it a card already? ───────────────────────────────────────────── */
 
 const DECK = [
-  { front: 'tiện lợi', back: 'convenient, handy' },
-  { front: 'Lời đề nghị', back: 'offer', alternatives: ['proposal'] },
+  { front: 'tiện lợi', back: 'convenient, handy', front_alternatives: ['thuận tiện'] },
+  { front: 'Lời đề nghị', back: 'offer', back_alternatives: ['proposal'] },
 ];
 
 test('a word is found whatever its case and punctuation', () => {
@@ -76,6 +76,10 @@ test('different accents are a different word', () => {
   /* Judged on normalize(), which keeps diacritics — as every answer is. */
   assert.equal(findCard(DECK, { front: 'tien loi' }), null);
   assert.equal(findCard(DECK, { front: 'tiện lời' }), null);
+});
+
+test('a word finds its card by an alternative form too', () => {
+  assert.equal(findCard(DECK, { front: 'Thuận tiện' }), DECK[0]);
 });
 
 test('a meaning finds its card, alternatives included', () => {

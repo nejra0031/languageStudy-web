@@ -9,7 +9,10 @@
      score      1..5, recomputed from recent[] after every answer
      recent     the last 8 results, oldest first
      last_seen  ISO date of the last answer
-     alternatives  optional: other meanings accepted as right, beside back
+     front_alternatives  optional: other words accepted as right, beside front
+     back_alternatives   optional: other meanings accepted as right, beside back
+                (read from `alternatives` too, its name before the front had
+                any; see normalizeCard)
      accent_slip   optional: true while the word's last miss was the accents
                 only. Set by a right-word-wrong-accents answer, cleared by an
                 exact one, and what the Accents filter drills.
@@ -74,36 +77,47 @@ export function amendLastToRight(card) {
   return recordResult(card, true, { typedFront: false });
 }
 
-/* Adds a meaning to the card's alternatives, unless it already matches one of
-   the meanings the card has. Returns true when the card changed. `same` is the
+/* Where each side keeps its alternatives, named for the side. */
+export const ALT_KEY = { front: 'front_alternatives', back: 'back_alternatives' };
+
+/* The back's alternatives were called `alternatives` before the front had
+   any, and decks written then still carry that name. */
+const LEGACY_BACK_KEY = 'alternatives';
+
+/* Adds an answer to one side's alternatives, unless it already matches one of
+   the answers that side has. Returns true when the card changed. `same` is the
    caller's idea of equality, because deck.js does not judge text. */
-export function addAlternative(card, text, same) {
+export function addAlternative(card, text, same, side = 'back') {
   const t = String(text || '').trim();
-  if (!t || meanings(card).some((m) => same(t, m))) return false;
-  card.alternatives = [...(card.alternatives || []), t];
+  if (!t || accepted(card, side).some((m) => same(t, m))) return false;
+  card[ALT_KEY[side]] = [...(card[ALT_KEY[side]] || []), t];
   return true;
 }
 
-/* Replaces the card's alternatives with the ones the learner wrote out when
-   editing it. Blank lines go, and so does anything that matches the back or
-   an alternative listed before it, so an edit cannot fill the card with
-   meanings that change nothing. With none left the key is removed rather
+/* Replaces one side's alternatives with the ones the learner wrote out when
+   editing the card. Blank lines go, and so does anything that matches that
+   side or an alternative listed before it, so an edit cannot fill the card
+   with answers that change nothing. With none left the key is removed rather
    than saved empty, as the deck file never carries an empty list. `same` is
    the caller's idea of equality, as for addAlternative. */
-export function setAlternatives(card, list, same) {
+export function setAlternatives(card, list, same, side = 'back') {
   const kept = [];
   for (const raw of list || []) {
     const t = String(raw || '').trim();
-    if (t && ![card.back, ...kept].some((m) => same(t, m))) kept.push(t);
+    if (t && ![card[side], ...kept].some((m) => same(t, m))) kept.push(t);
   }
-  if (kept.length) card.alternatives = kept;
-  else delete card.alternatives;
+  if (kept.length) card[ALT_KEY[side]] = kept;
+  else delete card[ALT_KEY[side]];
 }
 
-/* Every answer that counts as this card's meaning: the back, then any
-   alternatives the learner has accepted. */
+/* Every answer that counts as right for one side of the card: the side as
+   written, then any alternatives the learner has accepted for it. */
+export function accepted(card, side) {
+  return [card[side], ...((card && card[ALT_KEY[side]]) || [])];
+}
+
 export function meanings(card) {
-  return [card.back, ...((card && card.alternatives) || [])];
+  return accepted(card, 'back');
 }
 
 export function today() {
@@ -208,7 +222,7 @@ export function isDictatable(card) {
   return core.length >= 1 && core.length <= 6;
 }
 
-const KNOWN_KEYS = new Set(['front', 'back', 'alternatives', 'notes', 'score', 'recent', 'last_seen', 'accent_slip']);
+const KNOWN_KEYS = new Set(['front', 'front_alternatives', 'back', 'back_alternatives', LEGACY_BACK_KEY, 'notes', 'score', 'recent', 'last_seen', 'accent_slip']);
 
 /* Fill in what a hand-written card leaves out, so bare front/back pairs pasted
    into the textarea work without ceremony.
@@ -222,10 +236,16 @@ export function normalizeCard(raw) {
     front: String((raw && raw.front) || '').trim(),
     back: String((raw && raw.back) || '').trim(),
   };
-  if (raw && Array.isArray(raw.alternatives)) {
-    const alts = raw.alternatives.map((a) => String(a || '').trim()).filter(Boolean);
-    if (alts.length) card.alternatives = alts;
-  }
+  /* A deck from before back_alternatives existed keeps its meanings under
+     the old name, and one edited by hand may have both. Both are read, the
+     new name's first, and each meaning is kept once; the card is written
+     back under the new name alone, so an old deck moves over on its next
+     save and loses nothing. */
+  const listOf = (v) => (Array.isArray(v) ? v.map((a) => String(a || '').trim()).filter(Boolean) : []);
+  const front = listOf(raw && raw.front_alternatives);
+  const back = [...new Set([...listOf(raw && raw.back_alternatives), ...listOf(raw && raw[LEGACY_BACK_KEY])])];
+  if (front.length) card.front_alternatives = front;
+  if (back.length) card.back_alternatives = back;
   if (raw && raw.notes) card.notes = String(raw.notes);
   const score = Number(raw && raw.score);
   card.score = Number.isFinite(score) && score >= 1 && score <= 5 ? Math.round(score) : 1;
@@ -302,8 +322,12 @@ function tidy(msg) {
    so saving a deck does not reshuffle a file the user is reading. */
 export function serializeDeck(cards) {
   const out = cards.map((c) => {
-    const o = { front: c.front, back: c.back };
-    if (c.alternatives && c.alternatives.length) o.alternatives = c.alternatives;
+    /* Each side's alternatives sit right under it, so the file reads as the
+       word and its other forms, then the meaning and its other wordings. */
+    const o = { front: c.front };
+    if (c.front_alternatives && c.front_alternatives.length) o.front_alternatives = c.front_alternatives;
+    o.back = c.back;
+    if (c.back_alternatives && c.back_alternatives.length) o.back_alternatives = c.back_alternatives;
     if (c.notes) o.notes = c.notes;
     o.score = c.score;
     o.recent = c.recent;

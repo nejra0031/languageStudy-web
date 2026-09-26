@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   recordResult, stats, isDictatable, isPattern, setPattern, normalizeCard, parseDeck, serializeDeck,
-  importWatchlist, parseDeckFile, amendLastToRight, addAlternative, setAlternatives, meanings,
+  importWatchlist, parseDeckFile, amendLastToRight, addAlternative, setAlternatives, accepted, meanings,
   pickWeighted, pickGroup, cardWeight, inScope, slugify, WINDOW,
 } from '../js/deck.js';
 
@@ -322,21 +322,53 @@ test('alternatives are added once, kept through a save, and count as meanings', 
 
   const text = serializeDeck([c]);
   const [back] = parseDeck(text).cards;
-  assert.deepEqual(back.alternatives, ['Auntie, keep the change']);
-  assert.ok(text.indexOf('"alternatives"') < text.indexOf('"score"'),
+  assert.deepEqual(back.back_alternatives, ['Auntie, keep the change']);
+  assert.ok(text.indexOf('"back_alternatives"') < text.indexOf('"score"'),
     'sits with the meaning, above the history');
   assert.ok(!serializeDeck([card()]).includes('alternatives'), 'absent when empty');
   assert.ok(!('alternatives' in normalizeCard({ front: 'a', back: 'b', alternatives: ['', '  '] })));
 });
 
+test('an old deck\'s alternatives are read as the meaning\'s, and saved under the new name', () => {
+  const old = normalizeCard({ front: 'a', back: 'b', alternatives: ['c', 'd'] });
+  assert.deepEqual(old.back_alternatives, ['c', 'd']);
+  assert.ok(!('alternatives' in old), 'not carried as a key of its own');
+  const text = serializeDeck([old]);
+  assert.ok(text.includes('"back_alternatives"') && !text.includes('"alternatives"'));
+
+  /* A hand-edited card with both: the new name's come first, each once. */
+  const both = normalizeCard({ front: 'a', back: 'b', alternatives: ['d', 'e'], back_alternatives: ['c', 'd'] });
+  assert.deepEqual(both.back_alternatives, ['c', 'd', 'e']);
+  assert.deepEqual(meanings(both), ['b', 'c', 'd', 'e']);
+});
+
+test('the word has alternatives of its own, kept apart from the meaning\'s', () => {
+  const same = (a, b) => a.toLowerCase() === b.toLowerCase();
+  const c = { ...card(), front: 'tiện lợi', back: 'convenient', back_alternatives: ['handy'] };
+  assert.equal(addAlternative(c, 'Tiện lợi', same, 'front'), false, 'already the front');
+  assert.equal(addAlternative(c, 'thuận tiện', same, 'front'), true);
+  assert.deepEqual(accepted(c, 'front'), ['tiện lợi', 'thuận tiện']);
+  assert.deepEqual(accepted(c, 'back'), ['convenient', 'handy'], 'the meaning\'s are untouched');
+
+  const text = serializeDeck([c]);
+  const [back] = parseDeck(text).cards;
+  assert.deepEqual(back.front_alternatives, ['thuận tiện']);
+  assert.ok(text.indexOf('"front"') < text.indexOf('"front_alternatives"')
+    && text.indexOf('"front_alternatives"') < text.indexOf('"back"'), 'sits under the word it belongs to');
+
+  setAlternatives(c, ['', 'tiện lợi'], same, 'front');
+  assert.ok(!('front_alternatives' in c), 'nothing left is no key');
+  assert.deepEqual(c.back_alternatives, ['handy']);
+});
+
 test('editing alternatives keeps each distinct meaning once, and none drops the key', () => {
   const same = (a, b) => a.toLowerCase().replace(/[!,]/g, '') === b.toLowerCase().replace(/[!,]/g, '');
-  const c = { ...card(), back: 'Keep the change!', alternatives: ['old one'] };
+  const c = { ...card(), back: 'Keep the change!', back_alternatives: ['old one'] };
   setAlternatives(c, [' Auntie, keep the change ', '', 'keep the change', 'auntie keep the change', 'no change'], same);
-  assert.deepEqual(c.alternatives, ['Auntie, keep the change', 'no change'],
+  assert.deepEqual(c.back_alternatives, ['Auntie, keep the change', 'no change'],
     'trimmed; blanks, the back and repeats dropped; the old list replaced');
   setAlternatives(c, ['  ', 'Keep the change'], same);
-  assert.ok(!('alternatives' in c), 'nothing left is no key, not an empty list');
+  assert.ok(!('back_alternatives' in c), 'nothing left is no key, not an empty list');
 });
 
 test('setPattern marks a pattern, and unmarks only a pattern', () => {

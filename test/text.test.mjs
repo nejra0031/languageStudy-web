@@ -2,8 +2,17 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   normalize, words, base, contains, containsLoosely, diff, termPieces,
-  compareAnswer, compareMeaning, meaningVariants, accentMarks,
+  compareAnswer, compareMeaning, meaningVariants, accentMarks, bestMatch,
 } from '../js/text.js';
+
+test('the best match over several answers prefers exact, then accents, then the first', () => {
+  const forms = ['tiện lợi', 'thuận tiện'];
+  assert.deepEqual(bestMatch('Thuận tiện', forms, compareAnswer), { verdict: 'exact', match: 'thuận tiện' });
+  assert.deepEqual(bestMatch('thuan tien', forms, compareAnswer), { verdict: 'accent', match: 'thuận tiện' },
+    'an accent miss is marked against the answer it nearly was');
+  assert.deepEqual(bestMatch('tiện', forms, compareAnswer), { verdict: 'wrong', match: 'tiện lợi' });
+  assert.equal(bestMatch('handy', ['convenient; handy', 'useful'], compareMeaning).verdict, 'exact');
+});
 
 test('normalize keeps diacritics but drops case and punctuation', () => {
   assert.equal(normalize('  Tôi KHÔNG rành, đường!  '), 'tôi không rành đường');

@@ -62,12 +62,15 @@ meaning, which is what the card is scored on, and can be answered at any point.
 With nothing typed, the button offers *Show answer*, which gives up on a card
 and counts it as a miss; type anything and it becomes *Check*. Enter only ever
 checks, so a stray one cannot give a card up. Once a card has been answered,
-**Edit card** lets you fix its word, meaning, notes or the other meanings it
-accepts (one per line) in place, and a meaning
-the app marked wrong can be **accepted** — which counts it right and saves it on
-the card as another way of saying the same thing. A word you typed in the
-language you are learning can be **marked right** instead: it counts this once
-and nothing is saved, so the card keeps the form it was written in.
+**Edit card** lets you fix its word, meaning or notes in place, along with its
+**alternative translations** of the side you were shown, one per line: other
+meanings when you were typing the meaning, other words when you were typing
+the word. An answer the app marked wrong can be **accepted** — which counts it
+right and saves it on the card as another translation, whichever side you were
+typing. Adding what you typed through Edit card does the same: the answer
+turns right. A word can also be **marked right** instead: it counts this once
+and nothing is saved, for a slip you forgive rather than another way of
+writing the word.
 
 **Dictation** — a sentence is written around two or three of your weakest cards,
 spoken aloud, and diffed word by word against what you type. Needs an API key.
@@ -333,8 +336,9 @@ matched by their target words instead, so an older folder keeps working.
 [
   {
     "front": "lời đề nghị",
+    "front_alternatives": ["lời đề xuất"],
     "back": "offer, proposal",
-    "alternatives": ["a proposal"],
+    "back_alternatives": ["a proposal"],
     "notes": "lời = words; đề nghị = to propose. E.g. \"Chị ấy từ chối lời đề nghị của anh ấy.\"",
     "score": 4,
     "recent": [true, true, false, true, true, true, false, true],
@@ -350,9 +354,14 @@ matched by their target words instead, so an older folder keeps working.
 by hand and they will be filled in. A bare `{"front": "…", "back": "…"}` is a
 perfectly good card.
 
-`alternatives` are other meanings counted as right beside `back`. You can write
-them by hand, let the Typing tab add one when you click *Accept my answer*, or
-change them there with *Edit card*.
+`front_alternatives` are other words counted as right beside `front`, and
+`back_alternatives` other meanings counted as right beside `back`. You can
+write them by hand, let the Typing tab add one when you click *Accept my
+answer*, or change them there with *Edit card*: the meaning's when the word was
+shown, the word's when the meaning was. A selected word that is one of a
+card's `front_alternatives` is found as that card. Decks from before the word
+had alternatives call the meaning's `alternatives`; that is still read, and
+the card is saved with `back_alternatives` instead.
 `accent_slip` is set while the card's last miss was the accents alone, and is
 what the **Accents** filter selects on; typing the word exactly clears it.
 
