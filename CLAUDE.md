@@ -7,9 +7,9 @@ and how to check a change.
 
 ## What this is
 
-A static page — flashcards, typing, dictation and shadowing for any language —
-served as-is from GitHub Pages. No build step, no dependencies, no server, no
-package.json. Plain ES modules in `js/`, one stylesheet, one `index.html`.
+A static page — flashcards, typing, dictation, shadowing and reading for any
+language — served as-is from GitHub Pages. No build step, no dependencies, no
+server, no package.json. Plain ES modules in `js/`, one stylesheet, one `index.html`.
 Keep it that way: a change that needs a bundler, an npm package or a backend
 is the wrong change.
 
@@ -21,12 +21,16 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
 ## How the code is laid out
 
 - `app.js` boots the page and switches tabs. Each `tab-*.js` owns one panel and
-  its DOM, and exports `init()` and optionally `onShow()`.
+  its DOM, and exports `init()` and optionally `onShow()`. The tab strip is
+  two groups, setup (Settings, Flashcards) and practice; a tab with
+  `data-soon` is a planned mode with no panel, and clicking it only says it
+  is coming soon (see *Planned modes* below).
 - `store.js` is the shared state: settings, every deck, the dictation bank,
   the call budget. Tabs read `store.state` and call the store's save
   functions; **a tab never touches storage directly.** Subscribers are told
   after each change (`subscribe('settings' | 'deck' | 'folder' | 'quota' |
-  'bank' | 'shadow' | 'reading')`).
+  'bank' | 'shadow' | 'reading')`), and once with `'ready'` when the first
+  load is done.
   Practice spans every ticked deck, so a card is written back to its *own*
   deck: `store.deckOf(card)`, `store.saveCardDecks(card)`.
 - `storage.js` is one directory, laid out the same wherever it lives. It picks
@@ -43,12 +47,23 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
   stripped) is only ever used to *align* words, so a missed accent reads as
   "this word, wrong accent" rather than a wrong word. Never judge correctness
   on `base`.
+- `defaults.js` holds every default: settings, prompts, the Gemini voice
+  list and the starter deck. Settings from disk are merged over it, so a new
+  key needs only a default here.
 - `gemini.js` talks to the Gemini API from the page with the user's key, and
-  counts calls per model locally before any request goes out.
+  counts calls per model locally before any request goes out. What the speech
+  model is given is built by `speechText`, which adds the register or dialect
+  note for audio in code, so a rewritten speech prompt cannot drop it.
 - `speech.js` is the device's own text-to-speech, not Gemini: free, instant,
-  offline. `recorder.js` is the microphone.
+  offline. `azure-tts.js` is Azure's neural voices, optional, with the user's
+  own key, called from the page like Gemini. `recorder.js` is the microphone.
 - `zip.js` and `bundle.js` are the two backups: a zip laid out like the data
   folder (keeps the audio), and one readable JSON file (decks and settings).
+  `backup-due.js` decides when to remind someone using browser storage to
+  take one.
+- `opus.js` wraps WebCodecs' Opus packets in Ogg, so generated audio is saved
+  at a twelfth of WAV's size; `convert-audio.js` converts an older bank's WAVs
+  in an order that never leaves a sentence without playable audio.
 - `shadowing.js` is Shadowing's pure logic; `tab-shadowing.js` its DOM.
 - `reading.js` is Reading's pure logic: the presets, which cards a text uses,
   and parsing the reply. The model marks each use of a card as
@@ -77,9 +92,9 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
 
 ## Rules the code keeps
 
-- **The API key lives in `localStorage` only.** It is never written to the data
-  directory, a backup or a bundle, so a folder that is a git clone, or a
-  backup mailed to oneself, cannot leak it.
+- **API keys live in `localStorage` only** (Gemini's and Azure's). They are
+  never written to the data directory, a backup or a bundle, so a folder that is a git clone, or a
+  backup mailed to oneself, cannot leak them.
 - **The deck file is the UI.** The Flashcards tab shows exactly what is stored.
   Fields the app does not know are carried through every save untouched, so
   never drop unknown keys, and never add app-internal state to a card (the
@@ -110,13 +125,25 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
   is right, what it deliberately does not do, and anything found on the way.
   One logical change per commit.
 
+## Planned modes
+
+Three more practice modes are planned: **Writing**, **Translate** and
+**Conversation** (typed, then spoken turns). Their tabs are already in the
+strip, greyed out as coming soon. The plan is written in full in
+`practice-mode-port.md` at the repo root, a working note kept out of git (see
+`.gitignore`): it adapts lessons-web's modes to decks, settings and the model
+catalogue, phase by phase, with the tests each needs. None of it is coded yet;
+that comes later. When a mode is built, follow the plan, drop the tab's
+`data-soon`, give it a panel, and update this file and the README in the same
+commit.
+
 ## Checking a change in a browser
 
 Unit tests cover the modules without a DOM — `deck.js`, `text.js`,
-`gemini.js`, the model catalogue, `speech.js`, `zip.js`, `bundle.js`,
-`opus.js`, `convert-audio.js`, `shadowing.js`, `shadow-rules.js`, `lookup.js` and `reading.js` — not the tabs. For
-anything a user sees, drive the
-real page. Playwright's WebKit is Safari's engine and works well; some quirks
+`gemini.js`, the model catalogue, `speech.js`, `azure-tts.js`, `zip.js`,
+`bundle.js`, `backup-due.js`, `opus.js`, `convert-audio.js`, `shadowing.js`,
+`shadow-rules.js`, `lookup.js` and `reading.js` — not the tabs. For anything a
+user sees, drive the real page. Playwright's WebKit is Safari's engine and works well; some quirks
 cost time the first time:
 
 - Playwright's WebKit keeps a site's OPFS outside the profile folder, so
