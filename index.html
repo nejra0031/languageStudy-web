@@ -6,7 +6,7 @@
 <title>Language Study</title>
 <meta name="description" content="Flashcards, typing practice and AI dictation for any language. Your own API key, your own files, no accounts and no server.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230f1117'/><rect x='3' y='3' width='10' height='10' fill='%23d4b455'/></svg>">
-<link rel="stylesheet" href="css/app.css?v=2026-09-26.3">
+<link rel="stylesheet" href="css/app.css?v=2026-09-26.6">
 <!-- Cache-busting. GitHub Pages lets a browser keep any file for ten minutes,
      so without this a deploy can leave you with a new index.html and an old
      module, or the reverse, and the page fails to start. Every module is
@@ -18,32 +18,34 @@
 <script type="importmap">
 {
   "imports": {
-    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-26.3",
-    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-26.3",
-    "./js/bundle.js": "./js/bundle.js?v=2026-09-26.3",
-    "./js/convert-audio.js": "./js/convert-audio.js?v=2026-09-26.3",
-    "./js/deck.js": "./js/deck.js?v=2026-09-26.3",
-    "./js/defaults.js": "./js/defaults.js?v=2026-09-26.3",
-    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-26.3",
-    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-26.3",
-    "./js/gemini.js": "./js/gemini.js?v=2026-09-26.3",
-    "./js/lookup.js": "./js/lookup.js?v=2026-09-26.3",
-    "./js/lookup-popup.js": "./js/lookup-popup.js?v=2026-09-26.3",
-    "./js/opus.js": "./js/opus.js?v=2026-09-26.3",
-    "./js/recorder.js": "./js/recorder.js?v=2026-09-26.3",
-    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-26.3",
-    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-26.3",
-    "./js/speech.js": "./js/speech.js?v=2026-09-26.3",
-    "./js/storage.js": "./js/storage.js?v=2026-09-26.3",
-    "./js/store.js": "./js/store.js?v=2026-09-26.3",
-    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-26.3",
-    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-26.3",
-    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-26.3",
-    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-26.3",
-    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-26.3",
-    "./js/text.js": "./js/text.js?v=2026-09-26.3",
-    "./js/translate.js": "./js/translate.js?v=2026-09-26.3",
-    "./js/zip.js": "./js/zip.js?v=2026-09-26.3"
+    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-26.6",
+    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-26.6",
+    "./js/bundle.js": "./js/bundle.js?v=2026-09-26.6",
+    "./js/convert-audio.js": "./js/convert-audio.js?v=2026-09-26.6",
+    "./js/deck.js": "./js/deck.js?v=2026-09-26.6",
+    "./js/defaults.js": "./js/defaults.js?v=2026-09-26.6",
+    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-26.6",
+    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-26.6",
+    "./js/gemini.js": "./js/gemini.js?v=2026-09-26.6",
+    "./js/lookup.js": "./js/lookup.js?v=2026-09-26.6",
+    "./js/lookup-popup.js": "./js/lookup-popup.js?v=2026-09-26.6",
+    "./js/opus.js": "./js/opus.js?v=2026-09-26.6",
+    "./js/reading.js": "./js/reading.js?v=2026-09-26.6",
+    "./js/recorder.js": "./js/recorder.js?v=2026-09-26.6",
+    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-26.6",
+    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-26.6",
+    "./js/speech.js": "./js/speech.js?v=2026-09-26.6",
+    "./js/storage.js": "./js/storage.js?v=2026-09-26.6",
+    "./js/store.js": "./js/store.js?v=2026-09-26.6",
+    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-26.6",
+    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-26.6",
+    "./js/tab-reading.js": "./js/tab-reading.js?v=2026-09-26.6",
+    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-26.6",
+    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-26.6",
+    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-26.6",
+    "./js/text.js": "./js/text.js?v=2026-09-26.6",
+    "./js/translate.js": "./js/translate.js?v=2026-09-26.6",
+    "./js/zip.js": "./js/zip.js?v=2026-09-26.6"
   }
 }
 </script>
@@ -62,6 +64,7 @@
   <button class="tab" role="tab" id="tab-typing" data-tab="typing" aria-selected="false" aria-controls="panel-typing">Typing</button>
   <button class="tab" role="tab" id="tab-dictation" data-tab="dictation" aria-selected="false" aria-controls="panel-dictation">Dictation</button>
   <button class="tab" role="tab" id="tab-shadowing" data-tab="shadowing" aria-selected="false" aria-controls="panel-shadowing">Shadowing</button>
+  <button class="tab" role="tab" id="tab-reading" data-tab="reading" aria-selected="false" aria-controls="panel-reading">Reading</button>
 </nav>
 
 <main>
@@ -150,7 +153,7 @@
     <div class="block-head"><h2>What each model does</h2><span class="hint" id="roles-hint"></span></div>
     <div class="block-body">
       <div class="grid">
-        <label class="field"><span>Text — writes the sentence</span>
+        <label class="field"><span>Text — writes sentences and reading texts</span>
           <select id="set-textmodel"></select>
         </label>
         <label class="field"><span>Speech — reads it aloud</span>
@@ -329,6 +332,21 @@
       <p class="note prompt-warn" id="prompt-warn-notes" hidden></p>
       <p class="note">Sent when you press <em>Ask for notes</em> in the form that opens on selected text. Placeholders: <code>{language}</code> and <code>{nativeLanguage}</code>, the two languages under Add from selected text; <code>{front}</code> and <code>{back}</code>, the word and its meaning; <code>{context}</code>, the sentence the word was selected from; <code>{pattern}</code>, which for a grammar pattern asks for the construction to be explained and is empty otherwise; <code>{level}</code> and <code>{languageNote}</code>. The reply goes into the notes box exactly as it comes, so ask for plain text.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-notes-reset">Reset to default</button></div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="set-prompt-reading">Reading prompt — text model</label>
+          <div class="seg" role="group" aria-label="Show the reading prompt as" data-prompt="reading">
+            <button type="button" data-view="edit" aria-pressed="true">Edit</button>
+            <button type="button" data-view="preview" aria-pressed="false">Preview</button>
+          </div>
+        </div>
+        <textarea id="set-prompt-reading" rows="16" spellcheck="false"></textarea>
+        <textarea id="prompt-preview-reading" class="prompt-preview" rows="16" readonly spellcheck="false" aria-label="Reading prompt, as it will be sent" hidden></textarea>
+      </div>
+      <p class="note prompt-warn" id="prompt-warn-reading" hidden></p>
+      <p class="note">Sent when you press <em>Write a text</em> on the Reading tab. Placeholders: <code>{request}</code>, what you typed in that tab's request box; <code>{terms}</code>, the cards to use, numbered; <code>{language}</code>, <code>{level}</code> and <code>{languageNote}</code>. The text is read back from the <code>TITLE:</code> and <code>TEXT:</code> lines, and each use of a card from its <code>[[number|words]]</code> mark. Keep the marks: a text without them has nothing to click and is refused.</p>
+      <div class="row"><button class="btn btn--sm" id="prompt-reading-reset">Reset to default</button></div>
     </div>
   </div>
 
@@ -616,9 +634,100 @@
 
 </main>
 
+<!-- ── READING ───────────────────────────────────────────────── -->
+<section class="panel" id="panel-reading" role="tabpanel" aria-labelledby="tab-reading" hidden>
+<div class="wrap">
+
+  <div class="block">
+    <div class="block-head"><h2>Your texts</h2><span class="hint" id="rd-list-hint"></span></div>
+    <div class="block-body" id="rd-list"></div>
+  </div>
+
+  <div class="block">
+    <div class="block-head">
+      <h2>Reading</h2>
+      <span class="hint" id="rd-pool"></span>
+    </div>
+    <div class="block-body">
+      <p class="note">A text written around cards from the decks ticked in the Flashcards tab: some of your words and, when your decks have them, some grammar patterns. Each one is coloured where it appears. <strong>Click one and say whether you understood it</strong>, then its meaning and notes are shown, and the card is scored as a right or a wrong answer.</p>
+      <div id="rd-gate"></div>
+
+      <div id="rd-stage" hidden>
+        <div class="row">
+          <div class="seg" id="rd-scope" role="group" aria-label="Which cards to use">
+            <button data-scope="weak" aria-pressed="false">Weak</button>
+            <button data-scope="developing" aria-pressed="false">+ Developing</button>
+            <button data-scope="all" aria-pressed="true">All</button>
+          </div>
+          <span class="spacer"></span>
+          <span class="quota" id="rd-quota"></span>
+        </div>
+
+        <div class="field">
+          <div class="field-head rd-request-head">
+            <label for="rd-request">What to write</label>
+            <div class="row" id="rd-presets" role="group" aria-label="Fill in a ready-made request">
+              <button type="button" class="btn btn--sm" data-preset="story">Short story</button>
+              <button type="button" class="btn btn--sm" data-preset="news">Long news article</button>
+              <button type="button" class="btn btn--sm" data-preset="presentation">Presentation</button>
+            </div>
+          </div>
+          <textarea id="rd-request" rows="5" spellcheck="false"></textarea>
+        </div>
+        <p class="note">Describe the text you want in your own words: the kind of text, the topic, its length, the tone. The buttons fill in a full request to start from. Change it as you like; it is kept for next time.</p>
+
+        <div class="row rd-go">
+          <label class="field rd-terms"><span>Cards to use</span><input type="number" id="rd-terms" min="1" max="40"></label>
+          <button class="btn btn--primary" id="rd-new">Write a text</button>
+          <span class="note" id="rd-writing" hidden></span>
+        </div>
+      </div>
+
+      <div id="rd-error"></div>
+
+      <div class="card" id="rd-card" hidden>
+        <div class="card-meta" id="rd-meta"></div>
+        <div class="card-body">
+          <div class="rd-audio-bar">
+            <label class="field rd-voice"><span>Voice</span><select id="rd-voice"></select></label>
+            <button class="btn" id="rd-speak">Read aloud</button>
+            <button class="btn btn--danger" id="rd-unspeak" hidden>Delete audio</button>
+            <span class="note" id="rd-speak-note"></span>
+            <div class="rd-player" id="rd-player" hidden>
+              <audio id="rd-audio" controls preload="metadata"></audio>
+              <div class="row">
+                <div class="seg" id="rd-rate" role="group" aria-label="Playback speed">
+                  <button data-rate="0.6" aria-pressed="false">0.6×</button>
+                  <button data-rate="0.8" aria-pressed="false">0.8×</button>
+                  <button data-rate="1" aria-pressed="true">1×</button>
+                </div>
+                <button class="btn btn--sm" id="rd-download">Download audio</button>
+                <span class="note" id="rd-audio-meta"></span>
+              </div>
+            </div>
+          </div>
+          <h3 class="rd-title" id="rd-title"></h3>
+          <div class="rd-text" id="rd-text"></div>
+          <div class="legend rd-legend">
+            <span><i class="rd-mark rd-mark--word">word</i> a word</span>
+            <span><i class="rd-mark rd-mark--pattern">pattern</i> a grammar pattern</span>
+            <span><i class="rd-mark rd-mark--word is-ok">✓</i> understood</span>
+            <span><i class="rd-mark rd-mark--word is-bad">✗</i> not understood</span>
+          </div>
+          <div class="rd-summary" id="rd-summary"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</section>
+
 <!-- The selection popup: filled and placed by lookup-popup.js, under whatever was selected. -->
 <div class="lookup-pop" id="lookup-pop" role="dialog" aria-label="Add the selection as a flashcard" hidden></div>
+<!-- The Reading tab's word popup: the selection popup's shape, filled by tab-reading.js. -->
+<div class="lookup-pop" id="reading-pop" role="dialog" aria-label="A word from the text" hidden></div>
 
-<script type="module" src="js/app.js?v=2026-09-26.3"></script>
+<script type="module" src="js/app.js?v=2026-09-26.6"></script>
 </body>
 </html>

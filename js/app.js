@@ -7,6 +7,7 @@ import * as flashcards from './tab-flashcards.js';
 import * as typing from './tab-typing.js';
 import * as dictation from './tab-dictation.js';
 import * as shadowing from './tab-shadowing.js';
+import * as reading from './tab-reading.js';
 import * as lookup from './lookup-popup.js';
 
 const TABS = {
@@ -15,6 +16,7 @@ const TABS = {
   typing: { module: typing },
   dictation: { module: dictation },
   shadowing: { module: shadowing },
+  reading: { module: reading },
 };
 
 function show(name) {

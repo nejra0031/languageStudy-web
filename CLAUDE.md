@@ -26,7 +26,7 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
   the call budget. Tabs read `store.state` and call the store's save
   functions; **a tab never touches storage directly.** Subscribers are told
   after each change (`subscribe('settings' | 'deck' | 'folder' | 'quota' |
-  'bank' | 'shadow')`).
+  'bank' | 'shadow' | 'reading')`).
   Practice spans every ticked deck, so a card is written back to its *own*
   deck: `store.deckOf(card)`, `store.saveCardDecks(card)`.
 - `storage.js` is one directory, laid out the same wherever it lives. It picks
@@ -35,9 +35,9 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
   a `FileSystemDirectoryHandle`, so nothing above `storage.js` can tell them
   apart.
 - `deck.js` is the deck format and scoring. **`recordResult` is the only place
-  the scoring rules live**; both practice tabs call it, and a changed verdict
-  is re-recorded through `amendLastToRight`, never by editing `score` or
-  `recent` directly.
+  the scoring rules live**; every practice tab calls it, and a changed verdict
+  is re-recorded through `amendLastToRight` (or, in Reading,
+  `amendLastToWrong`), never by editing `score` or `recent` directly.
 - `text.js` compares answers in tiers. `normalize` (case and punctuation
   folded, **diacritics kept**) decides correctness; `base` (diacritics
   stripped) is only ever used to *align* words, so a missed accent reads as
@@ -50,6 +50,17 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
 - `zip.js` and `bundle.js` are the two backups: a zip laid out like the data
   folder (keeps the audio), and one readable JSON file (decks and settings).
 - `shadowing.js` is Shadowing's pure logic; `tab-shadowing.js` its DOM.
+- `reading.js` is Reading's pure logic: the presets, which cards a text uses,
+  and parsing the reply. The model marks each use of a card as
+  `[[number|words as written]]`, so an inflected form or a split pattern still
+  points at its card. `tab-reading.js` is the text and its word popup, which
+  borrows the selection popup's styles and `placeUnder`. A verdict is given
+  before the meaning is shown, so a change of mind can go either way: back
+  through `amendLastToRight` or `amendLastToWrong`. Texts are kept in
+  `reading/` (an index, one JSON per text, and its audio once read aloud),
+  written and deleted through the store; answers are not kept with a text.
+  New audio replaces old only after it is written, and deleting the audio
+  alone rewrites the text before the file goes.
 - The selection popup (Add from selected text) is not a tab: it opens over
   whichever tab holds the selected text. `lookup.js` is its pure logic
   (which way round, is the word a card already, the sentence around it),
@@ -103,7 +114,7 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
 
 Unit tests cover the modules without a DOM — `deck.js`, `text.js`,
 `gemini.js`, the model catalogue, `speech.js`, `zip.js`, `bundle.js`,
-`opus.js`, `convert-audio.js`, `shadowing.js`, `shadow-rules.js` and `lookup.js` — not the tabs. For
+`opus.js`, `convert-audio.js`, `shadowing.js`, `shadow-rules.js`, `lookup.js` and `reading.js` — not the tabs. For
 anything a user sees, drive the
 real page. Playwright's WebKit is Safari's engine and works well; some quirks
 cost time the first time:

@@ -6,11 +6,13 @@ import * as store from './store.js';
 import {
   VOICES, MODEL_ROLES, rolesUsing,
   DEFAULT_SENTENCE_PROMPT, DEFAULT_SPEECH_PROMPT, DEFAULT_SHADOW_PROMPT, DEFAULT_NOTES_PROMPT,
+  DEFAULT_READING_PROMPT,
 } from './defaults.js';
 import {
   fillTemplate, sentenceVars, notesVars, formatWait, GeminiError, QuotaError, shadowSystem,
 } from './gemini.js';
 import { LANGUAGES, codeFor, nameFor } from './lookup.js';
+import { readingVars } from './reading.js';
 import { rulesToText, totalOf, RATINGS } from './shadow-rules.js';
 import { serializeDeck } from './deck.js';
 import { serializeBundle, parseBundle, describeBundle, bundleFilename } from './bundle.js';
@@ -540,10 +542,12 @@ function render() {
   const pp = $('set-prompt-speech');
   const hp = $('set-prompt-shadowing');
   const np = $('set-prompt-notes');
+  const rp = $('set-prompt-reading');
   if (document.activeElement !== sp) sp.value = s.prompts.sentence;
   if (document.activeElement !== pp) pp.value = s.prompts.speech;
   if (document.activeElement !== hp) hp.value = s.prompts.shadowing;
   if (document.activeElement !== np) np.value = s.prompts.notes;
+  if (document.activeElement !== rp) rp.value = s.prompts.reading;
   renderModels();
   renderLookup();
   renderVoices();
@@ -558,7 +562,7 @@ function render() {
    second, read-only textarea that takes the editor's place rather than the
    editor's own text being swapped out: the editor is what draftSettings()
    reads, and what a blur commits, so it must never hold rendered text. */
-const PROMPT_VIEWS = ['sentence', 'speech', 'shadowing', 'notes'];
+const PROMPT_VIEWS = ['sentence', 'speech', 'shadowing', 'notes', 'reading'];
 
 function wirePrompts() {
   const sp = $('set-prompt-sentence');
@@ -594,6 +598,15 @@ function wirePrompts() {
   $('prompt-notes-reset').addEventListener('click', () => {
     np.value = DEFAULT_NOTES_PROMPT;
     store.saveSettings({ prompts: { ...store.state.settings.prompts, notes: DEFAULT_NOTES_PROMPT } });
+    renderPreview();
+  });
+
+  const rp = $('set-prompt-reading');
+  rp.addEventListener('input', renderPreview);
+  rp.addEventListener('change', () => store.saveSettings({ prompts: { ...store.state.settings.prompts, reading: rp.value } }));
+  $('prompt-reading-reset').addEventListener('click', () => {
+    rp.value = DEFAULT_READING_PROMPT;
+    store.saveSettings({ prompts: { ...store.state.settings.prompts, reading: DEFAULT_READING_PROMPT } });
     renderPreview();
   });
 
@@ -650,10 +663,14 @@ function renderPreview() {
       nativeName: nameFor(draft.lookupNative),
     })),
   ].join('\n');
+  $('prompt-preview-reading').value = [
+    `── to ${draft.textModel} ──`,
+    fillTemplate(draft.prompts.reading, readingVars(draft, sample, draft.readingRequest)),
+  ].join('\n');
 
   /* The warnings sit under their own prompt, outside the preview, so they
      are seen while editing — which is when they can be acted on. */
-  const warnings = { sentence: [], speech: [], shadowing: [], notes: [] };
+  const warnings = { sentence: [], speech: [], shadowing: [], notes: [], reading: [] };
   if (!draft.prompts.sentence.includes('{terms}')) {
     warnings.sentence.push('The sentence prompt has no {terms} placeholder, so the model is never told which words to use.');
   }
@@ -673,6 +690,17 @@ function renderPreview() {
   }
   if (!draft.prompts.notes.includes('{front}')) {
     warnings.notes.push('The notes prompt has no {front} placeholder, so the model is never told which word the notes are for.');
+  }
+  if (!draft.prompts.reading.includes('{terms}')) {
+    warnings.reading.push('The reading prompt has no {terms} placeholder, so the model is never told which of your cards to use.');
+  }
+  if (!draft.prompts.reading.includes('{request}')) {
+    warnings.reading.push('The reading prompt has no {request} placeholder, so what you type on the Reading tab is never sent.');
+  }
+  /* Like the shadowing shape: the marks are what the reply is read by, and
+     a text with none is refused. */
+  if (!draft.prompts.reading.includes('[[')) {
+    warnings.reading.push('The reading prompt no longer asks for [[number|words]] marks. A text with none has nothing to click and is refused.');
   }
   for (const name of PROMPT_VIEWS) {
     const el = $(`prompt-warn-${name}`);
@@ -700,6 +728,7 @@ function draftSettings() {
       speech: $('set-prompt-speech').value,
       shadowing: $('set-prompt-shadowing').value,
       notes: $('set-prompt-notes').value,
+      reading: $('set-prompt-reading').value,
     },
   };
 }

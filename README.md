@@ -1,7 +1,7 @@
 # Language Study
 
-Flashcards, typing practice, AI dictation and speaking practice for whatever
-language you are learning. One static page. No account, no server, no database
+Flashcards, typing practice, AI dictation, speaking practice and reading texts
+for whatever language you are learning. One static page. No account, no server, no database
 — your cards, your audio and your own recordings stay on your own computer, in
 a folder you choose where the browser allows it, and the only thing that ever
 leaves the machine is a request to Google, signed with your own API key.
@@ -29,7 +29,7 @@ exactly, and aligns words with them stripped, so a missed mark shows up as
 rule covers Vietnamese tones, Spanish acutes, Czech carons and German umlauts
 without knowing anything about any of them.
 
-## The five tabs
+## The six tabs
 
 **Settings** — where your data is saved, your API key, the language, the models, the call
 budget, the prompts, the read-aloud voice, and which Gemini voices may read to you.
@@ -89,6 +89,11 @@ line, say it back, listen to your own take, and record it again as many times
 as you like. Hand the set in and one API call carries every recording you made,
 each paired with the text it was meant to be, and comes back with a note on
 each line and one on the set as a whole. See below.
+
+**Reading** — a text written around your cards: a story, an article, a talk,
+whatever you ask for. Your words and grammar patterns are coloured where they
+appear; click one, say whether you understood it, and only then see its
+meaning. See [Reading](#reading).
 
 ## Shadowing
 
@@ -240,13 +245,99 @@ the revision waits for the next set.
 Recording and listening back need no key at all. The key buys the feedback, not
 the practice.
 
+## Reading
+
+The Reading tab has the text model write a text in the language you are
+learning, using cards from the ticked decks, and marks every place it used
+one. **Words are underlined in the accent colour, grammar patterns in blue
+with a dashed line**, and a pattern split up by the words in its gaps is
+marked in each of its parts.
+
+**What to write** is a box for your own request, in your own words: the kind
+of text, the topic, its length, the tone, anything else. The model is told to
+work out what you are asking for and write that. Three buttons fill the box
+with a full request to start from, and each sets **Cards to use** to a number
+that suits its length:
+
+- **Short story**: 300 to 400 words, a few characters, some dialogue, 10 cards.
+- **Long news article**: 700 to 900 words, a headline, invented quotes, a
+  newspaper's register, 20 cards.
+- **Presentation**: a 500-word talk with signposted sections and headings,
+  14 cards.
+
+Edit the request as you like; it is kept for next time. It decides what kind
+of text you get and nothing else: it cannot change how words are marked.
+
+The cards are drawn the way every practice tab draws them, weighted towards
+your weakest, from the ticked decks and the **Weak / + Developing / All**
+filter. When the decks have [grammar patterns](#the-deck-format), about a
+quarter of the cards are patterns; with none, they are all words.
+
+**Click a coloured word** (or Tab to it and press Enter) and a small popup
+opens under it with the card's word and a question: *did you understand it?*
+The meaning is hidden until you answer ✅ or ❌, because a meaning already on
+screen answers the question for you. Then the meaning, any alternative
+meanings and the card's notes appear, and the card is scored as a right or a
+wrong answer, through the same rules as everywhere else, and written back to
+its own deck. If the meaning shows you were wrong, or right after all, the
+button under it changes your answer: the first one is replaced, not added to.
+A card that appears several times in the text is one card, with one answer.
+
+Words the model was asked to use but did not are listed under the text and
+are not scored. A word it used without marking is found and marked when it
+appears exactly as the card has it; a conjugated form or a pattern cannot be
+found that way, and stays plain. The rest of the text is ordinary text, so an
+unmarked word you do not know can be selected and
+[added as a card](#adding-a-card-from-selected-text).
+
+Each text costs **one call** on the text model. A text with none of your words
+marked in it is refused, since there would be nothing to click. Your answers
+are saved to the decks as you give them.
+
+### Kept texts, and reading them aloud
+
+**Every text you write is kept**, and **Your texts**, at the top of the tab,
+lists them newest first: the title, the date, the decks it drew on and how
+many of its cards it used. A badge on each row says whether it has audio,
+**♪ Audio** filled in, or **No audio** in outline. Click a row to open that text
+again. Your answers are not kept with it: reading a text again on another day
+is practice again, and each answer is scored as it is given.
+
+**Read aloud**, above the text, has the speech model read the whole of it,
+title first, in **one call** on the speech model. That model has the smallest
+daily budget there is, so it is a button you press rather than something done
+for every text; while its budget is spent, the note beside the button says
+how long until the next call. **Voice**, beside it, picks who reads: any of
+the Gemini voices by name, or *Any of your dictation voices*, which draws one
+from those ticked in Settings as a dictation sentence does. The choice is
+remembered. The speech prompt is the one Dictation uses, so a prefix such as
+*Read slowly* applies here too. The audio is kept with the text as Ogg Opus, or WAV where the browser
+cannot encode Opus. It then plays with a seek bar and a choice of speed, and
+**Download audio** saves it as a file. A long article is a long thing to read
+in one go and can take a minute or two to come back.
+
+Once a text has audio, the button reads **Read aloud again**. Pick another
+voice, say, and press it, and the new reading **replaces** the old one. The old
+audio is kept until the new one has been saved, so a call that fails leaves
+you with what you had. **Delete audio** takes the audio off and keeps the text.
+Like Delete in the list, it asks once more in place (*Really delete audio?*).
+
+**Delete** on a row removes the text and its audio together. It asks once more
+in place, since both cost calls to make: the button turns into
+*Really delete?*, and a second press within a few seconds deletes. Otherwise it
+goes back to *Delete*.
+
+Texts you already have stay readable, and their audio playable, without an API
+key; only writing a new text or reading one aloud needs one. With nothing being
+saved, texts and audio last until the page is reloaded.
+
 ## Choosing which decks are in play
 
 The deck menu on the Flashcards page lists every deck you have with a
 **tickbox** in front of it. The tickbox and the name do two different jobs:
 
-- **Tick a deck** and its words join practice. The Typing, Dictation and
-  Shadowing tabs draw from every ticked deck and ignore the rest.
+- **Tick a deck** and its words join practice. The Typing, Dictation,
+  Shadowing and Reading tabs draw from every ticked deck and ignore the rest.
 - **Click a deck's name** and it opens in the editor below.
 
 Those are deliberately separate, so you can edit one deck while drilling
@@ -433,6 +524,10 @@ shadowing/manifest.json   the index of shadowing sets
 shadowing/<id>.json       one set: its lines and the feedback on them
 shadowing/<id>_<n>.webm   your own voice, one file per line
 voice/<voice>_<hash>.mp3  a word read by an Azure voice, saved so it is fetched once
+reading/manifest.json     the index of kept reading texts, and which have audio
+reading/<id>.json         one text: its words, which cards it used, the request
+reading/<id>.ogg          that text read aloud, if it has been (.wav where the
+                          browser cannot encode Opus)
 ```
 
 The shadowing takes are named from the recorder's own container, so they are
@@ -489,6 +584,7 @@ Two different files, for two different jobs:
 | Holds | every deck, all settings | the whole store, byte for byte |
 | Dictation audio | no | **yes** |
 | Your shadowing recordings | no | **yes** |
+| Reading texts and their audio | no | **yes** |
 | Editable by hand | yes | no |
 
 The bundle is how a *setup* travels — small enough to mail yourself, and you can
@@ -592,7 +688,8 @@ never see, you need a server, and this project deliberately does not have one.
 
 **Settings → Models** is a list: every Gemini model you use, entered once, each
 with its own calls-per-minute and calls-per-day. **Settings → What each model
-does** then hands out the four jobs — writing the sentence, speaking it,
+does** then hands out the four jobs — writing the sentence (and the
+Reading tab's texts), speaking it,
 listening to your shadowing, and writing a card's notes when you ask for them
 in the [selection form](#adding-a-card-from-selected-text) — from that list. A
 settings file from before the notes job existed gives it the text model.
@@ -625,7 +722,7 @@ key is worse than no card at all.
 
 ### Prompts
 
-All four prompts sent to the API are yours to edit, in **Settings → Prompts**.
+All five prompts sent to the API are yours to edit, in **Settings → Prompts**.
 The switch beside each one turns its box from **Edit** to **Preview**: exactly
 what will be sent, filled in with your settings and three of your cards, and
 kept up to date as you type. The preview cannot be edited; switch back to make
@@ -673,6 +770,15 @@ its words taken apart one by one, with every gap in the example filled. The repl
 box as it comes, only with code fences and a leading "Notes:" label taken off,
 so ask for plain text.
 
+The reading prompt is sent when you press **Write a text** on the
+[Reading](#reading) tab. It takes `{request}` (what you typed in that tab's
+request box, fenced off and named as yours), `{terms}` (the cards, numbered
+from 1), `{language}`, `{level}` and `{languageNote}`. The reply is read back
+from its `TITLE:` and `TEXT:` lines, and each use of a card from its
+`[[number|words]]` mark, the words being as they stand in the text, so a
+conjugated verb is still its card. Keep the marks: a text without any is
+refused.
+
 ## Running it locally
 
 It is plain ES modules with no build step and no dependencies, but modules do
@@ -707,6 +813,8 @@ js/text.js            comparison, diacritics, word diff
 js/lookup.js          selection → card: direction, matching, the sentence around it
 js/translate.js       the one Google Translate request
 js/lookup-popup.js    the form that opens under selected text, on every tab
+js/reading.js         Reading: presets, choosing the cards, reading the marked text,
+                      naming and indexing kept texts
 js/deck.js            deck format, scoring, card selection
 js/speech.js          the device's own voices, for reading words aloud
 js/recorder.js        the microphone: MediaRecorder, and releasing it again
@@ -727,7 +835,7 @@ test/                 node --test
 ```
 
 The scoring rules live in exactly one function, `recordResult` in `js/deck.js`.
-Both practice modes call it. If you change how scoring works, change it there
+Every practice mode calls it. If you change how scoring works, change it there
 and nowhere else.
 
 ## Licence

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   recordResult, stats, isDictatable, isPattern, setPattern, normalizeCard, parseDeck, serializeDeck,
-  importWatchlist, parseDeckFile, amendLastToRight, addAlternative, setAlternatives, accepted, meanings,
+  importWatchlist, parseDeckFile, amendLastToRight, amendLastToWrong, addAlternative, setAlternatives, accepted, meanings,
   pickWeighted, pickGroup, cardWeight, inScope, slugify, WINDOW,
 } from '../js/deck.js';
 
@@ -309,6 +309,26 @@ test('accepting a meaning does not clear an accent flag', () => {
   recordResult(c, false);
   amendLastToRight(c);
   assert.equal(c.accent_slip, true, 'the accents were never the thing being judged');
+});
+
+test('taking back an "understood" turns the last answer wrong, through the same rules', () => {
+  const c = card([true, true, true, true, true, true, true]);
+  const first = recordResult(c, true);
+  assert.equal(first.after, 5, '8/8');
+  const move = amendLastToWrong(c);
+  assert.deepEqual(c.recent, [true, true, true, true, true, true, true, false],
+    'the right answer is replaced, not added to');
+  assert.equal(move.after, 5, '7/8 = 87.5%');
+  const d = card([true, false, false, false, false, false, false]);
+  recordResult(d, true);
+  assert.equal(amendLastToWrong(d).after, 1, '1/8');
+});
+
+test('taking back an "understood" leaves an accent flag alone', () => {
+  const c = { ...card(), accent_slip: true };
+  recordResult(c, true, { typedFront: false });
+  amendLastToWrong(c);
+  assert.equal(c.accent_slip, true);
 });
 
 test('alternatives are added once, kept through a save, and count as meanings', () => {

@@ -343,7 +343,7 @@ export function ensureSubdirs() {
 
 /* ── the data layout, as a set of paths ──────────────────────────────── */
 
-const DATA_DIRS = ['decks', 'audio', 'shadowing', 'voice'];
+const DATA_DIRS = ['decks', 'audio', 'shadowing', 'voice', 'reading'];
 
 /* Exactly the files this app owns. Everything else in a folder — a .git, a
    README, a .DS_Store, the ._name AppleDouble files macOS adds when it zips —
@@ -352,9 +352,12 @@ const DATA_DIRS = ['decks', 'audio', 'shadowing', 'voice'];
    The shadowing takes carry four possible extensions because MediaRecorder
    hands back whatever its browser prefers: webm on Chrome, ogg on Firefox,
    mp4 on Safari. The file is named from the recorder's own mimeType rather
-   than assumed, so a backup written on one browser opens on another. */
+   than assumed, so a backup written on one browser opens on another.
 
-const DATA_FILE = /^(settings\.json|decks\/[^/.][^/]*\.json|audio\/[^/.][^/]*\.(json|wav|ogg|txt)|shadowing\/[^/.][^/]*\.(json|webm|ogg|mp4|m4a|wav)|voice\/[^/.][^/]*\.mp3)$/;
+   reading/ holds the Reading tab's texts, one JSON file each beside an index,
+   and the audio of any that were read aloud. */
+
+const DATA_FILE = /^(settings\.json|decks\/[^/.][^/]*\.json|audio\/[^/.][^/]*\.(json|wav|ogg|txt)|shadowing\/[^/.][^/]*\.(json|webm|ogg|mp4|m4a|wav)|voice\/[^/.][^/]*\.mp3|reading\/[^/.][^/]*\.(json|ogg|wav))$/;
 
 /* Maps a path from a zip or a picked folder onto the data layout, or null.
    Leading folders are dropped, because a backup that was unzipped and zipped

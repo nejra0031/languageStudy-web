@@ -40,6 +40,9 @@
   --s3: #eab308;
   --s4: #22c55e;
   --s5: #3b82f6;
+  /* A grammar pattern in a reading text, beside the accent a word gets. */
+  --pattern: #7aa2f7;
+  --pattern-soft: #1c2640;
 
   --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, 'Cascadia Mono', 'SF Mono', Consolas, 'Liberation Mono', monospace;
@@ -73,6 +76,8 @@
   --s3: #a47c00;
   --s4: #1c7c3c;
   --s5: #2456a8;
+  --pattern: #2456a8;
+  --pattern-soft: #dbe3f2;
 }
 
 html { color-scheme: dark; }
@@ -1074,6 +1079,111 @@ textarea { resize: vertical; font: 13px/1.6 var(--mono); }
 .lookup-pop textarea { font: 13px/1.5 var(--sans); }
 .lookup-pop .status { padding: 7px 12px; }
 .lookup-pop .status:empty { display: none; }
+
+/* ── reading ──────────────────────────────────────────────────── */
+
+/* The stage is one box inside the block, so the block's own spacing does
+   not reach the rows in it. */
+#rd-stage > * + * { margin-top: 14px; }
+#rd-stage > .note { margin-top: 6px; }
+/* Three preset buttons do not fit beside the label on a phone; they go
+   under it, together, rather than one of them dropping to a line alone. */
+.rd-request-head { flex-wrap: wrap; }
+#rd-presets { gap: 6px; }
+.rd-go { align-items: flex-end; }
+.rd-terms { flex: 0 0 110px; }
+.rd-title {
+  font-size: 21px;
+  line-height: 1.35;
+  color: var(--fg-warm);
+  margin-bottom: 14px;
+  overflow-wrap: anywhere;
+}
+.rd-text {
+  font-size: 17px;
+  line-height: 1.8;
+  color: var(--fg);
+  max-width: 68ch;
+  overflow-wrap: anywhere;
+}
+.rd-text p + p { margin-top: 0.9em; }
+
+/* Words and patterns are told apart by colour and by the line under them,
+   so the difference does not rest on colour alone: a word is underlined
+   solid, a pattern dashed. Once answered, a mark takes the verdict's colour
+   and keeps its line. */
+.rd-mark {
+  font-style: normal;
+  padding: 0 1px;
+  cursor: pointer;
+  border-bottom: 2px solid;
+}
+.rd-mark--word { background: var(--accent-soft); border-bottom-color: var(--accent); }
+.rd-mark--pattern { background: var(--pattern-soft); border-bottom: 2px dashed var(--pattern); }
+.rd-mark.is-ok { background: var(--ok-soft); border-bottom-color: var(--ok); }
+.rd-mark.is-bad { background: var(--bad-soft); border-bottom-color: var(--bad); }
+.rd-text .rd-mark:hover { filter: brightness(1.2); }
+.rd-legend { margin-top: 18px; }
+.rd-legend .rd-mark { cursor: default; }
+.rd-summary {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--fg-muted);
+}
+.rd-summary .note { margin-top: 6px; }
+
+/* The list of kept texts borrows Shadowing's history rows. Whether a text
+   has audio is said in words on a badge of its own, filled when there is
+   audio and hollow when there is not, so it reads at a glance either way. */
+.rd-row-head { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.rd-row-title { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.rd-badge {
+  flex: none;
+  font: 10.5px/1.4 var(--mono);
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border: 1px solid var(--line-strong);
+  color: var(--fg-dim);
+}
+.rd-badge--audio { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.rd-row.is-open .sh-hist-open { border-color: var(--accent); }
+
+.rd-audio-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding-bottom: 16px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.rd-audio-bar { align-items: flex-end; }
+.rd-audio-bar .note { flex: 1 1 220px; align-self: center; }
+.rd-voice { flex: 0 1 240px; min-width: 0; }
+.rd-audio-bar .note[hidden], .rd-audio-bar .btn[hidden] { display: none; }
+.rd-player { display: grid; gap: 8px; width: 100%; }
+.rd-player[hidden] { display: none; }
+.rd-player audio { width: 100%; }
+
+/* The word popup is the selection popup's box; these are what goes in it. */
+.rd-pop-front { font-size: 17px; font-weight: 600; color: var(--fg-warm); overflow-wrap: anywhere; }
+.rd-pop-ask { font-size: 13px; color: var(--fg-muted); }
+.rd-verdict { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rd-pop-meaning { font-size: 15px; color: var(--fg); overflow-wrap: anywhere; }
+.rd-pop-alts { font-size: 12.5px; color: var(--fg-dim); overflow-wrap: anywhere; }
+.rd-pop-notes {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--fg-muted);
+  white-space: pre-wrap;
+  border-left: 2px solid var(--line-strong);
+  padding-left: 10px;
+  overflow-wrap: anywhere;
+}
+.rd-pop-score { font: 11.5px/1.5 var(--mono); color: var(--fg-dim); }
+.rd-pop-score .is-bad { color: var(--bad); }
 
 /* ── responsive ───────────────────────────────────────────────── */
 

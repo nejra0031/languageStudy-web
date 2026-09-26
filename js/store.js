@@ -30,11 +30,13 @@ import {
 } from './shadow-rules.js';
 import { convertBank, isWavEntry } from './convert-audio.js';
 import { encodeOggOpus, OPUS_MIME } from './opus.js';
+import { readingRow, readingAudioPath } from './reading.js';
 
 const SETTINGS_FILE = 'settings.json';
 const QUOTA_FILE = 'audio/quota.json';
 const MANIFEST_FILE = 'audio/manifest.json';
 const SHADOW_FILE = 'shadowing/manifest.json';
+const READING_FILE = 'reading/manifest.json';
 
 export const state = {
   settings: withDefaults(null),
@@ -50,6 +52,9 @@ export const state = {
   /* The shadowing session index — one row per set handed in. The recordings
      and the feedback live in their own files beside it. */
   shadowSessions: [],
+  /* The Reading tab's kept texts, newest first — one index row each. The
+     texts and their audio are in their own files beside it. */
+  readings: [],
   /* True once a store is connected: until then everything is in memory and
      is lost on reload, which the UI has to keep saying out loud. */
   persistent: false,
@@ -70,6 +75,7 @@ const subs = {
      tab you happen to be looking at. */
   bank: new Set(),
   shadow: new Set(),
+  reading: new Set(),
   ready: new Set(),
 };
 
@@ -518,6 +524,96 @@ export async function deleteAllSessions() {
   return ids.length;
 }
 
+/* ── the reading texts ───────────────────────────────────────────────── */
+
+/* Without a store, a text and its audio are kept here for the session, so
+   the list and Read aloud work the same and are simply gone on reload, as
+   the tab says. With one, these stay empty. */
+const heldReadings = new Map();
+const heldReadingAudio = new Map();
+
+export function readingPath(id) {
+  return `reading/${id}.json`;
+}
+
+async function saveReadingIndex() {
+  if (state.persistent) await storage.writeJson(READING_FILE, state.readings);
+  emit('reading');
+}
+
+/* The text file first and the index after it, as a shadowing set is saved,
+   so a failure between the two leaves a file the index has not heard of
+   rather than a row pointing at nothing. Returns whether the file landed. */
+export async function saveReading(record) {
+  let ok = true;
+  if (state.persistent) ok = await storage.writeJson(readingPath(record.id), record);
+  else heldReadings.set(record.id, record);
+  const row = readingRow(record);
+  const at = state.readings.findIndex((r) => r.id === record.id);
+  if (at === -1) state.readings.unshift(row);
+  else state.readings[at] = row;
+  await saveReadingIndex();
+  return ok;
+}
+
+export async function loadReading(id) {
+  if (!state.persistent) return heldReadings.get(id) || null;
+  return storage.readJson(readingPath(id));
+}
+
+/* Audio is written before the text that names it, so a text never claims
+   audio it does not have. */
+export async function saveReadingAudio(record, { blob, ext, voice, model }) {
+  const file = readingAudioPath(record.id, ext);
+  if (state.persistent) {
+    if (!(await storage.writeBlob(file, blob))) return false;
+  } else {
+    heldReadingAudio.set(file, blob);
+  }
+  /* A WAV replaced by an Ogg, or the other way, leaves no stray file. */
+  if (record.audio && record.audio.file !== file) await removeReadingFile(record.audio.file);
+  record.audio = { file, voice, model, created: new Date().toISOString().slice(0, 10) };
+  return saveReading(record);
+}
+
+export async function readReadingAudio(record) {
+  if (!record || !record.audio) return null;
+  if (!state.persistent) return heldReadingAudio.get(record.audio.file) || null;
+  return storage.readBlob(record.audio.file);
+}
+
+async function removeReadingFile(path) {
+  heldReadingAudio.delete(path);
+  if (state.persistent) await storage.remove(path);
+}
+
+/* The audio alone: the text stays, and says it has none. The file goes
+   after the text stops naming it, so a failure between the two leaves an
+   unlisted file rather than a text pointing at nothing. */
+export async function deleteReadingAudio(record) {
+  if (!record || !record.audio) return true;
+  const file = record.audio.file;
+  record.audio = null;
+  const ok = await saveReading(record);
+  await removeReadingFile(file);
+  return ok;
+}
+
+/* The text and its audio together, and anything else carrying its id — an
+   audio file whose text never got written, say — so deleting from the list
+   leaves nothing behind in the folder. */
+export async function deleteReading(id) {
+  heldReadings.delete(id);
+  for (const ext of ['ogg', 'wav']) heldReadingAudio.delete(readingAudioPath(id, ext));
+  if (state.persistent) {
+    for (const name of await storage.listIn('reading')) {
+      if (name.startsWith(`${id}.`)) await storage.remove(`reading/${name}`);
+    }
+  }
+  state.readings = state.readings.filter((r) => r.id !== id);
+  await saveReadingIndex();
+}
+
 /* ── the listening rules ─────────────────────────────────────────────── */
 
 /* The rules of the language being practised, or null when it has none yet.
@@ -738,6 +834,11 @@ export async function adoptFolder() {
   state.shadowSessions = (await storage.readJson(SHADOW_FILE)) || [];
   if (!Array.isArray(state.shadowSessions)) state.shadowSessions = [];
 
+  state.readings = (await storage.readJson(READING_FILE)) || [];
+  if (!Array.isArray(state.readings)) state.readings = [];
+  heldReadings.clear();
+  heldReadingAudio.clear();
+
   let names = await storage.listDecks();
   if (!names.length) {
     await storage.writeText(deckPath('default'), serializeDeck(STARTER_DECK.map(normalizeCard)));
@@ -761,6 +862,7 @@ export async function adoptFolder() {
   emit('quota');
   emit('bank');
   emit('shadow');
+  emit('reading');
 }
 
 export function releaseFolder() {
@@ -768,6 +870,7 @@ export function releaseFolder() {
   state.persistent = false;
   state.manifest = [];
   state.shadowSessions = [];
+  state.readings = [];
   state.deckNames = [state.deckName];
   /* Only the open deck is still in memory, so it is the only thing practice
      can honestly be said to draw from. */
@@ -777,6 +880,7 @@ export function releaseFolder() {
   emit('deck');
   emit('bank');
   emit('shadow');
+  emit('reading');
 }
 
 /* Boot with whatever can be had without a store, so the page is usable the
@@ -791,6 +895,7 @@ export function bootLocal() {
   state.deckNames = ['default'];
   state.manifest = [];
   state.shadowSessions = [];
+  state.readings = [];
   emit('settings');
   emit('deck');
   emit('quota');

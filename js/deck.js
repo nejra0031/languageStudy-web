@@ -77,6 +77,17 @@ export function amendLastToRight(card) {
   return recordResult(card, true, { typedFront: false });
 }
 
+/* The same in the other direction: the learner said they understood a word,
+   then read its meaning and found they had not. Reading is the only place a
+   verdict is given before the answer is seen, so it is the only place this
+   is needed. Nothing is typed, so the accent flag is left alone. */
+export function amendLastToWrong(card) {
+  if (Array.isArray(card.recent) && card.recent.length && card.recent[card.recent.length - 1] === true) {
+    card.recent.pop();
+  }
+  return recordResult(card, false, { typedFront: false });
+}
+
 /* Where each side keeps its alternatives, named for the side. */
 export const ALT_KEY = { front: 'front_alternatives', back: 'back_alternatives' };
 

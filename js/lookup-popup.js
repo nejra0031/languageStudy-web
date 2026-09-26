@@ -115,7 +115,9 @@ function check() {
   const range = sel.getRangeAt(0);
   const node = range.commonAncestorContainer;
   const el = node.nodeType === 1 ? node : node.parentElement;
-  if (!el || el.closest('input, textarea, select, [contenteditable], #lookup-pop')) return;
+  /* Nor a word marked in a reading text: that is a card already, and it has
+     a popup of its own. */
+  if (!el || el.closest('input, textarea, select, [contenteditable], #lookup-pop, #reading-pop, .rd-mark')) return;
 
   const raw = sel.toString();
   const text = cleanSelection(raw);
@@ -247,16 +249,21 @@ function setMode(card) {
   $('lp-save').textContent = card ? 'Update' : 'Add';
 }
 
+function place(rect) {
+  placeUnder(pop, rect);
+}
+
 /* Under the selection, inside the page's width with the same gutter the page
    keeps at phone width. Placed in page coordinates, so it scrolls with the
-   text it belongs to. */
-function place(rect) {
+   text it belongs to. Exported for the Reading tab's word popup, which is
+   this one's shape and sits in the same place. */
+export function placeUnder(el, rect) {
   const gutter = 16;
-  const width = pop.offsetWidth;
+  const width = el.offsetWidth;
   const view = document.documentElement.clientWidth;
   const left = Math.max(gutter, Math.min(rect.left, view - width - gutter));
-  pop.style.left = `${left + window.scrollX}px`;
-  pop.style.top = `${rect.bottom + window.scrollY + 6}px`;
+  el.style.left = `${left + window.scrollX}px`;
+  el.style.top = `${rect.bottom + window.scrollY + 6}px`;
 }
 
 function close() {

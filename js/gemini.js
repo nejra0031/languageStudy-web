@@ -19,6 +19,7 @@ import {
   rulesFor, formatRulesBlock, buildSeedPrompt, buildRevisionPrompt, readRules,
 } from './shadow-rules.js';
 import { encodeOggOpus, OPUS_MIME } from './opus.js';
+import { readingVars, readReading } from './reading.js';
 
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent';
 const MINUTE = 60;
@@ -765,9 +766,69 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     return notes;
   }
 
+  /* ── reading texts ─────────────────────────────────────────────────── */
+
+  /* A reading text is a writing job, so it goes to the text model and spends
+     one call of its allowance. Refuses before spending, like the others. */
+  function readingPreflight() {
+    const s = getSettings();
+    const l = modelLimits(s, s.textModel);
+    const why = limiter.why(s.textModel, l.rpm, l.rpd);
+    if (why) throw new QuotaError(why, limiter.waitFor(s.textModel, l.rpm, l.rpd));
+  }
+
+  /* One call, and no retry: a long text is the most output any call here
+     asks for, and one that marked some of the words is still worth reading.
+     One that marked none is refused, since then there is nothing to click
+     and nothing to score — the prompt has most likely lost its [[…]] rule. */
+  async function writeReading({ cards, request }) {
+    readingPreflight();
+    const s = getSettings();
+    const l = modelLimits(s, s.textModel);
+    const data = await callWithoutThinking(s.textModel, {
+      contents: [{ parts: [{ text: fillTemplate(s.prompts.reading, readingVars(s, cards, request)) }] }],
+      generationConfig: { temperature: 0.9, maxOutputTokens: 16384 },
+    }, l.rpm, l.rpd);
+    const reading = readReading(firstText(data), cards);
+    if (!reading) throw new GeminiError(`${s.textModel} wrote no text.`);
+    if (!reading.used.length) {
+      throw new GeminiError(`${s.textModel} wrote a text but marked none of your words in it, so there is nothing to click or score. Try again; if it keeps happening, check that the reading prompt in Settings still asks for [[number|words]] marks.`);
+    }
+    return { ...reading, model: s.textModel };
+  }
+
+  /* Refuses before spending, for a call on the speech model alone. */
+  function speechPreflight() {
+    const s = getSettings();
+    const l = modelLimits(s, s.ttsModel);
+    const why = limiter.why(s.ttsModel, l.rpm, l.rpd);
+    if (why) throw new QuotaError(why, limiter.waitFor(s.ttsModel, l.rpm, l.rpd));
+  }
+
+  /* A whole reading text, read aloud in one call on the speech model, by the
+     voice asked for — or, with none, one drawn the way a dictation
+     sentence's is — and through the same speech prompt. One call rather than one per paragraph: the speech
+     model's daily allowance is the smallest there is, and a text in pieces
+     would change voice between them. The file is Ogg where the browser can
+     encode it, as the bank's is. */
+  async function speakReading(text, chosen = '') {
+    speechPreflight();
+    const s = getSettings();
+    const voice = VOICE_NAMES.includes(chosen) ? chosen : pickVoice(s);
+    const { bytes, mime } = await speak(text, voice);
+    const file = await speechFile(bytes, mime);
+    return {
+      blob: new Blob([file.bytes], { type: file.type }),
+      ext: file.ext,
+      voice,
+      model: s.ttsModel,
+    };
+  }
+
   return {
     call, testKey, generateCard, preflight, gradeShadowing, shadowPreflight,
     draftShadowRules, reviseShadowRules, rulesPreflight, notesPreflight, writeNotes,
+    readingPreflight, writeReading, speechPreflight, speakReading,
   };
 }
 
