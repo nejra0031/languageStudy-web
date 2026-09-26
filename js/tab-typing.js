@@ -16,7 +16,7 @@
 
 import * as store from './store.js';
 import {
-  pickWeighted, inScope, recordResult, amendLastToRight, addAlternative, meanings,
+  pickWeighted, inScope, recordResult, amendLastToRight, addAlternative, setAlternatives, meanings,
   stats, SCORE_LABEL,
 } from './deck.js';
 import * as speech from './speech.js';
@@ -476,8 +476,10 @@ function feedback(verdict, typed, expected, move) {
     ? ` <span class="typed-back">${scoreMark(move.before)} → ${scoreMark(move.after, SCORE_LABEL[move.after].toLowerCase())}</span>`
     : '';
 
-  const alts = shownSide === 'front' && (current.alternatives || []).length
-    ? `<div class="typed-back" style="margin-top:6px">also accepted: ${current.alternatives.map(escapeHtml).join(' · ')}</div>` : '';
+  /* Drawn even with no alternatives, hidden, so that an edit which adds some
+     has a place to show them. */
+  const alts = shownSide === 'front'
+    ? `<div class="typed-back ty-alts" style="margin-top:6px"${altsText() ? '' : ' hidden'}>${escapeHtml(altsText())}</div>` : '';
   const acceptBtn = shownSide === 'front'
     ? `<div class="row" style="margin-top:10px"><button class="btn btn--sm" id="ty-accept">Accept my answer</button>
        <button class="btn btn--sm" id="ty-fix-meaning">Change the meaning</button>
@@ -523,19 +525,22 @@ function feedback(verdict, typed, expected, move) {
 /* ── notes ───────────────────────────────────────────────────────────── */
 
 /* The card can be edited once it has been answered or revealed — before
-   that, any of it would give the answer away. Word, meaning and notes
-   together: cards are often written by a machine from someone's notes, and
-   a meaning that makes no sense is found out mid-practice, which is where it
-   should be fixable. Saved straight into the deck the card came from,
+   that, any of it would give the answer away. Word, meaning, alternatives
+   and notes together: cards are often written by a machine from someone's
+   notes, and a meaning that makes no sense is found out mid-practice, which
+   is where it should be fixable. So is an alternative accepted by mistake. Saved straight into the deck the card came from,
    exactly as if typed into the Flashcards tab. */
 function notesHtml(editing) {
   if (editing) {
     const lang = targetCode();
+    const alts = current.alternatives || [];
     return `<div class="card-edit">
       <label class="field"><span>${escapeHtml(store.state.settings.targetLanguage || 'Word')}</span>
         <input type="text" id="ty-edit-front" lang="${lang}" spellcheck="false" autocomplete="off" value="${escapeHtml(current.front)}"></label>
       <label class="field"><span>Meaning</span>
         <input type="text" id="ty-edit-back" lang="en" spellcheck="false" autocomplete="off" value="${escapeHtml(current.back)}"></label>
+      <label class="field"><span>Also accepted, one per line</span>
+        <textarea id="ty-edit-alts" class="notes-edit" lang="en" rows="${Math.max(2, alts.length + 1)}" spellcheck="false">${escapeHtml(alts.join('\n'))}</textarea></label>
       <label class="field"><span>Notes</span>
         <textarea id="ty-notes-input" class="notes-edit" rows="3" spellcheck="false">${escapeHtml(current.notes || '')}</textarea></label>
       <div class="row" style="margin-top:8px">
@@ -578,6 +583,10 @@ async function saveNotes() {
   const text = box.value.trim();
   current.front = front;
   current.back = back;
+  /* One per line, since a meaning may itself hold a comma. Matched the way
+     Accept matches, so a line that only restates the meaning is dropped. */
+  setAlternatives(current, $('ty-edit-alts').value.split('\n'),
+    (a, b) => compareMeaning(a, b) === 'exact');
   if (text) current.notes = text;
   else delete current.notes;
 
@@ -587,12 +596,21 @@ async function saveNotes() {
   if (prompt) prompt.textContent = current[shownSide];
   const expected = shownSide === 'front' ? current.back : current.front;
   for (const el of document.querySelectorAll('#ty-feedback .verdict .reveal')) el.textContent = expected;
+  for (const el of document.querySelectorAll('#ty-feedback .ty-alts')) {
+    el.textContent = altsText();
+    el.hidden = !el.textContent;
+  }
   if (last) last.expected = expected;
   if (justAnswered) Object.assign(justAnswered, { shown: current[shownSide], expected, notes: current.notes });
   renderNotes(false);
   /* Written back to this card's own deck, which in a multi-deck session is
      rarely the one open in the editor. */
   await store.saveCardDecks(current);
+}
+
+function altsText() {
+  const alts = current.alternatives || [];
+  return alts.length ? `also accepted: ${alts.join(' · ')}` : '';
 }
 
 function markAccents(typed, expected) {

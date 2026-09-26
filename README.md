@@ -62,7 +62,8 @@ meaning, which is what the card is scored on, and can be answered at any point.
 With nothing typed, the button offers *Show answer*, which gives up on a card
 and counts it as a miss; type anything and it becomes *Check*. Enter only ever
 checks, so a stray one cannot give a card up. Once a card has been answered,
-**Edit card** lets you fix its word, meaning or notes in place, and a meaning
+**Edit card** lets you fix its word, meaning, notes or the other meanings it
+accepts (one per line) in place, and a meaning
 the app marked wrong can be **accepted** — which counts it right and saves it on
 the card as another way of saying the same thing. A word you typed in the
 language you are learning can be **marked right** instead: it counts this once
@@ -350,7 +351,8 @@ by hand and they will be filled in. A bare `{"front": "…", "back": "…"}` is 
 perfectly good card.
 
 `alternatives` are other meanings counted as right beside `back`. You can write
-them by hand, or let the Typing tab add one when you click *Accept my answer*.
+them by hand, let the Typing tab add one when you click *Accept my answer*, or
+change them there with *Edit card*.
 `accent_slip` is set while the card's last miss was the accents alone, and is
 what the **Accents** filter selects on; typing the word exactly clears it.
 

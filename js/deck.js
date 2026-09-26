@@ -84,6 +84,22 @@ export function addAlternative(card, text, same) {
   return true;
 }
 
+/* Replaces the card's alternatives with the ones the learner wrote out when
+   editing it. Blank lines go, and so does anything that matches the back or
+   an alternative listed before it, so an edit cannot fill the card with
+   meanings that change nothing. With none left the key is removed rather
+   than saved empty, as the deck file never carries an empty list. `same` is
+   the caller's idea of equality, as for addAlternative. */
+export function setAlternatives(card, list, same) {
+  const kept = [];
+  for (const raw of list || []) {
+    const t = String(raw || '').trim();
+    if (t && ![card.back, ...kept].some((m) => same(t, m))) kept.push(t);
+  }
+  if (kept.length) card.alternatives = kept;
+  else delete card.alternatives;
+}
+
 /* Every answer that counts as this card's meaning: the back, then any
    alternatives the learner has accepted. */
 export function meanings(card) {

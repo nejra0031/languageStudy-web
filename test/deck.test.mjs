@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   recordResult, stats, isDictatable, isPattern, setPattern, normalizeCard, parseDeck, serializeDeck,
-  importWatchlist, parseDeckFile, amendLastToRight, addAlternative, meanings,
+  importWatchlist, parseDeckFile, amendLastToRight, addAlternative, setAlternatives, meanings,
   pickWeighted, pickGroup, cardWeight, inScope, slugify, WINDOW,
 } from '../js/deck.js';
 
@@ -327,6 +327,16 @@ test('alternatives are added once, kept through a save, and count as meanings', 
     'sits with the meaning, above the history');
   assert.ok(!serializeDeck([card()]).includes('alternatives'), 'absent when empty');
   assert.ok(!('alternatives' in normalizeCard({ front: 'a', back: 'b', alternatives: ['', '  '] })));
+});
+
+test('editing alternatives keeps each distinct meaning once, and none drops the key', () => {
+  const same = (a, b) => a.toLowerCase().replace(/[!,]/g, '') === b.toLowerCase().replace(/[!,]/g, '');
+  const c = { ...card(), back: 'Keep the change!', alternatives: ['old one'] };
+  setAlternatives(c, [' Auntie, keep the change ', '', 'keep the change', 'auntie keep the change', 'no change'], same);
+  assert.deepEqual(c.alternatives, ['Auntie, keep the change', 'no change'],
+    'trimmed; blanks, the back and repeats dropped; the old list replaced');
+  setAlternatives(c, ['  ', 'Keep the change'], same);
+  assert.ok(!('alternatives' in c), 'nothing left is no key, not an empty list');
 });
 
 test('setPattern marks a pattern, and unmarks only a pattern', () => {
