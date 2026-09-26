@@ -31,6 +31,11 @@ without knowing anything about any of them.
 
 ## The six tabs
 
+The tab strip has two groups: Settings and Flashcards set things up, and
+after a gap come the practice modes. Writing, Translate and Conversation are
+greyed out at the end of it: they are planned, and clicking one says it is
+coming soon.
+
 **Settings** — where your data is saved, your API key, the language, the models, the call
 budget, the prompts, the read-aloud voice, and which Gemini voices may read to you.
 It is also where you turn on [adding a card from selected

@@ -6,7 +6,7 @@
 <title>Language Study</title>
 <meta name="description" content="Flashcards, typing practice and AI dictation for any language. Your own API key, your own files, no accounts and no server.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230f1117'/><rect x='3' y='3' width='10' height='10' fill='%23d4b455'/></svg>">
-<link rel="stylesheet" href="css/app.css?v=2026-09-26.6">
+<link rel="stylesheet" href="css/app.css?v=2026-09-26.7">
 <!-- Cache-busting. GitHub Pages lets a browser keep any file for ten minutes,
      so without this a deploy can leave you with a new index.html and an old
      module, or the reverse, and the page fails to start. Every module is
@@ -18,34 +18,34 @@
 <script type="importmap">
 {
   "imports": {
-    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-26.6",
-    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-26.6",
-    "./js/bundle.js": "./js/bundle.js?v=2026-09-26.6",
-    "./js/convert-audio.js": "./js/convert-audio.js?v=2026-09-26.6",
-    "./js/deck.js": "./js/deck.js?v=2026-09-26.6",
-    "./js/defaults.js": "./js/defaults.js?v=2026-09-26.6",
-    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-26.6",
-    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-26.6",
-    "./js/gemini.js": "./js/gemini.js?v=2026-09-26.6",
-    "./js/lookup.js": "./js/lookup.js?v=2026-09-26.6",
-    "./js/lookup-popup.js": "./js/lookup-popup.js?v=2026-09-26.6",
-    "./js/opus.js": "./js/opus.js?v=2026-09-26.6",
-    "./js/reading.js": "./js/reading.js?v=2026-09-26.6",
-    "./js/recorder.js": "./js/recorder.js?v=2026-09-26.6",
-    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-26.6",
-    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-26.6",
-    "./js/speech.js": "./js/speech.js?v=2026-09-26.6",
-    "./js/storage.js": "./js/storage.js?v=2026-09-26.6",
-    "./js/store.js": "./js/store.js?v=2026-09-26.6",
-    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-26.6",
-    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-26.6",
-    "./js/tab-reading.js": "./js/tab-reading.js?v=2026-09-26.6",
-    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-26.6",
-    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-26.6",
-    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-26.6",
-    "./js/text.js": "./js/text.js?v=2026-09-26.6",
-    "./js/translate.js": "./js/translate.js?v=2026-09-26.6",
-    "./js/zip.js": "./js/zip.js?v=2026-09-26.6"
+    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-26.7",
+    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-26.7",
+    "./js/bundle.js": "./js/bundle.js?v=2026-09-26.7",
+    "./js/convert-audio.js": "./js/convert-audio.js?v=2026-09-26.7",
+    "./js/deck.js": "./js/deck.js?v=2026-09-26.7",
+    "./js/defaults.js": "./js/defaults.js?v=2026-09-26.7",
+    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-26.7",
+    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-26.7",
+    "./js/gemini.js": "./js/gemini.js?v=2026-09-26.7",
+    "./js/lookup.js": "./js/lookup.js?v=2026-09-26.7",
+    "./js/lookup-popup.js": "./js/lookup-popup.js?v=2026-09-26.7",
+    "./js/opus.js": "./js/opus.js?v=2026-09-26.7",
+    "./js/reading.js": "./js/reading.js?v=2026-09-26.7",
+    "./js/recorder.js": "./js/recorder.js?v=2026-09-26.7",
+    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-26.7",
+    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-26.7",
+    "./js/speech.js": "./js/speech.js?v=2026-09-26.7",
+    "./js/storage.js": "./js/storage.js?v=2026-09-26.7",
+    "./js/store.js": "./js/store.js?v=2026-09-26.7",
+    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-26.7",
+    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-26.7",
+    "./js/tab-reading.js": "./js/tab-reading.js?v=2026-09-26.7",
+    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-26.7",
+    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-26.7",
+    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-26.7",
+    "./js/text.js": "./js/text.js?v=2026-09-26.7",
+    "./js/translate.js": "./js/translate.js?v=2026-09-26.7",
+    "./js/zip.js": "./js/zip.js?v=2026-09-26.7"
   }
 }
 </script>
@@ -61,10 +61,16 @@
 <nav class="tabs" role="tablist" aria-label="Sections">
   <button class="tab" role="tab" id="tab-settings" data-tab="settings" aria-selected="false" aria-controls="panel-settings">Settings</button>
   <button class="tab" role="tab" id="tab-flashcards" data-tab="flashcards" aria-selected="false" aria-controls="panel-flashcards">Flashcards</button>
-  <button class="tab" role="tab" id="tab-typing" data-tab="typing" aria-selected="false" aria-controls="panel-typing">Typing</button>
+  <!-- The gap splits setup (Settings, Flashcards) from the practice modes. -->
+  <button class="tab tab--gap" role="tab" id="tab-typing" data-tab="typing" aria-selected="false" aria-controls="panel-typing">Typing</button>
   <button class="tab" role="tab" id="tab-dictation" data-tab="dictation" aria-selected="false" aria-controls="panel-dictation">Dictation</button>
   <button class="tab" role="tab" id="tab-shadowing" data-tab="shadowing" aria-selected="false" aria-controls="panel-shadowing">Shadowing</button>
   <button class="tab" role="tab" id="tab-reading" data-tab="reading" aria-selected="false" aria-controls="panel-reading">Reading</button>
+  <!-- Planned modes: shown so the shape of the app is visible, but with no
+       panel behind them yet. app.js says so when one is clicked. -->
+  <button class="tab tab--soon" role="tab" aria-disabled="true" data-soon="Writing">Writing</button>
+  <button class="tab tab--soon" role="tab" aria-disabled="true" data-soon="Translate">Translate</button>
+  <button class="tab tab--soon" role="tab" aria-disabled="true" data-soon="Conversation">Conversation</button>
 </nav>
 
 <main>
@@ -728,6 +734,6 @@
 <!-- The Reading tab's word popup: the selection popup's shape, filled by tab-reading.js. -->
 <div class="lookup-pop" id="reading-pop" role="dialog" aria-label="A word from the text" hidden></div>
 
-<script type="module" src="js/app.js?v=2026-09-26.6"></script>
+<script type="module" src="js/app.js?v=2026-09-26.7"></script>
 </body>
 </html>
