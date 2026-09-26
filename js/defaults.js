@@ -387,12 +387,16 @@ export const DEFAULT_SETTINGS = {
 };
 
 /* Shown on first run and written to decks/default.json when a folder with no
-   decks is connected. Three cards, chosen to document the format: one being
-   got wrong, one going well, one bare pair with no history at all.
+   decks is connected. Twenty cards, fourteen words and six grammar patterns,
+   so that someone trying the app has enough to see every mode and filter at
+   work: scores from very weak to mastered, cards with no history at all, two
+   still on probation, and one whose last miss was the accents alone. Enough
+   are left bare that a first session still meets new cards.
 
    Their scores are what the rules would actually produce from their `recent`
    arrays — a hand-picked score that the first correct answer would overwrite
-   downwards is a rotten thing to hand someone on their first minute. */
+   downwards is a rotten thing to hand someone on their first minute. The
+   starter deck test in deck.test.mjs holds every card to that. */
 export const STARTER_DECK = [
   /* Being got wrong: a full window, one answer right out of eight. */
   {
@@ -418,6 +422,141 @@ export const STARTER_DECK = [
     front: 'tiện lợi',
     back: 'convenient, handy (of an object/method)',
     notes: 'tiện = convenient; lợi = benefit. E.g. "Điện thoại thông minh rất tiện lợi." = "Smartphones are very convenient."',
+  },
+  /* Mastered: seven right out of eight. */
+  {
+    front: 'kinh nghiệm',
+    back: 'experience',
+    notes: 'kinh = to pass through; nghiệm = to verify, test. E.g. "Anh ấy có nhiều kinh nghiệm làm việc với trẻ em." = "He has a lot of experience working with children."',
+    score: 5,
+    recent: [true, true, true, false, true, true, true, true],
+    last_seen: '2026-09-24',
+  },
+  {
+    front: 'thói quen',
+    back: 'habit',
+    notes: 'thói = habit, way of behaving; quen = used to, familiar. E.g. "Đọc sách trước khi ngủ là một thói quen tốt." = "Reading before bed is a good habit."',
+  },
+  /* Developing: half right. */
+  {
+    front: 'quyết định',
+    back: 'to decide; decision',
+    notes: 'quyết = to resolve, determined; định = to fix, settle. E.g. "Cô ấy quyết định chuyển đến Đà Nẵng." = "She decided to move to Da Nang."',
+    score: 3,
+    recent: [true, false, true, false, false, true, true, false],
+    last_seen: '2026-09-23',
+  },
+  /* Weak, and its last miss was the accents alone, so the Accents filter
+     finds it. */
+  {
+    front: 'ảnh hưởng',
+    back: 'to influence, to affect; influence',
+    notes: 'ảnh = image, shadow; hưởng = echo. E.g. "Thời tiết ảnh hưởng đến tâm trạng của tôi." = "The weather affects my mood."',
+    score: 2,
+    recent: [false, true, false, false, true, false, true, false],
+    last_seen: '2026-09-25',
+    accent_slip: true,
+  },
+  {
+    front: 'phát triển',
+    back: 'to develop, to grow',
+    notes: 'phát = to emit, start out; triển = to unfold, extend. E.g. "Thành phố này phát triển rất nhanh." = "This city is developing very fast."',
+  },
+  /* On probation: two right out of two is perfect, but a card has to survive
+     a full window of eight before it can score above 2. */
+  {
+    front: 'giải quyết',
+    back: 'to solve, to resolve (a problem)',
+    notes: 'giải = to untie, solve; quyết = to decide. E.g. "Chúng ta cần giải quyết vấn đề này ngay." = "We need to solve this problem right away."',
+    score: 2,
+    recent: [true, true],
+    last_seen: '2026-09-25',
+  },
+  {
+    front: 'cơ hội',
+    back: 'opportunity, chance',
+    notes: 'cơ = moment, opportunity; hội = occasion, meeting. E.g. "Đây là cơ hội tốt để luyện nói tiếng Việt." = "This is a good chance to practise speaking Vietnamese."',
+  },
+  /* Good: five right out of eight. */
+  {
+    front: 'đồng nghiệp',
+    back: 'colleague, co-worker',
+    notes: 'đồng = same, together; nghiệp = trade, profession. E.g. "Tôi thường đi ăn trưa với đồng nghiệp." = "I usually go to lunch with my colleagues."',
+    score: 4,
+    recent: [true, false, true, true, false, true, false, true],
+    last_seen: '2026-09-21',
+  },
+  {
+    front: 'thỉnh thoảng',
+    back: 'sometimes, occasionally',
+    notes: 'Used as one word, usually at the start of the clause or before the verb. E.g. "Thỉnh thoảng tôi đi bơi vào cuối tuần." = "I sometimes go swimming at the weekend."',
+  },
+  /* Very weak: one right out of eight. */
+  {
+    front: 'lo lắng',
+    back: 'to worry; anxious',
+    notes: 'lo = to worry; lo lắng is the fuller, more descriptive form. E.g. "Mẹ tôi luôn lo lắng cho tôi." = "My mother always worries about me."',
+    score: 1,
+    recent: [false, false, true, false, false, false, false, false],
+    last_seen: '2026-09-24',
+  },
+  {
+    front: 'bận rộn',
+    back: 'busy',
+    notes: 'bận = busy; rộn = bustling. E.g. "Tuần này tôi rất bận rộn." = "I am very busy this week."',
+  },
+
+  /* Grammar patterns. Each gap is written as `…` and each has two fixed words
+     or more, so Dictation can hear it in a sentence with the gaps filled;
+     Shadowing leaves them out. */
+  {
+    front: 'hễ … là …',
+    back: 'whenever …, (then) …',
+    notes: 'hễ marks the condition; là introduces what always follows it. E.g. "Hễ trời mưa là tôi ở nhà." = "Whenever it rains, I stay home."',
+    type: 'pattern',
+    score: 2,
+    recent: [false, true, false, true, false, false, true, false],
+    last_seen: '2026-09-25',
+  },
+  {
+    front: 'không những … mà còn …',
+    back: 'not only … but also …',
+    notes: 'không những = not only; mà còn = but also. E.g. "Cô ấy không những thông minh mà còn rất chăm chỉ." = "She is not only clever but also very hard-working."',
+    type: 'pattern',
+  },
+  {
+    front: 'tuy … nhưng …',
+    back: 'although …, …',
+    notes: 'Unlike English, both halves are marked: tuy on the concession, nhưng on what follows, often with vẫn (still). E.g. "Tuy trời lạnh nhưng anh ấy vẫn đi bơi." = "Although it was cold, he still went swimming."',
+    type: 'pattern',
+    score: 3,
+    recent: [false, true, true, false, true, false, true, false],
+    last_seen: '2026-09-22',
+  },
+  {
+    front: 'vì … nên …',
+    back: 'because …, (so) …',
+    notes: 'vì gives the reason; nên introduces the result. E.g. "Vì kẹt xe nên tôi đến muộn." = "Because of the traffic, I arrived late."',
+    type: 'pattern',
+    score: 5,
+    recent: [true, true, true, true, true, true, true, true],
+    last_seen: '2026-09-23',
+  },
+  {
+    front: 'càng … càng …',
+    back: 'the more …, the more …',
+    notes: 'The first càng carries the cause, the second the effect. E.g. "Càng học tôi càng thấy tiếng Việt thú vị." = "The more I study, the more interesting I find Vietnamese."',
+    type: 'pattern',
+  },
+  /* On probation too, and going badly: one right out of three. */
+  {
+    front: 'nếu … thì …',
+    back: 'if …, (then) …',
+    notes: 'nếu = if; thì introduces the consequence and is usually kept where English drops "then". E.g. "Nếu ngày mai trời đẹp thì chúng ta đi biển." = "If the weather is nice tomorrow, we will go to the beach."',
+    type: 'pattern',
+    score: 2,
+    recent: [false, true, false],
+    last_seen: '2026-09-25',
   },
 ];
 

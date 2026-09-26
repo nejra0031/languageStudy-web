@@ -155,6 +155,17 @@ test('the starter deck is valid and self-consistent', async () => {
   }
 });
 
+/* The starter deck is the demo: it has to show both kinds of card, and a
+   pattern that Dictation could not use would show nothing. */
+test('the starter deck holds fourteen words and six dictatable patterns', async () => {
+  const { STARTER_DECK } = await import('../js/defaults.js');
+  const patterns = STARTER_DECK.filter(isPattern);
+  assert.equal(STARTER_DECK.length, 20);
+  assert.equal(patterns.length, 6);
+  for (const card of patterns) assert.ok(isDictatable(card), `${card.front} cannot be dictated`);
+  assert.equal(new Set(STARTER_DECK.map((c) => c.front)).size, 20, 'no front twice');
+});
+
 test('the history is folded onto one line so the words stay readable', () => {
   const text = serializeDeck([{ front: 'a', back: 'b', score: 1, recent: [true, false, true] }]);
   assert.match(text, /"recent": \[true, false, true\]/);

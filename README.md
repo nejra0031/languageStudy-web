@@ -13,7 +13,10 @@ leaves the machine is a request to Google, signed with your own API key.
 
 ## Using it for another language
 
-Nothing here is Vietnamese-specific, even though the three example cards are.
+Nothing here is Vietnamese-specific, even though the example cards are. There
+are twenty of them, fourteen words and six [grammar patterns](#the-deck-format),
+some new and some with a history, so every mode and filter has something to
+show before you add a card of your own.
 
 1. Open **Settings → Language** and type the language you are learning.
    Anything the model can write works: Spanish, Japanese, Swahili, Old English.
