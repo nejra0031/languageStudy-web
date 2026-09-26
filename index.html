@@ -6,7 +6,7 @@
 <title>Language Study</title>
 <meta name="description" content="Flashcards, typing practice and AI dictation for any language. Your own API key, your own files, no accounts and no server.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230f1117'/><rect x='3' y='3' width='10' height='10' fill='%23d4b455'/></svg>">
-<link rel="stylesheet" href="css/app.css?v=2026-09-26.2">
+<link rel="stylesheet" href="css/app.css?v=2026-09-26.3">
 <!-- Cache-busting. GitHub Pages lets a browser keep any file for ten minutes,
      so without this a deploy can leave you with a new index.html and an old
      module, or the reverse, and the page fails to start. Every module is
@@ -18,32 +18,32 @@
 <script type="importmap">
 {
   "imports": {
-    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-26.2",
-    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-26.2",
-    "./js/bundle.js": "./js/bundle.js?v=2026-09-26.2",
-    "./js/convert-audio.js": "./js/convert-audio.js?v=2026-09-26.2",
-    "./js/deck.js": "./js/deck.js?v=2026-09-26.2",
-    "./js/defaults.js": "./js/defaults.js?v=2026-09-26.2",
-    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-26.2",
-    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-26.2",
-    "./js/gemini.js": "./js/gemini.js?v=2026-09-26.2",
-    "./js/lookup.js": "./js/lookup.js?v=2026-09-26.2",
-    "./js/lookup-popup.js": "./js/lookup-popup.js?v=2026-09-26.2",
-    "./js/opus.js": "./js/opus.js?v=2026-09-26.2",
-    "./js/recorder.js": "./js/recorder.js?v=2026-09-26.2",
-    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-26.2",
-    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-26.2",
-    "./js/speech.js": "./js/speech.js?v=2026-09-26.2",
-    "./js/storage.js": "./js/storage.js?v=2026-09-26.2",
-    "./js/store.js": "./js/store.js?v=2026-09-26.2",
-    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-26.2",
-    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-26.2",
-    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-26.2",
-    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-26.2",
-    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-26.2",
-    "./js/text.js": "./js/text.js?v=2026-09-26.2",
-    "./js/translate.js": "./js/translate.js?v=2026-09-26.2",
-    "./js/zip.js": "./js/zip.js?v=2026-09-26.2"
+    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-26.3",
+    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-26.3",
+    "./js/bundle.js": "./js/bundle.js?v=2026-09-26.3",
+    "./js/convert-audio.js": "./js/convert-audio.js?v=2026-09-26.3",
+    "./js/deck.js": "./js/deck.js?v=2026-09-26.3",
+    "./js/defaults.js": "./js/defaults.js?v=2026-09-26.3",
+    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-26.3",
+    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-26.3",
+    "./js/gemini.js": "./js/gemini.js?v=2026-09-26.3",
+    "./js/lookup.js": "./js/lookup.js?v=2026-09-26.3",
+    "./js/lookup-popup.js": "./js/lookup-popup.js?v=2026-09-26.3",
+    "./js/opus.js": "./js/opus.js?v=2026-09-26.3",
+    "./js/recorder.js": "./js/recorder.js?v=2026-09-26.3",
+    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-26.3",
+    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-26.3",
+    "./js/speech.js": "./js/speech.js?v=2026-09-26.3",
+    "./js/storage.js": "./js/storage.js?v=2026-09-26.3",
+    "./js/store.js": "./js/store.js?v=2026-09-26.3",
+    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-26.3",
+    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-26.3",
+    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-26.3",
+    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-26.3",
+    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-26.3",
+    "./js/text.js": "./js/text.js?v=2026-09-26.3",
+    "./js/translate.js": "./js/translate.js?v=2026-09-26.3",
+    "./js/zip.js": "./js/zip.js?v=2026-09-26.3"
   }
 }
 </script>
@@ -619,6 +619,6 @@
 <!-- The selection popup: filled and placed by lookup-popup.js, under whatever was selected. -->
 <div class="lookup-pop" id="lookup-pop" role="dialog" aria-label="Add the selection as a flashcard" hidden></div>
 
-<script type="module" src="js/app.js?v=2026-09-26.2"></script>
+<script type="module" src="js/app.js?v=2026-09-26.3"></script>
 </body>
 </html>

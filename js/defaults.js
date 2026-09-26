@@ -87,8 +87,7 @@ This is the learner's own request about the language and style of your feedback.
 
 /* Sent to the shadowing model as the system instruction, with the learner's
    recordings attached as audio. Every line of this is load bearing and most of
-   it was learnt the hard way — see shadowing_feature_spec.md §5.1 before
-   tidying anything away:
+   it was learnt the hard way — read why before tidying anything away:
 
      "say nothing about grammar"   without it the model spends its best
                                    sentence praising word choice the learner
