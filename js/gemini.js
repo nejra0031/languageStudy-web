@@ -42,6 +42,21 @@ export function fillTemplate(template, vars) {
     (Object.prototype.hasOwnProperty.call(vars, name) ? String(vars[name]) : match));
 }
 
+/* What the speech model is given: the speech prompt filled with the text,
+   with the audio register or dialect note, when there is one, as a line of
+   direction before it. Gemini TTS follows a spoken instruction ahead of the
+   text ("Say cheerfully: …"), and a line of its own ending in a colon reads
+   as direction rather than as words to say. It is added here, not through a
+   placeholder, so every call that makes audio carries it however the
+   speech prompt has been rewritten. The note is separate from the text
+   note, since how a text is worded and how a voice sounds are asked for
+   differently. */
+export function speechText(settings, text) {
+  const spoken = fillTemplate(settings.prompts.speech, { sentence: text });
+  const note = String(settings.speechNote || '').trim();
+  return note ? `Speak with this register or dialect: ${note}\n\n${spoken}` : spoken;
+}
+
 /* A pattern card gets a line of its own. The prompt around the listing says
    to use every term "exactly as written", which a pattern cannot be, and a
    meaning in brackets reads as a gloss, not a requirement — so the model
@@ -585,7 +600,7 @@ export function createClient({ getSettings, getApiKey, limiter }) {
 
   async function speak(sentence, voice) {
     const s = getSettings();
-    const text = fillTemplate(s.prompts.speech, { sentence });
+    const text = speechText(s, sentence);
     const l = modelLimits(s, s.ttsModel);
     for (let attempt = 0; attempt < 2; attempt++) {
       const data = await call(s.ttsModel, {

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   fillTemplate, buildTermListing, sentenceVars, parseSentence, sentenceProblem,
   RateLimiter, QuotaError, pcmToWav, createClient, formatWait, nextBankId, sidecarText, pickVoice,
-  notesVars, cleanNotes, NOTES_PATTERN_LINE,
+  notesVars, cleanNotes, NOTES_PATTERN_LINE, speechText,
 } from '../js/gemini.js';
 import { DEFAULT_SETTINGS, withDefaults } from '../js/defaults.js';
 
@@ -417,4 +417,25 @@ test('a pattern card asks for the construction to be explained, a word card does
   assert.ok(!word.includes(NOTES_PATTERN_LINE));
   assert.ok(pattern.includes(NOTES_PATTERN_LINE));
   assert.equal(word.match(/{w+}/g), null, 'an empty {pattern} leaves nothing behind');
+});
+
+/* ── speech text ─────────────────────────────────────────────────────── */
+
+test('speechText is the filled speech prompt when there is no audio note', () => {
+  const s = { ...DEFAULT_SETTINGS, speechNote: '  ', prompts: { ...DEFAULT_SETTINGS.prompts, speech: 'Read slowly: {sentence}' } };
+  assert.equal(speechText(s, 'Xin chào.'), 'Read slowly: Xin chào.');
+});
+
+test('speechText puts the audio note before the text as a line of direction', () => {
+  const s = { ...DEFAULT_SETTINGS, speechNote: ' Southern accent ' };
+  assert.equal(speechText(s, 'Xin chào.'), 'Speak with this register or dialect: Southern accent\n\nXin chào.');
+});
+
+test('speechText adds the note even to a speech prompt without {sentence}', () => {
+  const s = { ...DEFAULT_SETTINGS, speechNote: 'Northern accent', prompts: { ...DEFAULT_SETTINGS.prompts, speech: 'Read this.' } };
+  assert.ok(speechText(s, 'x').startsWith('Speak with this register or dialect: Northern accent'));
+});
+
+test('an older settings file gets an empty audio note', () => {
+  assert.equal(withDefaults({ targetLanguage: 'Spanish' }).speechNote, '');
 });

@@ -294,6 +294,9 @@ export const DEFAULT_SETTINGS = {
   targetLanguage: 'Vietnamese',
   learnerLevel: 'intermediate',
   languageNote: 'Southern register, everyday spoken style.',
+  /* The same kind of note for the speech model: added to every request that
+     makes audio (see speechText() in gemini.js). Empty means no direction. */
+  speechNote: '',
   /* The catalogue: every model in use, listed once, each with the limits that
      belong to it. Google counts calls per model, so the limits are a property
      of the model and not of the job it is doing — which is the whole reason

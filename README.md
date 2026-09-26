@@ -740,6 +740,16 @@ The sentence prompt takes `{language}`, `{level}`, `{languageNote}`, `{terms}`,
 `{sentence}`, and a prefix such as *Read slowly and clearly for a language
 learner:* will steer the delivery.
 
+**Settings → Language** has two notes. The **register or dialect note** goes
+into the text prompts as `{languageNote}` and shapes the words that are
+written. The **register or dialect note for audio** is for the voice: *Southern
+Vietnamese accent*, *Castilian, not Latin American*. It is added before the
+text of every request that makes audio with a Gemini voice (a dictation
+sentence, a Reading text read aloud) as one line, *Speak with this register or
+dialect: …*, whatever the speech prompt says, and the speech prompt's preview
+shows it. Left empty, nothing is added. Your device's own voice and the Azure
+voices do not use it.
+
 The shadowing prompt takes `{language}`, `{count}` and `{rules}`, and is sent
 as the system instruction with your recordings attached after it. Its reply has
 to be the JSON object it describes — a reply that cannot be read is treated as

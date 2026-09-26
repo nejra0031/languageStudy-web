@@ -9,7 +9,7 @@ import {
   DEFAULT_READING_PROMPT,
 } from './defaults.js';
 import {
-  fillTemplate, sentenceVars, notesVars, formatWait, GeminiError, QuotaError, shadowSystem,
+  fillTemplate, sentenceVars, notesVars, formatWait, GeminiError, QuotaError, shadowSystem, speechText,
 } from './gemini.js';
 import { LANGUAGES, codeFor, nameFor } from './lookup.js';
 import { readingVars } from './reading.js';
@@ -501,6 +501,7 @@ const FIELDS = [
   ['set-language', 'targetLanguage', 'text'],
   ['set-level', 'learnerLevel', 'text'],
   ['set-note', 'languageNote', 'text'],
+  ['set-speech-note', 'speechNote', 'text'],
   ['set-shadow-items', 'shadowItems', 'int'],
   ['set-feedback-request', 'feedbackRequest', 'text'],
   ['set-revise-after', 'shadowReviseAfter', 'int'],
@@ -644,7 +645,7 @@ function renderPreview() {
   ].join('\n');
   $('prompt-preview-speech').value = [
     `── to ${draft.ttsModel} ──`,
-    fillTemplate(draft.prompts.speech, { sentence: '<the sentence it just wrote>' }),
+    speechText(draft, '<the sentence it just wrote>'),
   ].join('\n');
   $('prompt-preview-shadowing').value = [
     `── to ${draft.shadowModel}, as the system instruction ──`,
@@ -717,6 +718,7 @@ function draftSettings() {
     targetLanguage: $('set-language').value.trim() || s.targetLanguage,
     learnerLevel: $('set-level').value.trim() || s.learnerLevel,
     languageNote: $('set-note').value,
+    speechNote: $('set-speech-note').value,
     shadowItems: Number($('set-shadow-items').value) || s.shadowItems,
     feedbackRequest: $('set-feedback-request').value,
     sentenceWords: {
