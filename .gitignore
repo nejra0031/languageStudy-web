@@ -13,3 +13,6 @@ Thumbs.db
 .vscode/
 .idea/
 node_modules/
+
+# Working notes, not part of the app.
+practice-mode-port.md
