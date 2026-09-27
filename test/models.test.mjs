@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  withDefaults, normalizeModels, modelLimits, rolesUsing, MODEL_ROLES, DEFAULT_SETTINGS,
+  withDefaults, normalizeModels, modelLimits, rolesUsing, MODEL_ROLES, DEFAULT_SETTINGS, DEFAULT_MODELS, LIVE_MODEL,
 } from '../js/defaults.js';
 import { RateLimiter } from '../js/gemini.js';
 
@@ -80,7 +80,10 @@ test('rolesUsing names every job a model is doing', () => {
   /* Every job split off later is on the model of the job it came from: a
      file that never named them gives them that model. */
   assert.deepEqual(rolesUsing(s, 'tts'), ['Dictation speech', 'Reading aloud']);
-  assert.deepEqual(rolesUsing(s, 'flash'), MODEL_ROLES.map((r) => r[1]).filter((l) => l !== 'Dictation speech' && l !== 'Reading aloud'));
+  /* Bar the live conversation, which only a Live model can have, and which
+     no older job could do. */
+  assert.deepEqual(rolesUsing(s, LIVE_MODEL), ['Live conversation']);
+  assert.deepEqual(rolesUsing(s, 'flash'), MODEL_ROLES.map((r) => r[1]).filter((l) => l !== 'Dictation speech' && l !== 'Reading aloud' && l !== 'Live conversation'));
   assert.deepEqual(rolesUsing(s, 'idle'), []);
 });
 
@@ -94,7 +97,11 @@ test('a job split off later takes the model of the job it came from', () => {
   assert.equal(s.readingSpeechModel, 'tts', 'reading aloud was the speech job');
   assert.equal(s.listenModel, 'ears', 'hearing spoken turns was the shadowing job');
   assert.equal(s.chatModel, 'my-flash');
-  assert.deepEqual(s.models.map((m) => m.id), ['my-flash', 'tts', 'ears'], 'nothing is added behind the user\'s back');
+  /* Nothing is added behind the user's back, but for the live model: no
+     model an older file names can talk live, and it is called only when a
+     live conversation is started. */
+  assert.deepEqual(s.models.map((m) => m.id), ['my-flash', 'tts', 'ears', LIVE_MODEL]);
+  assert.deepEqual(s.models[3], { id: LIVE_MODEL, rpm: 0, rpd: 0 });
 });
 
 test('the one feedback job of the first graded-modes build becomes each mode\'s feedback job', () => {
@@ -148,15 +155,18 @@ test('a settings file with per-job limits becomes a catalogue', () => {
   assert.deepEqual(s.models, [
     { id: 'flash', rpm: 4, rpd: 20 },
     { id: 'tts', rpm: 2, rpd: 10 },
+    { id: LIVE_MODEL, rpm: 0, rpd: 0 },
   ]);
   assert.equal(s.limits, undefined, 'the old key is read once and not written back');
 });
 
-test('the defaults migrate to the two models they always were', () => {
+test('the defaults migrate to the two models they always were, and the live model', () => {
   assert.deepEqual(withDefaults(null).models, [
     { id: 'gemini-3.6-flash', rpm: 4, rpd: 20 },
     { id: 'gemini-3.1-flash-tts-preview', rpm: 2, rpd: 10 },
+    { id: LIVE_MODEL, rpm: 0, rpd: 0 },
   ]);
+  assert.deepEqual(withDefaults(null).models, DEFAULT_MODELS);
   assert.deepEqual(withDefaults({}).models, withDefaults(null).models);
 });
 

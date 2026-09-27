@@ -137,6 +137,21 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
   judged by the language's listening rules. `tab-conversation.js` saves the session after every
   turn, the learner's turn before the call that answers it, resumes an open
   one when shown, and scores the cards once, when it ends with feedback.
+- A third kind, `'live'`, is durkle's Praat without its server: a find-out
+  scene, then a timed spoken conversation over the Live API's WebSocket,
+  opened from the page with the user's key. `live.js` is its pure logic
+  (the partner's instruction, the setup and every message, reading what
+  comes back, `createTranscript`, `liveGradeRequest`, `readLiveGrade`, and
+  `liveScore`, which computes the percentage from four 0-4 bands, never
+  asks for it); `gemini-live.js` the socket, with no SDK; `live-audio.js`
+  the microphone as 16 kHz PCM through an AudioWorklet, 24 kHz playback and
+  the MediaRecorder of the whole conversation; `live-session.js` the
+  conversation from Start talking to the recording. `store.client.openLive`
+  counts one call on `liveModel` before the socket opens. The recording is
+  written to `conversation/<id>_live.<ext>` the moment it ends, before the
+  grading call on `liveGradeModel`, which listens to it; a failure keeps it
+  for Try again. The microphone is asked for before the socket, so a
+  refusal costs nothing.
 - The selection popup (Add from selected text) is not a tab: it opens over
   whichever tab holds the selected text. `lookup.js` is its pure logic
   (which way round, is the word a card already, the sentence around it),
@@ -192,10 +207,12 @@ Writing, Translate and Conversation are ported from lessons-web (the
 `praat-site` branch of the durkle repo), following a plan kept out of git as
 `practice-mode-port.md`. Their prompts are lessons-web's with the Dutch, the
 CEFR tables, scores and lesson content taken out, and each prompt's comment
-in `defaults.js` says what was changed and why. Left out on purpose: Praat
-(the live voice conversation, which would need a WebSocket client written
-from scratch), reading the partner's lines aloud, a microphone check screen,
-numeric scores and any per-language cleanup. A new graded mode should follow
+in `defaults.js` says what was changed and why. Left out on purpose:
+reading the typed partner's lines aloud, a microphone check screen, numeric
+scores and any per-language cleanup. Praat, the live voice conversation, was
+left out at first for want of a WebSocket client; it is now the live kind of
+Conversation (see above), ported from durkle's `praat-site` branch, and its
+percentage is the one numeric score, computed from bands in code. A new graded mode should follow
 the same shape: prompts in `defaults.js` with a box in Settings, pure request
 building and reply reading in a module of its own, `jobCall` on one job's
 model, card verdicts through `cardVerdicts`, and one call per press with a
@@ -207,7 +224,9 @@ Unit tests cover the modules without a DOM — `deck.js`, `text.js`,
 `gemini.js`, the model catalogue, `speech.js`, `azure-tts.js`, `zip.js`,
 `bundle.js`, `backup-due.js`, `opus.js`, `convert-audio.js`, `shadowing.js`,
 `shadow-rules.js`, `lookup.js`, `reading.js`, `json-reply.js`, `writing.js`,
-`translation.js` and `conversation.js` — not the tabs. For anything a
+`translation.js`, `conversation.js` and `live.js` with `gemini-live.js` —
+not the tabs, and not `live-audio.js` or `live-session.js`, which need a
+browser's audio. For anything a
 user sees, drive the real page. Playwright's WebKit is Safari's engine and works well; some quirks
 cost time the first time:
 

@@ -6,7 +6,7 @@
 <title>Language Study</title>
 <meta name="description" content="Flashcards, typing practice and AI dictation for any language. Your own API key, your own files, no accounts and no server.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230f1117'/><rect x='3' y='3' width='10' height='10' fill='%23d4b455'/></svg>">
-<link rel="stylesheet" href="css/app.css?v=2026-09-27.13">
+<link rel="stylesheet" href="css/app.css?v=2026-09-27.14">
 <!-- Cache-busting. GitHub Pages lets a browser keep any file for ten minutes,
      so without this a deploy can leave you with a new index.html and an old
      module, or the reverse, and the page fails to start. Every module is
@@ -18,41 +18,45 @@
 <script type="importmap">
 {
   "imports": {
-    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-27.13",
-    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-27.13",
-    "./js/bundle.js": "./js/bundle.js?v=2026-09-27.13",
-    "./js/conversation.js": "./js/conversation.js?v=2026-09-27.13",
-    "./js/convert-audio.js": "./js/convert-audio.js?v=2026-09-27.13",
-    "./js/deck.js": "./js/deck.js?v=2026-09-27.13",
-    "./js/defaults.js": "./js/defaults.js?v=2026-09-27.13",
-    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-27.13",
-    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-27.13",
-    "./js/gemini.js": "./js/gemini.js?v=2026-09-27.13",
-    "./js/json-reply.js": "./js/json-reply.js?v=2026-09-27.13",
-    "./js/lookup.js": "./js/lookup.js?v=2026-09-27.13",
-    "./js/lookup-popup.js": "./js/lookup-popup.js?v=2026-09-27.13",
-    "./js/opus.js": "./js/opus.js?v=2026-09-27.13",
-    "./js/reading.js": "./js/reading.js?v=2026-09-27.13",
-    "./js/recorder.js": "./js/recorder.js?v=2026-09-27.13",
-    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-27.13",
-    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-27.13",
-    "./js/speech.js": "./js/speech.js?v=2026-09-27.13",
-    "./js/storage.js": "./js/storage.js?v=2026-09-27.13",
-    "./js/store.js": "./js/store.js?v=2026-09-27.13",
-    "./js/tab-conversation.js": "./js/tab-conversation.js?v=2026-09-27.13",
-    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-27.13",
-    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-27.13",
-    "./js/tab-reading.js": "./js/tab-reading.js?v=2026-09-27.13",
-    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-27.13",
-    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-27.13",
-    "./js/tab-translate.js": "./js/tab-translate.js?v=2026-09-27.13",
-    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-27.13",
-    "./js/tab-writing.js": "./js/tab-writing.js?v=2026-09-27.13",
-    "./js/text.js": "./js/text.js?v=2026-09-27.13",
-    "./js/translate.js": "./js/translate.js?v=2026-09-27.13",
-    "./js/translation.js": "./js/translation.js?v=2026-09-27.13",
-    "./js/writing.js": "./js/writing.js?v=2026-09-27.13",
-    "./js/zip.js": "./js/zip.js?v=2026-09-27.13"
+    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-27.14",
+    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-27.14",
+    "./js/bundle.js": "./js/bundle.js?v=2026-09-27.14",
+    "./js/conversation.js": "./js/conversation.js?v=2026-09-27.14",
+    "./js/convert-audio.js": "./js/convert-audio.js?v=2026-09-27.14",
+    "./js/deck.js": "./js/deck.js?v=2026-09-27.14",
+    "./js/defaults.js": "./js/defaults.js?v=2026-09-27.14",
+    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-27.14",
+    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-27.14",
+    "./js/gemini.js": "./js/gemini.js?v=2026-09-27.14",
+    "./js/gemini-live.js": "./js/gemini-live.js?v=2026-09-27.14",
+    "./js/json-reply.js": "./js/json-reply.js?v=2026-09-27.14",
+    "./js/live.js": "./js/live.js?v=2026-09-27.14",
+    "./js/live-audio.js": "./js/live-audio.js?v=2026-09-27.14",
+    "./js/live-session.js": "./js/live-session.js?v=2026-09-27.14",
+    "./js/lookup.js": "./js/lookup.js?v=2026-09-27.14",
+    "./js/lookup-popup.js": "./js/lookup-popup.js?v=2026-09-27.14",
+    "./js/opus.js": "./js/opus.js?v=2026-09-27.14",
+    "./js/reading.js": "./js/reading.js?v=2026-09-27.14",
+    "./js/recorder.js": "./js/recorder.js?v=2026-09-27.14",
+    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-27.14",
+    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-27.14",
+    "./js/speech.js": "./js/speech.js?v=2026-09-27.14",
+    "./js/storage.js": "./js/storage.js?v=2026-09-27.14",
+    "./js/store.js": "./js/store.js?v=2026-09-27.14",
+    "./js/tab-conversation.js": "./js/tab-conversation.js?v=2026-09-27.14",
+    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-27.14",
+    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-27.14",
+    "./js/tab-reading.js": "./js/tab-reading.js?v=2026-09-27.14",
+    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-27.14",
+    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-27.14",
+    "./js/tab-translate.js": "./js/tab-translate.js?v=2026-09-27.14",
+    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-27.14",
+    "./js/tab-writing.js": "./js/tab-writing.js?v=2026-09-27.14",
+    "./js/text.js": "./js/text.js?v=2026-09-27.14",
+    "./js/translate.js": "./js/translate.js?v=2026-09-27.14",
+    "./js/translation.js": "./js/translation.js?v=2026-09-27.14",
+    "./js/writing.js": "./js/writing.js?v=2026-09-27.14",
+    "./js/zip.js": "./js/zip.js?v=2026-09-27.14"
   }
 }
 </script>
@@ -166,7 +170,7 @@
       <p class="note"><strong>Calls / min</strong> and <strong>calls / day</strong> are counted in this browser before a request goes out, so you never discover a limit by being refused by Google. The windows roll over the last minute and the last 24 hours rather than resetting at midnight, so the day's budget trickles back an hour at a time. <strong>0 means unlimited</strong> — the right answer for a paid key, and the one case where Google gets to be the one who says no. The defaults are the free tier.</p>
     <div class="status" id="models-status"></div>
       <h3 class="sec-sub">Who does what <span class="hint" id="roles-hint"></span></h3>
-      <p class="note">Each job's model is chosen in the section of the mode it belongs to: Dictation's in Dictation, Conversation's four in Conversation, and so on. The list above says which jobs each model is doing.</p>
+      <p class="note">Each job's model is chosen in the section of the mode it belongs to: Dictation's in Dictation, Conversation's six in Conversation, and so on. The list above says which jobs each model is doing.</p>
       <p class="note">Pick the same model for two jobs and they share its allowance, exactly as they already do at Google's end. The two speech jobs are the ones that really have to differ: only the TTS models return audio. Conversation replies suit a flash-lite model with a bigger daily allowance: one conversation spends five or six of its calls, each a line or two.</p>
       <p class="note">If a model ID is wrong the API's own error is shown verbatim, so a 404 here means exactly that. There is deliberately no hidden fallback list: the model that answers is the one you typed, and nothing quietly spends on another.</p>
     <div class="status" id="roles-status"></div>
@@ -591,7 +595,7 @@
       <div class="grid" data-roles="conversation"></div>
       <div class="grid">
         <label class="field"><span>Start on</span>
-          <select id="set-conversation-kind"><option value="roleplay">Roleplay</option><option value="findout">Find out</option></select>
+          <select id="set-conversation-kind"><option value="roleplay">Roleplay</option><option value="findout">Find out</option><option value="live">Live</option></select>
         </label>
         <label class="field"><span>Cards to draw from</span>
           <select id="set-conversation-scope"><option value="weak">Weak</option><option value="developing">Weak and developing</option><option value="all">All</option></select>
@@ -602,12 +606,16 @@
         <label class="field"><span>Cards in a scene</span><input type="number" id="set-conversation-terms" min="1" max="10">
           <em class="field-sub">1 to 10</em></label>
         <label class="field"><span>Facts in a find out</span><input type="number" id="set-conversation-facts" min="2" max="6">
-          <em class="field-sub">2 to 6 things to find out</em></label>
+          <em class="field-sub">2 to 6 things to find out, live or typed</em></label>
+        <label class="field"><span>Live conversation length</span>
+          <select id="set-live-seconds"><option value="60">1 minute</option><option value="120">2 minutes</option><option value="180">3 minutes</option></select>
+          <em class="field-sub">also chosen on the tab</em></label>
       </div>
       <p class="note">A conversation spends one call on the scene model, one on the replies model for each of the other person's turns, and one on the feedback model at the end. A spoken turn adds one on the listening model, and a roleplay with spoken turns is graded by the listening model, since it listens to them.</p>
+      <p class="note">A <strong>live</strong> conversation spends one call on the scene model, one on the live model for the whole conversation, and one on the live feedback model, which listens to the recording of your microphone. The live model has to be one of Google's Live API models (the audio streams both ways through it as you talk), so it is the one job no other model here can do. Google's free tier limits it by how many live conversations run at once rather than by calls, which is why it starts with no limit here; a number per day entered under <a href="#sec-models" data-open-sec="models">Models and budget</a> is a number of conversations a day. The audio goes straight from this page to Google, over your own key, like every other call.</p>
 
       <details class="sec-prompts" data-acc="conversation.prompts">
-        <summary>Prompts <span class="sec-count">6</span></summary>
+        <summary>Prompts <span class="sec-count">8</span></summary>
         <div class="sec-prompts-body">
       <p class="note">Exactly what gets sent. Switch a prompt to <strong>Preview</strong> to see it filled in with your settings and a few of your cards; switch back to <strong>Edit</strong> to change it.</p>
 
@@ -700,6 +708,36 @@
       <p class="note prompt-warn" id="prompt-warn-transcribe" hidden></p>
       <p class="note">Sent when you press <em>Send recording</em> on the Conversation tab, with your recording, the scene and the line you are answering attached. Placeholder: <code>{language}</code>. It asks for what you said as you said it, mistakes included, since the feedback is on that. The reply has to be <code>{"transcript":"…"}</code>; an empty transcript means nothing was heard, and the turn is not spent.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-transcribe-reset">Reset to default</button></div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="set-prompt-livePartner">Live partner prompt — the system instruction</label>
+          <div class="seg" role="group" aria-label="Show the live partner prompt as" data-prompt="livePartner">
+            <button type="button" data-view="edit" aria-pressed="true">Edit</button>
+            <button type="button" data-view="preview" aria-pressed="false">Preview</button>
+          </div>
+        </div>
+        <textarea id="set-prompt-livePartner" rows="18" spellcheck="false"></textarea>
+        <textarea id="prompt-preview-livePartner" class="prompt-preview" rows="18" readonly spellcheck="false" aria-label="Live partner prompt, as it will be sent" hidden></textarea>
+      </div>
+      <p class="note prompt-warn" id="prompt-warn-livePartner" hidden></p>
+      <p class="note">Sent to the live model once, when a live conversation opens; from then on it hears your voice and answers with its own. Placeholders: <code>{situation}</code>, <code>{studentRole}</code> and <code>{llmRole}</code>; <code>{facts}</code>, the things to be found out with their answers; <code>{terms}</code>, your cards; <code>{language}</code>, <code>{level}</code> and <code>{languageNote}</code>. The page sends <code>[START]</code> to open the conversation and <code>[TIME]</code> fifteen seconds before the end, whatever this says, so keep the lines that tell the partner what they mean.</p>
+      <div class="row"><button class="btn btn--sm" id="prompt-livePartner-reset">Reset to default</button></div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="set-prompt-liveGrade">Live feedback prompt — the system instruction</label>
+          <div class="seg" role="group" aria-label="Show the live feedback prompt as" data-prompt="liveGrade">
+            <button type="button" data-view="edit" aria-pressed="true">Edit</button>
+            <button type="button" data-view="preview" aria-pressed="false">Preview</button>
+          </div>
+        </div>
+        <textarea id="set-prompt-liveGrade" rows="18" spellcheck="false"></textarea>
+        <textarea id="prompt-preview-liveGrade" class="prompt-preview" rows="18" readonly spellcheck="false" aria-label="Live feedback prompt, as it will be sent" hidden></textarea>
+      </div>
+      <p class="note prompt-warn" id="prompt-warn-liveGrade" hidden></p>
+      <p class="note">Sent to the live feedback model when a live conversation ends. Placeholders: <code>{rules}</code>, this language's listening rules, the ones Shadowing grades by and your ratings revise; <code>{language}</code>, <code>{languageNote}</code> and <code>{feedback}</code>. The situation, the facts, the running transcript and your cards follow as the message, then the recording of your microphone. The reply has to be the JSON object it describes: the percentage is worked out from <code>"bands"</code>, never asked for, with pronunciation counting 35%, grammar 25%, and flow and word choice 20% each.</p>
+      <div class="row"><button class="btn btn--sm" id="prompt-liveGrade-reset">Reset to default</button></div>
         </div>
       </details>
     </div>
@@ -1189,7 +1227,7 @@
       <span class="hint" id="cv-pool"></span>
     </div>
     <div class="block-body">
-      <p class="note">A few turns of your own (six, unless <a href="#sec-conversation" data-open-sec="conversation">Settings → Conversation</a> says otherwise) in a short scene, then feedback on how it went. In a <strong>roleplay</strong> the other person plays their part and answers each of your turns; the feedback goes through them one by one, with a more natural way to say each where there is one. In a <strong>find out</strong> they know a few things you were sent to find out, and give one only when you ask about it specifically; the feedback is about whether you listened to the answers. Either way the scene is written around a few of your cards, listed under it with their meanings while you talk: <strong>try to use them</strong>, since they are scored on what you said. <strong>Speak</strong> your turns or type them: a recording is played back before you send it, written down as you said it, mistakes and all, and a roleplay you spoke gets a note on how it sounded.</p>
+      <p class="note">A few turns of your own (six, unless <a href="#sec-conversation" data-open-sec="conversation">Settings → Conversation</a> says otherwise) in a short scene, then feedback on how it went. In a <strong>roleplay</strong> the other person plays their part and answers each of your turns; the feedback goes through them one by one, with a more natural way to say each where there is one. In a <strong>find out</strong> they know a few things you were sent to find out, and give one only when you ask about it specifically; the feedback is about whether you listened to the answers. Either way the scene is written around a few of your cards, listed under it with their meanings while you talk: <strong>try to use them</strong>, since they are scored on what you said. <strong>Speak</strong> your turns or type them: a recording is played back before you send it, written down as you said it, mistakes and all, and a roleplay you spoke gets a note on how it sounded. A <strong>live</strong> conversation is a find out spoken in real time: you and the other person just talk, for one to three minutes, with no button to press between turns, and afterwards you get the whole conversation written out with your mistakes corrected, more natural ways to say what you said, notes on how it sounded, and a percentage made of four marks: pronunciation, flow, grammar and word choice.</p>
       <div id="cv-gate"></div>
 
       <div id="cv-stage" hidden>
@@ -1198,6 +1236,12 @@
             <div class="seg" id="cv-kind" role="group" aria-label="Kind of conversation">
               <button data-kind="roleplay" aria-pressed="true">Roleplay</button>
               <button data-kind="findout" aria-pressed="false">Find out</button>
+              <button data-kind="live" aria-pressed="false">Live</button>
+            </div>
+            <div class="seg" id="cv-length" role="group" aria-label="How long a live conversation runs" hidden>
+              <button data-seconds="60" aria-pressed="false">1 min</button>
+              <button data-seconds="120" aria-pressed="true">2 min</button>
+              <button data-seconds="180" aria-pressed="false">3 min</button>
             </div>
             <div class="seg" id="cv-scope" role="group" aria-label="Which cards to draw on">
               <button data-scope="weak" aria-pressed="false">Weak</button>
@@ -1224,6 +1268,20 @@
         <div class="card-meta" id="cv-meta"></div>
         <div class="card-body">
           <div id="cv-scene"></div>
+          <div class="lv-stage" id="cv-live" hidden>
+            <div class="lv-meters" aria-hidden="true">
+              <span class="lv-meter" id="lv-them"><i></i></span>
+              <span class="lv-meter lv-meter--me" id="lv-me"><i></i></span>
+            </div>
+            <div class="lv-clock" id="lv-clock" hidden></div>
+            <div class="lv-timebar" id="lv-timebar" role="progressbar" aria-label="Time used" hidden><span></span></div>
+            <p class="note" id="lv-status" aria-live="polite"></p>
+            <div class="row lv-controls">
+              <button class="btn btn--primary" id="lv-start">Start talking</button>
+              <button class="btn" id="lv-end" hidden>End now</button>
+              <button class="btn btn--sm" id="lv-show" aria-pressed="false" hidden>Show what’s being said</button>
+            </div>
+          </div>
           <div class="cv-chat" id="cv-chat" aria-live="polite"></div>
           <div id="cv-input-area" hidden>
             <div class="cv-turn" id="cv-turn"></div>
@@ -1267,6 +1325,6 @@
 <!-- The Reading tab's word popup: the selection popup's shape, filled by tab-reading.js. -->
 <div class="lookup-pop" id="reading-pop" role="dialog" aria-label="A word from the text" hidden></div>
 
-<script type="module" src="js/app.js?v=2026-09-27.13"></script>
+<script type="module" src="js/app.js?v=2026-09-27.14"></script>
 </body>
 </html>

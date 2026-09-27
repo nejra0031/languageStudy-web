@@ -34,7 +34,8 @@ import { modelLimits } from './defaults.js';
 import { attachableClips, toBase64 } from './shadowing.js';
 import { rulesFor, formatRulesBlock } from './shadow-rules.js';
 
-export const KINDS = ['roleplay', 'findout'];
+export const KINDS = ['roleplay', 'findout', 'live'];
+const KIND_NAMES = { roleplay: 'roleplay', findout: 'find-out', live: 'live conversation' };
 /* Your turns in a conversation, unless the conversationTurns setting says
    otherwise. A conversation keeps the number it started with, as maxTurns,
    so a change in Settings never moves the end of one already under way. */
@@ -71,7 +72,8 @@ export function repliesNeeded(kind, turns = MAX_LEARNER_TURNS) {
    on the feedback model at the end. Two jobs on one model are one line,
    since they draw on one allowance. Spoken turns add a listening call each,
    and are not counted here: whether a turn is spoken is decided turn by
-   turn. */
+   turn. A live conversation is the scene, one live session, counted as one
+   call on the live model however long it runs, and the feedback. */
 export function callsNeeded(settings, kind) {
   const out = [];
   const add = (job, label, count) => {
@@ -80,6 +82,11 @@ export function callsNeeded(settings, kind) {
     if (hit) { hit.count += count; hit.jobs.push(label); } else out.push({ model, count, jobs: [label] });
   };
   add('sceneModel', 'the scene', 1);
+  if (kind === 'live') {
+    add('liveModel', 'the live conversation', 1);
+    add('liveGradeModel', 'the feedback', 1);
+    return out;
+  }
   add('chatModel', 'the replies', repliesNeeded(kind, settings.conversationTurns || MAX_LEARNER_TURNS));
   add('conversationGradeModel', 'the feedback', 1);
   return out;
@@ -97,7 +104,7 @@ export function budgetProblem(settings, kind, usage) {
     const { rpm, rpd } = modelLimits(settings, need.model);
     const u = usage(need.model, rpm, rpd);
     if (u.leftDay !== null && u.leftDay < need.count) {
-      return `${need.model} has ${u.leftDay} call${u.leftDay === 1 ? '' : 's'} left today, and a ${kind === 'findout' ? 'find-out' : 'roleplay'} needs ${need.count} on it (${need.jobs.join(', ')}).`;
+      return `${need.model} has ${u.leftDay} call${u.leftDay === 1 ? '' : 's'} left today, and a ${KIND_NAMES[kind] || 'roleplay'} needs ${need.count} on it (${need.jobs.join(', ')}).`;
     }
   }
   return null;
@@ -169,10 +176,11 @@ export function learnerTurns(session) {
 }
 
 /* The learner's last turn has not been answered: a reply that failed, to
-   be sent again. */
+   be sent again. A live conversation has no replies to wait for: its turns
+   are written down as they are spoken, and whoever spoke last, spoke last. */
 export function awaitingReply(session) {
   const turns = (session && session.turns) || [];
-  return !session.ended && turns.length > 0 && turns[turns.length - 1].speaker === 'learner';
+  return !session.ended && session.kind !== 'live' && turns.length > 0 && turns[turns.length - 1].speaker === 'learner';
 }
 
 /* Ends with a full stop unless it already ends a sentence, so a scene
@@ -407,7 +415,8 @@ export function readFindOutGrade(reply, session, cards) {
 
 export function conversationTitle(session) {
   const sc = session.scenario || {};
-  return String((session.kind === 'findout' ? sc.goal || sc.situation : sc.scenario) || '').trim();
+  const findOut = session.kind === 'findout' || session.kind === 'live';
+  return String((findOut ? sc.goal || sc.situation : sc.scenario) || '').trim();
 }
 
 /* ── spoken turns ────────────────────────────────────────────────────── */

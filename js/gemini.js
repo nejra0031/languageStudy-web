@@ -31,6 +31,8 @@ import {
   findOutReplyRequest, readFindOutReply, roleplayGradeRequest, readRoleplayGrade,
   findOutGradeRequest, readFindOutGrade, transcribeRequest, readTranscript, withDelivery,
 } from './conversation.js';
+import { liveGradeRequest, readLiveGrade } from './live.js';
+import { openLiveSocket } from './gemini-live.js';
 
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent';
 const MINUTE = 60;
@@ -872,12 +874,15 @@ export function createClient({ getSettings, getApiKey, limiter }) {
   async function writeScenario({ kind, cards, request }) {
     conversationPreflight(kind);
     const s = getSettings();
+    /* A live conversation is a find-out spoken live: its scene is a
+       find-out's. */
+    const scene = kind === 'live' ? 'findout' : kind;
     const { text, model } = await jobCall('sceneModel', {
-      parts: [{ text: fillTemplate(s.prompts.scenario, scenarioVars(s, kind, cards, request)) }],
+      parts: [{ text: fillTemplate(s.prompts.scenario, scenarioVars(s, scene, cards, request)) }],
       temperature: 0.7,
       maxOutputTokens: 4096,
     });
-    const scenario = readScenario(text, kind, s.conversationFacts);
+    const scenario = readScenario(text, scene, s.conversationFacts);
     if (!scenario) {
       throw new GeminiError(`${model} replied with something that could not be read as a scene, so nothing was started. Press Start to try again.`);
     }
@@ -938,6 +943,47 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     });
     const got = readRoleplayGrade(text, session, cards, { closing });
     if (!got) throw new GeminiError(`${model} replied with something that could not be read as ${closing ? 'a closing line and feedback' : 'feedback'}.`);
+    return { ...got, model };
+  }
+
+  /* ── live conversations ────────────────────────────────────────────── */
+
+  /* Opens the live partner's socket, counted as one call on the live
+     model before it goes out, as any other call is: the free tier limits
+     live sessions by how many run at once rather than by calls, but a
+     conversation is the unit a learner can budget in. `system` is the
+     partner's instruction and `voice` its voice. Resolves once Google has
+     accepted the setup, with what gemini-live.js hands back; a refusal
+     (an unknown model, a bad key) rejects with Google's own words. */
+  async function openLive({ system, voice, onMessage, onClose }) {
+    const key = getApiKey();
+    if (!key) throw new GeminiError('No API key. Add your Gemini key in Settings.');
+    jobPreflight('liveModel');
+    const s = getSettings();
+    const model = s.liveModel;
+    const l = modelLimits(s, model);
+    await limiter.reserve(model, l.rpm, l.rpd);
+    try {
+      return await openLiveSocket({ key, model, system, voice, onMessage, onClose });
+    } catch (e) {
+      /* Google refuses an over-quota live session in the close frame. */
+      if (/quota|exhausted|rate/i.test(e.message)) limiter.coolOff(model, MINUTE);
+      throw new GeminiError(`${model}: ${e.message}`);
+    }
+  }
+
+  /* The feedback on a live conversation: one call on the live feedback
+     model, with the recording (`clip`, {mime, bytes}). A reply that cannot
+     be read throws, and the recording stays for Try again. */
+  async function gradeLive(session, cards, clip) {
+    const s = getSettings();
+    const request = liveGradeRequest(s, session, cards, clip);
+    if (!request) throw new GeminiError('The recording is too large to send for feedback in one request.');
+    const { text, model } = await jobCall('liveGradeModel', {
+      system: request.system, parts: request.parts, temperature: 0.3, maxOutputTokens: 16384,
+    });
+    const got = readLiveGrade(text, session, cards);
+    if (!got) throw new GeminiError(`${model} replied with something that could not be read as feedback. Your recording is kept, so you can try again.`);
     return { ...got, model };
   }
 
@@ -1032,6 +1078,7 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     readingPreflight, writeReading, speechPreflight, speakReading, jobPreflight, jobCall,
     writeWritingBrief, gradeWriting, gradeTranslations,
     conversationPreflight, writeScenario, partnerReply, concludeConversation, transcribeTurn,
+    openLive, gradeLive,
   };
 }
 

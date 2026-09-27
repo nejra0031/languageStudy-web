@@ -1434,6 +1434,43 @@ textarea { resize: vertical; font: 13px/1.6 var(--mono); }
 }
 .cv-play:hover { color: var(--fg); border-color: var(--fg-dim); }
 
+/* A live conversation: two dots that swell as each side speaks (the other
+   person ruled, you in the accent, as in the chat), the clock and a bar of
+   time used. */
+.lv-stage { margin-top: 18px; padding: 16px; border: 1px solid var(--line); background: var(--bg-sunken); display: grid; gap: 10px; justify-items: center; text-align: center; }
+.lv-stage[hidden] { display: none; }
+.lv-stage .note { max-width: 56ch; }
+.lv-meters { display: flex; gap: 28px; padding: 10px 0; }
+.lv-meter { width: 34px; height: 34px; display: grid; place-items: center; }
+.lv-meter i { display: block; width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--fg-dim); transition: transform 80ms linear; }
+.lv-meter--me i { border-color: var(--accent); background: var(--accent-soft); }
+.lv-stage.is-live .lv-meter i { border-color: var(--fg); }
+.lv-stage.is-live .lv-meter--me i { border-color: var(--accent); }
+.lv-clock { font: 600 28px/1 var(--mono); color: var(--fg-warm); }
+.lv-clock[hidden], .lv-timebar[hidden] { display: none; }
+.lv-timebar { width: min(320px, 100%); height: 4px; background: var(--line); overflow: hidden; }
+.lv-timebar span { display: block; height: 100%; background: var(--accent); transform: scaleX(0); transform-origin: left; transition: transform 250ms linear; }
+.lv-controls { justify-content: center; }
+
+/* Its feedback: the percentage and the four marks, then the conversation
+   written out with a teacher's pen, struck through and written over. */
+.lv-score { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+.lv-pct { font: 600 34px/1 var(--mono); color: var(--fg-warm); }
+.lv-pct-label { font-size: 13px; color: var(--fg-dim); }
+.lv-bands { list-style: none; padding: 0; display: grid; gap: 6px; margin-bottom: 12px; }
+.lv-bands li { display: flex; flex-wrap: wrap; gap: 2px 12px; align-items: baseline; }
+.lv-band-name { min-width: 110px; color: var(--fg); }
+.lv-dots { font-family: var(--mono); letter-spacing: 0.1em; color: var(--accent); }
+.lv-bands .wr-sub { flex-basis: 100%; margin-top: 0; }
+.lv-lines { list-style: none; padding: 0; display: grid; gap: 10px; }
+.lv-line { display: grid; gap: 2px; padding: 8px 12px; border: 1px solid var(--line-strong); }
+.lv-line--me { border-color: var(--accent); background: var(--accent-soft); }
+.lv-fix { margin-top: 2px; }
+.lv-fix del { color: var(--bad); }
+.lv-fix ins { color: var(--ok); text-decoration: none; font-weight: 600; }
+.lv-notes { padding-left: 18px; display: grid; gap: 4px; }
+.lv-notes b { color: var(--fg-warm); margin-right: 4px; }
+
 /* ── responsive ───────────────────────────────────────────────── */
 
 @media (max-width: 720px) {
