@@ -490,7 +490,10 @@ finish the conversation, Start is refused before anything is spent, and says
 which model is short.
 
 The scene stays above the chat: the situation, who you are, who you are
-talking to, and in a find out the goal and the checklist. Type your turn and
+talking to, and in a find out the goal and the checklist. Under it, **Try to
+use these in your turns** lists the cards the scene was written around, each
+with its meaning, for the whole conversation: they are the cards the feedback
+judges at the end, on your turns only. Type your turn and
 press **Send** (or Enter; Shift+Enter is a new line). A turn takes 1,000
 characters at most. **End and get feedback** ends the conversation early,
 once you have had a turn, and costs one feedback call.

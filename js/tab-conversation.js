@@ -629,7 +629,25 @@ function renderScene() {
       }).join('')}</ul>
     </div>`;
   }
+  html += tryToUseHtml(s, lang);
   $('cv-scene').innerHTML = html;
+}
+
+/* The cards the scene was written around, shown with it from the first
+   turn, meanings and all: they are what the feedback judges at the end, so
+   they have to be in view while there is still time to use them. The
+   meaning is on screen rather than in a tooltip, which a phone never
+   shows. A card the deck has since lost is still listed by its front. */
+function tryToUseHtml(s, lang) {
+  const cards = liveCards(s);
+  if (!cards.length) return '';
+  return `<div class="cv-facts cv-try">
+      <div class="cv-facts-head">Try to use these in your turns</div>
+      <ul>${cards.map((c) => `<li>
+        <span class="cv-try-front" lang="${lang}">${escapeHtml(c.front)}</span>
+        <span class="cv-try-back">${c.type === 'pattern' ? 'grammar pattern · ' : ''}${escapeHtml(c.back || '')}</span>
+      </li>`).join('')}</ul>
+    </div>`;
 }
 
 function renderChat() {
