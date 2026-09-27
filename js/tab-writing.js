@@ -28,6 +28,7 @@ import { escapeHtml, scoreMark } from './text.js';
 import { formatWait } from './gemini.js';
 import { describe } from './tab-settings.js';
 import { languageCode } from './speech.js';
+import { errorSpot } from './error-spot.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -75,6 +76,7 @@ export function init() {
   $('wr-hand-in').addEventListener('click', handIn);
   $('wr-again').addEventListener('click', writeAgain);
   $('wr-error').addEventListener('click', (e) => { if (e.target.closest('[data-act="retry"]')) handIn(); });
+  placeError = errorSpot($('wr-error'));
   $('wr-list').addEventListener('click', (e) => {
     const row = e.target.closest('[data-writing]');
     if (!row) return;
@@ -190,7 +192,7 @@ async function askForQuestion() {
   if (!cards.length) {
     showError(store.practiceCards().length
       ? 'No cards in this scope. Widen the filter, or tick another deck in the Flashcards tab.'
-      : 'Add some cards in the Flashcards tab first, or tick a deck that has some.');
+      : 'Add some cards in the Flashcards tab first, or tick a deck that has some.', false, $('wr-ask').closest('.row'));
     return;
   }
   asking = true;
@@ -203,7 +205,7 @@ async function askForQuestion() {
     setTask({ kind: 'opinion', brief, cards });
   } catch (e) {
     console.error(e);
-    showError(describe(e));
+    showError(describe(e), false, btn.closest('.row'));
   } finally {
     asking = false;
     btn.textContent = 'Write me a question';
@@ -217,7 +219,7 @@ function useTopic() {
   if (asking || busy) return;
   const topic = $('wr-topic').value.trim();
   if (!topic) {
-    showError('Type a topic first, or press Write me a question.');
+    showError('Type a topic first, or press Write me a question.', false, $('wr-topic').closest('.row'));
     $('wr-topic').focus();
     return;
   }
@@ -230,7 +232,7 @@ async function startSummary() {
   const id = $('wr-reading').value;
   const record = id && await store.loadReading(id);
   if (!record) {
-    showError(`That text could not be read from ${storage.label()}. Its file may have been moved or deleted outside the app.`);
+    showError(`That text could not be read from ${storage.label()}. Its file may have been moved or deleted outside the app.`, false, $('wr-reading').closest('.row'));
     return;
   }
   showError('');
@@ -405,12 +407,12 @@ async function handIn() {
     saved = scored.saved;
     renderCard();
     if (!(await store.saveWriting(record))) {
-      showError(`The feedback is on screen but could not be written to ${storage.label()}. Reconnect the data folder in Settings; it will be lost on reload.`);
+      showError(`The feedback is on screen but could not be written to ${storage.label()}. Reconnect the data folder in Settings; it will be lost on reload.`, false, $('wr-count-row'));
     }
     $('wr-result').scrollIntoView({ block: 'start', behavior: 'smooth' });
   } catch (e) {
     console.error(e);
-    showError(describe(e), true);
+    showError(describe(e), true, $('wr-count-row'));
   } finally {
     busy = false;
     btn.textContent = 'Hand in';
@@ -445,7 +447,7 @@ export async function scoreVerdicts(verdicts, cards) {
 function writeAgain() {
   if (!task || busy) return;
   if (task.missingSource) {
-    showError('The reading text this piece summarised has since been deleted, so there is nothing to summarise again. Pick another text above.');
+    showError('The reading text this piece summarised has since been deleted, so there is nothing to summarise again. Pick another text above.', false, $('wr-again-row'));
     return;
   }
   showError('');
@@ -653,9 +655,14 @@ function renderQuota() {
 /* ── small helpers ───────────────────────────────────────────────────── */
 
 /* A failed hand-in offers Try again beside the error; the writing is still
-   in the box. */
-function showError(text, retry = false) {
+   in the box. `at` is the row of the button that was pressed: an error
+   from a wait takes the spinner's place (errorSpot), under Hand in rather
+   than above the task. */
+let placeError = () => {};
+
+function showError(text, retry = false, at = null) {
   const el = $('wr-error');
+  placeError(text ? at : null);
   el.innerHTML = text
     ? `<div class="banner is-bad">${escapeHtml(text)}${retry ? ' <button class="btn btn--sm" data-act="retry">Try again</button>' : ''}</div>`
     : '';

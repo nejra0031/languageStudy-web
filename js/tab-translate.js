@@ -25,6 +25,7 @@ import { escapeHtml, scoreMark } from './text.js';
 import { formatWait } from './gemini.js';
 import { describe } from './tab-settings.js';
 import { languageCode } from './speech.js';
+import { errorSpot } from './error-spot.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -45,6 +46,7 @@ export function init() {
   $('tr-new').addEventListener('click', newSet);
   $('tr-check').addEventListener('click', check);
   $('tr-error').addEventListener('click', (e) => { if (e.target.closest('[data-act="retry"]')) check(); });
+  placeError = errorSpot($('tr-error'));
   const list = $('tr-list');
   list.addEventListener('input', (e) => {
     const input = e.target.closest('input[data-i]');
@@ -257,7 +259,7 @@ async function check() {
     saved = scored.saved;
   } catch (e) {
     console.error(e);
-    showError(`Could not check these just now. Try again in a moment. ${describe(e)}`, true);
+    showError(`Could not check these just now. Try again in a moment. ${describe(e)}`, true, btn.closest('.row'));
   } finally {
     busy = false;
     btn.textContent = 'Check answers';
@@ -322,8 +324,14 @@ function renderQuota() {
   renderCheck();
 }
 
-function showError(text, retry = false) {
+/* `at` is the row of the button that was waiting: an error from checking
+   takes the spinner's place, at the foot of the set, rather than at the
+   top of the panel out of sight. */
+let placeError = () => {};
+
+function showError(text, retry = false, at = null) {
   const el = $('tr-error');
+  placeError(text ? at : null);
   el.innerHTML = text
     ? `<div class="banner is-bad">${escapeHtml(text)}${retry ? ' <button class="btn btn--sm" data-act="retry">Try again</button>' : ''}</div>`
     : '';

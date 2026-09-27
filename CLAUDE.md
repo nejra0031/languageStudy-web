@@ -197,6 +197,12 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
 - User-visible changes update the README in the same commit; it is the
   documentation.
 - UI labels are sentence case ("Show answer", "Listen again").
+- An error from something the learner waited on is shown where the wait
+  was, not in the panel's error box at the top. Each tab keeps one error box
+  and moves it with `errorSpot` (`error-spot.js`): its `showError` takes the
+  element to show it after (the pressed button's row, the chat for a thinking
+  bubble), and with none it goes home, for errors that belong to nothing in
+  particular. A Try again button travels with it.
 - Commits: an imperative subject, then a body in prose saying why the change
   is right, what it deliberately does not do, and anything found on the way.
   One logical change per commit.

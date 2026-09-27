@@ -41,6 +41,7 @@ import {
 import { RATINGS, totalOf, languageKey, noteGeneration } from './shadow-rules.js';
 import { describe } from './tab-settings.js';
 import * as speech from './speech.js';
+import { errorSpot } from './error-spot.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -90,6 +91,7 @@ const recorder = createRecorder({ onChange: (s) => { micDenied = s.micDenied; } 
 /* ── boot ────────────────────────────────────────────────────────────── */
 
 export function init() {
+  placeError = errorSpot($('sh-error'));
   $('sh-scope').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-scope]');
     if (!btn) return;
@@ -597,13 +599,13 @@ async function submit() {
   const sending = picked();
   if (!sending.length) return;
   if (!storage.getApiKey()) {
-    showError('No API key. Paste your Gemini key into Settings to get feedback — your recordings are saved either way.');
+    showError('No API key. Paste your Gemini key into Settings to get feedback — your recordings are saved either way.', $('sh-submit').closest('.row'));
     return;
   }
   try {
     store.client.shadowPreflight();
   } catch (e) {
-    showError(describe(e));
+    showError(describe(e), $('sh-submit').closest('.row'));
     return;
   }
 
@@ -664,7 +666,6 @@ async function submit() {
     session.status = status === 'recording' ? 'error' : status;
     session.failed = true;
     session.retry = sending.map((i) => i.index);
-    if (e instanceof QuotaError) showError(describe(e));
   } finally {
     busy = false;
     inFlight = false;
@@ -1011,8 +1012,15 @@ function statusWord(status) {
 
 /* ── small helpers ───────────────────────────────────────────────────── */
 
-function showError(text) {
+/* `at` is the row of the button that was pressed: Hand in refused before
+   anything went up is said under Hand in (errorSpot), not at the top of the
+   panel. A hand-in that fails once sent is reported by the failure box in
+   the feedback, where its spinner was, and nowhere else. */
+let placeError = () => {};
+
+function showError(text, at = null) {
   const el = $('sh-error');
+  placeError(text ? at : null);
   el.innerHTML = text ? `<div class="banner is-bad">${escapeHtml(text)}</div>` : '';
 }
 

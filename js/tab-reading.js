@@ -39,6 +39,7 @@ import { VOICES } from './defaults.js';
 import { describe } from './tab-settings.js';
 import { languageCode } from './speech.js';
 import { placeUnder } from './lookup-popup.js';
+import { errorSpot } from './error-spot.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -71,6 +72,7 @@ let openItem = null;
 let openAnchor = null;
 
 export function init() {
+  placeError = errorSpot($('rd-error'));
   pop = $('reading-pop');
 
   $('rd-scope').addEventListener('click', (e) => {
@@ -296,7 +298,7 @@ async function generate() {
   if (!cards.length) {
     showError(store.practiceCards().length
       ? 'No cards in this scope. Widen the filter, or tick another deck in the Flashcards tab.'
-      : 'Add some cards in the Flashcards tab first, or tick a deck that has some.');
+      : 'Add some cards in the Flashcards tab first, or tick a deck that has some.', $('rd-new').closest('.row'));
     return;
   }
   const n = clampTerms($('rd-terms').value);
@@ -333,11 +335,11 @@ async function generate() {
     };
     await show(record);
     if (!(await store.saveReading(record))) {
-      showError(`The text is on screen but could not be written to ${storage.label()}. Reconnect the data folder in Settings; it will be lost on reload.`);
+      showError(`The text is on screen but could not be written to ${storage.label()}. Reconnect the data folder in Settings; it will be lost on reload.`, btn.closest('.row'));
     }
   } catch (e) {
     console.error(e);
-    showError(describe(e));
+    showError(describe(e), btn.closest('.row'));
   } finally {
     busy = false;
     btn.textContent = 'Write a text';
@@ -544,13 +546,13 @@ async function readAloud() {
     const spoken = await store.client.speakReading(speakableText(record), $('rd-voice').value);
     const ok = await store.saveReadingAudio(record, spoken);
     if (!ok) {
-      showError(`The audio could not be written to ${storage.label()}. Reconnect the data folder in Settings and read it aloud again.`);
+      showError(`The audio could not be written to ${storage.label()}. Reconnect the data folder in Settings and read it aloud again.`, btn.closest('.rd-audio-bar'));
       return;
     }
     if (current === record) setAudio(spoken.blob);
   } catch (e) {
     console.error(e);
-    showError(describe(e));
+    showError(describe(e), btn.closest('.rd-audio-bar'));
   } finally {
     speaking = false;
     $('rd-unspeak').disabled = false;
@@ -713,7 +715,13 @@ async function judge(ok) {
 
 /* ── small helpers ───────────────────────────────────────────────────── */
 
-function showError(text) {
+/* `at` is where the button that was waiting sits: an error from writing a
+   text or reading it aloud takes the spinner's place (errorSpot), under
+   that button, rather than above the card. */
+let placeError = () => {};
+
+function showError(text, at = null) {
   const el = $('rd-error');
+  placeError(text ? at : null);
   el.innerHTML = text ? `<div class="banner is-bad">${escapeHtml(text)}</div>` : '';
 }

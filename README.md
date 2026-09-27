@@ -117,6 +117,13 @@ See [Translate](#translate).
 feedback at the end; or a **live** conversation, spoken in real time for one
 to three minutes. See [Conversation](#conversation).
 
+**Errors show where you were waiting.** When something you asked for fails
+— a sentence, a text, a question, a check, a reply, the feedback — the error
+takes the place of the spinner you were watching: under the button you
+pressed, or where the thinking bubble was in a conversation, with **Try
+again** beside it where there is one. It is never reported at the top of the
+page while you are looking at the bottom.
+
 ## Shadowing
 
 The point of it is the **comparison**. Every line has something you can hear
@@ -1266,6 +1273,7 @@ js/shadowing.js       building a set, laying out the grading call, reading it ba
 js/shadow-rules.js    shadowing's listening rules: seeding, rating, revising, undo
 js/gemini.js          API calls, call budget, WAV wrapping
 js/json-reply.js      reading a grader's JSON reply, and its verdicts on your cards
+js/error-spot.js      where a tab's error goes: in place of what you were waiting on
 js/opus.js            dictation audio as Ogg Opus, through the browser's encoder
 js/convert-audio.js   turning a bank's older WAV sentences into Ogg, in place
 js/bundle.js          the export/import file format

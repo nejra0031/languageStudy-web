@@ -49,6 +49,7 @@ import {
 } from './live.js';
 import { createLiveTalk } from './live-session.js';
 import { liveUnsupported } from './live-audio.js';
+import { errorSpot } from './error-spot.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -140,6 +141,7 @@ export function init() {
   $('cv-error').addEventListener('click', (e) => {
     if (e.target.closest('[data-act="retry"]') && retry) retry();
   });
+  placeError = errorSpot($('cv-error'));
   $('cv-result').addEventListener('click', (e) => {
     if (e.target.closest('[data-act="ask-again"]')) finish({ closing: false });
     if (e.target.closest('[data-act="play-live"]')) playLive();
@@ -206,11 +208,11 @@ function take(record) {
   showError('');
   if (awaitingReply(record)) {
     retry = () => answer();
-    showError('Your last turn has no reply yet.', true);
+    showError('Your last turn has no reply yet.', true, CHAT());
   }
   if (record.kind === 'live' && record.talked && !record.ended) {
     retry = () => gradeLive();
-    showError('This conversation has not had its feedback yet.', true);
+    showError('This conversation has not had its feedback yet.', true, CHAT());
   }
 }
 
@@ -384,7 +386,7 @@ async function start() {
     await save();
   } catch (e) {
     console.error(e);
-    showError(describe(e));
+    showError(describe(e), false, $('cv-request-row'));
   } finally {
     working = null;
     btn.textContent = 'Start';
@@ -410,7 +412,7 @@ function startAgain() {
 async function save() {
   if (!session) return;
   if (!(await store.saveConversation(session))) {
-    showError(`This conversation could not be written to ${storage.label()}. Reconnect the data folder in Settings; it will be lost on reload.`);
+    showError(`This conversation could not be written to ${storage.label()}. Reconnect the data folder in Settings; it will be lost on reload.`, false, CHAT());
   }
 }
 
@@ -452,7 +454,7 @@ async function answer() {
     console.error(e);
     if (session === s) {
       retry = () => answer();
-      showError(`${describe(e)} Your turn is kept.`, true);
+      showError(`${describe(e)} Your turn is kept.`, true, CHAT());
     }
     return;
   } finally {
@@ -474,7 +476,7 @@ async function toggleRecord() {
   if (!ok) {
     showError(micDenied
       ? 'The microphone is blocked for this page. Allow it in your browser’s address bar, then try again, or type your turn.'
-      : 'The microphone could not be started. Check that this site may use it and that something is plugged in, or type your turn.');
+      : 'The microphone could not be started. Check that this site may use it and that something is plugged in, or type your turn.', false, SPEAK());
     renderInput();
     return;
   }
@@ -490,7 +492,7 @@ async function finishTake() {
   const s = session;
   const blob = await recorder.stop();
   if (!blob || !blob.size) {
-    showError('Nothing was recorded. Try again, and give it a moment before you speak.');
+    showError('Nothing was recorded. Try again, and give it a moment before you speak.', false, SPEAK());
     renderInput();
     return;
   }
@@ -500,7 +502,7 @@ async function finishTake() {
   if (pending) URL.revokeObjectURL(pending.url);
   pending = null;
   if (!(await store.writeConversationClip(path, blob))) {
-    showError('That recording could not be saved. Record your turn again.');
+    showError('That recording could not be saved. Record your turn again.', false, SPEAK());
     renderInput();
     return;
   }
@@ -535,7 +537,7 @@ async function sendTake() {
     console.error(e);
     if (session === s) {
       retry = () => sendTake();
-      showError(`${describe(e)} Your recording is kept.`, true);
+      showError(`${describe(e)} Your recording is kept.`, true, CHAT());
     }
     return;
   } finally {
@@ -545,7 +547,7 @@ async function sendTake() {
   if (session !== s || pending !== take) return;
   if (!transcript) {
     await dropTake();
-    showError('Nothing was heard in that recording, so the turn was not spent. Record it again.');
+    showError('Nothing was heard in that recording, so the turn was not spent. Record it again.', false, CHAT());
     renderInput();
     return;
   }
@@ -635,10 +637,10 @@ async function finish({ closing }) {
       s.ended = true;
       s.feedback = null;
       await save();
-      showError(`The conversation is over, but the feedback could not be fetched. ${describe(e)}`);
+      showError(`The conversation is over, but the feedback could not be fetched. ${describe(e)}`, false, CHAT());
     } else {
       retry = () => (closing ? answer() : finish({ closing: false }));
-      showError(`${describe(e)} Your turns are kept.`, true);
+      showError(`${describe(e)} Your turns are kept.`, true, CHAT());
     }
   } finally {
     working = null;
@@ -679,7 +681,7 @@ async function startTalking() {
   const s = session;
   if (!s || s.kind !== 'live' || s.ended || s.talked || working) return;
   const cannot = liveUnsupported();
-  if (cannot) { showError(cannot); return; }
+  if (cannot) { showError(cannot, false, $('lv-status')); return; }
   const st = store.state.settings;
   const voice = pickVoice(st);
   const system = partnerInstruction(st, s, liveCards(s));
@@ -706,7 +708,7 @@ async function startTalking() {
   try {
     got = await t.start();
   } catch (e) {
-    if (e && e.code !== 'aborted' && session === s) showError(liveErrorText(e));
+    if (e && e.code !== 'aborted' && session === s) showError(liveErrorText(e), false, $('lv-status'));
   } finally {
     if (talk === t) { talk = null; talkView = null; }
     working = null;
@@ -745,7 +747,7 @@ async function gradeLive() {
   if (!s || s.kind !== 'live' || !s.talked || s.ended || working) return;
   working = 'grading';
   retry = null;
-  showError(unkept);
+  showError(unkept, false, CHAT());
   render();
   try {
     const blob = await liveBlob(s);
@@ -767,13 +769,13 @@ async function gradeLive() {
       saved = scored.saved;
     }
     await save();
-    showError(unkept);
+    showError(unkept, false, CHAT());
     unkept = '';
   } catch (e) {
     console.error(e);
     if (session === s) {
       retry = () => gradeLive();
-      showError(`${describe(e)} ${unkept || 'Your recording is kept.'}`, true);
+      showError(`${describe(e)} ${unkept || 'Your recording is kept.'}`, true, CHAT());
     }
   } finally {
     working = null;
@@ -839,7 +841,11 @@ function renderLive() {
     error: '',
   }[phase] || '';
   $('lv-status').textContent = status;
-  $('lv-status').hidden = !status;
+  /* A failed start is reported just under this line (see showError), so
+     the line gives way to it rather than explaining Start talking above
+     the reason it did not work. */
+  const failed = $('lv-status').nextElementSibling === $('cv-error') && !!$('cv-error').textContent;
+  $('lv-status').hidden = !status || failed;
   const start = $('lv-start');
   start.hidden = phase !== 'idle';
   start.disabled = !!working || !storage.getApiKey() || !!blocked || !!cannot;
@@ -1217,8 +1223,19 @@ function renderQuota() {
   $('cv-end').title = `One call on ${s.conversationGradeModel}`;
 }
 
-function showError(text, withRetry = false) {
+/* `at` is where the wait was shown: the Start row for the scene, the end of
+   the chat for anything a thinking bubble stood for (a reply, a transcript,
+   the feedback), the live stage's status line, the Speak row for the
+   microphone. The error takes that spot (errorSpot), so a failure at the
+   foot of a long conversation is seen where the bubble was, not above the
+   scene. The Try again button goes with it. */
+let placeError = () => {};
+const CHAT = () => $('cv-chat');
+const SPEAK = () => $('cv-record').closest('.row');
+
+function showError(text, withRetry = false, at = null) {
   const el = $('cv-error');
+  placeError(text ? at : null);
   el.innerHTML = text
     ? `<div class="banner is-bad">${escapeHtml(text)}${withRetry ? ' <button class="btn btn--sm" data-act="retry">Try again</button>' : ''}</div>`
     : '';
