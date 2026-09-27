@@ -245,7 +245,7 @@ function costLine(k) {
   return `This costs ${total} calls: ${parts.join('; ')}.`
     + ` ${k === 'findout' ? 'The other person answers all six of your turns.' : 'Your sixth turn is answered by the same call as the feedback.'}`
     + ' Ending early costs less.'
-    + ` A spoken turn adds one call on ${s.shadowModel} to write it down, and a roleplay with spoken turns is graded by ${s.shadowModel}, since it listens to them.`;
+    + ` A spoken turn adds one call on ${s.listenModel} to write it down, and a roleplay with spoken turns is graded by ${s.listenModel}, since it listens to them.`;
 }
 
 function renderBriefing() {
@@ -258,7 +258,7 @@ function renderStart() {
   const btn = $('cv-start');
   if (working === 'starting') return;
   const s = store.state.settings;
-  const t = store.limiter.usageOf(s, s.textModel);
+  const t = store.limiter.usageOf(s, s.sceneModel);
   const short = budgetProblem(s, kind, (m, rpm, rpd) => store.limiter.usage(m, rpm, rpd));
   btn.disabled = !storage.getApiKey() || t.retryAfter > 0 || !!short;
   const why = t.retryAfter > 0
@@ -662,8 +662,8 @@ function renderInput() {
   text.lang = languageCode(s.language || store.state.settings.targetLanguage);
   text.placeholder = waiting ? 'Your turn is kept. Press Try again above.' : `Your turn, in ${s.language || store.state.settings.targetLanguage}…`;
   const st = store.state.settings;
-  const replyBlocked = store.limiter.usageOf(st, n + 1 >= MAX_LEARNER_TURNS && s.kind === 'roleplay' ? st.gradeModel : st.chatModel).retryAfter > 0;
-  const gradeBlocked = store.limiter.usageOf(st, st.gradeModel).retryAfter > 0;
+  const replyBlocked = store.limiter.usageOf(st, n + 1 >= MAX_LEARNER_TURNS && s.kind === 'roleplay' ? st.conversationGradeModel : st.chatModel).retryAfter > 0;
+  const gradeBlocked = store.limiter.usageOf(st, st.conversationGradeModel).retryAfter > 0;
   $('cv-send').disabled = !!working || waiting || recording || !text.value.trim() || !storage.getApiKey() || replyBlocked;
   $('cv-end').disabled = !!working || recording || n < 1 || !storage.getApiKey() || gradeBlocked;
   renderSpeak(waiting, replyBlocked);
@@ -695,9 +695,9 @@ function renderSpeak(waiting, replyBlocked) {
     const audio = $('cv-take-audio');
     if (audio.dataset.url !== pending.url) { audio.src = pending.url; audio.dataset.url = pending.url; }
     const st = store.state.settings;
-    const listenBlocked = store.limiter.usageOf(st, st.shadowModel).retryAfter > 0;
+    const listenBlocked = store.limiter.usageOf(st, st.listenModel).retryAfter > 0;
     $('cv-send-take').disabled = !!working || waiting || listenBlocked || replyBlocked || !storage.getApiKey();
-    $('cv-send-take').title = `One call on ${st.shadowModel} to write it down, then the reply`;
+    $('cv-send-take').title = `One call on ${st.listenModel} to write it down, then the reply`;
   }
 }
 
@@ -812,7 +812,7 @@ function renderQuota() {
   if (!isActive()) return;
   const s = store.state.settings;
   const c = store.limiter.usageOf(s, s.chatModel);
-  const g = store.limiter.usageOf(s, s.gradeModel);
+  const g = store.limiter.usageOf(s, s.conversationGradeModel);
   const el = $('cv-quota');
   const part = (label, u) => `${label} ${u.usedDay}/${u.rpd || '∞'}${u.retryAfter > 0 ? ` (waits ${formatWait(u.retryAfter)})` : ''}`;
   el.textContent = `${part('conversation', c)} · ${part('feedback', g)} in 24h`;
@@ -828,7 +828,7 @@ function renderQuota() {
   wait.hidden = !blocked;
   if (blocked) wait.textContent = `${blocked.model} is out of budget for now: next call in ${formatWait(blocked.retryAfter)}.`;
   $('cv-send').title = `One call on ${s.chatModel}`;
-  $('cv-end').title = `One call on ${s.gradeModel}`;
+  $('cv-end').title = `One call on ${s.conversationGradeModel}`;
 }
 
 function showError(text, withRetry = false) {

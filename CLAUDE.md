@@ -52,9 +52,12 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
   list and the starter deck. Settings from disk are merged over it, so a new
   key needs only a default here.
 - `gemini.js` talks to the Gemini API from the page with the user's key, and
-  counts calls per model locally before any request goes out. The jobs are
-  `MODEL_ROLES` in `defaults.js`; a mode added after the first four calls
-  `jobCall(job, …)`, which refuses before spending and makes exactly one call.
+  counts calls per model locally before any request goes out. Every call
+  site is a job of its own in `MODEL_ROLES` (`defaults.js`): key, label, what
+  it does, the Settings section its dropdown sits in, and the job an older
+  settings file gives it the model of. A new call gets a new job there, and
+  goes through `jobCall(job, …)`, which refuses before spending and makes
+  exactly one call; `store.jobUsage(job)` is its budget.
   Grading prompts without `{feedback}` get the Feedback language and style
   block appended by `withFeedbackBlock`. What the speech
   model is given is built by `speechText`, which adds the register or dialect

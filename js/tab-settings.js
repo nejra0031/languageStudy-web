@@ -3,7 +3,9 @@
 
 import * as storage from './storage.js';
 import * as store from './store.js';
-import { VOICES, MODEL_ROLES, rolesUsing, DEFAULT_SETTINGS } from './defaults.js';
+import {
+  VOICES, MODEL_ROLES, SPEECH_ROLES, rolesIn, rolesUsing, DEFAULT_SETTINGS,
+} from './defaults.js';
 import {
   fillTemplate, sentenceVars, notesVars, formatWait, GeminiError, QuotaError, shadowSystem, speechText,
 } from './gemini.js';
@@ -654,15 +656,15 @@ const PREVIEWS = {
     })),
   ],
   reading: (draft, sample) => [
-    `── to ${draft.textModel} ──`,
+    `── to ${draft.readingModel} ──`,
     fillTemplate(draft.prompts.reading, readingVars(draft, sample, draft.readingRequest)),
   ],
   writingBrief: (draft, sample) => [
-    `── to ${draft.textModel} ──`,
+    `── to ${draft.writingBriefModel} ──`,
     fillTemplate(draft.prompts.writingBrief, briefVars(draft, sample)),
   ],
   writingGrade: (draft, sample) => [
-    `── to ${draft.gradeModel}, as the system instruction ──`,
+    `── to ${draft.writingGradeModel}, as the system instruction ──`,
     writingGradeSystem(draft),
     '',
     '── then, as the message ──',
@@ -672,7 +674,7 @@ const PREVIEWS = {
     }),
   ],
   translationGrade: (draft, sample) => [
-    `── to ${draft.gradeModel}, as the system instruction ──`,
+    `── to ${draft.translateModel}, as the system instruction ──`,
     translationGradeSystem(draft),
     '',
     '── then, as the message, one block per sentence in the set ──',
@@ -681,7 +683,7 @@ const PREVIEWS = {
     }], ['<what you wrote>'], draft.targetLanguage),
   ],
   scenario: (draft, sample) => [
-    `── to ${draft.textModel} ──`,
+    `── to ${draft.sceneModel} ──`,
     fillTemplate(draft.prompts.scenario, scenarioVars(draft, 'roleplay', sample, draft.conversationRequest)),
   ],
   roleplayReply: (draft, sample) => {
@@ -694,15 +696,15 @@ const PREVIEWS = {
   },
   conversationGrade: (draft, sample) => {
     const r = roleplayGradeRequest(draft, SAMPLE_ROLEPLAY, sample, { closing: true });
-    return [`── to ${draft.gradeModel}, as the system instruction (after your sixth turn) ──`, r.system, '', '── then, as the message ──', r.user];
+    return [`── to ${draft.conversationGradeModel}, as the system instruction (after the last turn) ──`, r.system, '', '── then, as the message ──', r.user];
   },
   transcribe: (draft) => {
     const r = transcribeRequest(draft, SAMPLE_ROLEPLAY, { mime: 'audio/webm', base64: '…' });
-    return [`── to ${draft.shadowModel}, as the system instruction ──`, r.system, '', '── then, as the message ──', r.parts[0].text, '(then your recording)'];
+    return [`── to ${draft.listenModel}, as the system instruction ──`, r.system, '', '── then, as the message ──', r.parts[0].text, '(then your recording)'];
   },
   findOutGrade: (draft, sample) => {
     const r = findOutGradeRequest(draft, SAMPLE_FIND_OUT, sample);
-    return [`── to ${draft.gradeModel}, as the system instruction ──`, r.system, '', '── then, as the message ──', r.user];
+    return [`── to ${draft.conversationGradeModel}, as the system instruction ──`, r.system, '', '── then, as the message ──', r.user];
   },
 };
 
@@ -803,17 +805,6 @@ function draftSettings() {
 
 /* ── the models, and what each one does ──────────────────────────────── */
 
-/* Which <select> carries which job. defaults.js names the jobs; this is the
-   only place that knows what they look like on the page. */
-const ROLE_FIELD = {
-  textModel: 'set-textmodel',
-  ttsModel: 'set-ttsmodel',
-  shadowModel: 'set-shadowmodel',
-  notesModel: 'set-notesmodel',
-  gradeModel: 'set-grademodel',
-  chatModel: 'set-chatmodel',
-};
-
 /* A row typed into but not yet stored. A model with no id is not a model, so
    Add a model cannot write one into the settings — it puts an empty row on the
    page and waits to see what is typed in it. */
@@ -838,12 +829,14 @@ function wireModels() {
     setModelStatus('Type the model id exactly as Google spells it, then give it its limits.', '');
   });
 
-  for (const [key] of MODEL_ROLES) {
-    $(ROLE_FIELD[key]).addEventListener('change', async (e) => {
-      await store.saveSettings({ [key]: e.target.value });
-      renderPreview();
-    });
-  }
+  /* A job's dropdown can be anywhere on the page — each sits in the
+     section of the mode it belongs to — so one listener serves them all. */
+  $('panel-settings').addEventListener('change', async (e) => {
+    const sel = e.target.closest('select[data-role]');
+    if (!sel) return;
+    await store.saveSettings({ [sel.dataset.role]: sel.value });
+    renderPreview();
+  });
 }
 
 /* An id, a per-minute limit or a per-day limit, committed on blur. The three
@@ -1019,15 +1012,26 @@ function modelRow(model, at, jobs) {
   </div>`;
 }
 
+/* Every element marked data-roles="<section>" holds that section's jobs,
+   one labelled dropdown each, drawn from MODEL_ROLES; "*" holds them all.
+   The dropdowns are built once and then only refilled, so one that is open
+   is not rebuilt under the pointer. */
 function renderRoles() {
   const s = store.state.settings;
+  for (const box of document.querySelectorAll('[data-roles]')) {
+    if (box.dataset.drawn) continue;
+    const rows = box.dataset.roles === '*' ? MODEL_ROLES : rolesIn(box.dataset.roles);
+    box.innerHTML = rows.map(([key, label, does]) => `<label class="field"><span>${escapeAttr(label)} model — ${escapeAttr(does)}</span>
+        <select data-role="${key}"></select>
+      </label>`).join('');
+    box.dataset.drawn = '1';
+  }
   const options = s.models
     .map((m) => `<option value="${escapeAttr(m.id)}">${escapeAttr(m.id)}</option>`)
     .join('');
-  for (const [key] of MODEL_ROLES) {
-    const sel = $(ROLE_FIELD[key]);
+  for (const sel of document.querySelectorAll('select[data-role]')) {
     if (sel.innerHTML !== options) sel.innerHTML = options;
-    sel.value = s[key];
+    sel.value = s[sel.dataset.role];
   }
   $('roles-hint').textContent =
     `${plural(MODEL_ROLES.length, 'job')} across ${plural(new Set(MODEL_ROLES.map(([k]) => s[k])).size, 'model')}`;
@@ -1040,10 +1044,12 @@ function renderRoles() {
     .map(([m, jobs]) => `${sentenceList(jobs).toLowerCase()} both run on ${m.id}, out of its one allowance`);
 
   const el = $('roles-status');
-  if (!/tts|speech|audio/i.test(s.ttsModel)) {
-    /* A guess, and said as one — but the wrong model here is the expensive
-       mistake to make quietly: only the TTS models return audio at all. */
-    el.textContent = `${s.ttsModel} does not look like a speech model. Only Google's TTS models return audio, so the dictation tab would get a text reply it cannot play.`;
+  /* A guess, and said as one — but the wrong model here is the expensive
+     mistake to make quietly: only the TTS models return audio at all. */
+  const mute = SPEECH_ROLES.filter((key) => !/tts|speech|audio/i.test(s[key]));
+  if (mute.length) {
+    const labels = mute.map((key) => MODEL_ROLES.find((r) => r[0] === key)[1]);
+    el.textContent = `${sentenceList(mute.map((key) => s[key]))} ${mute.length === 1 ? 'does' : 'do'} not look like a speech model, but ${sentenceList(labels)} must return audio. Only Google's TTS models do, so that job would get a text reply it cannot play.`;
     el.className = 'status is-warn';
     return;
   }

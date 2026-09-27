@@ -116,6 +116,11 @@ export function quotaReport() {
   return limiter.report(state.settings);
 }
 
+/* The budget of the model doing one job — a key of MODEL_ROLES. */
+export function jobUsage(job) {
+  return limiter.usageOf(state.settings, state.settings[job]);
+}
+
 export function resetQuota() {
   limiter.reset();
   emit('quota');

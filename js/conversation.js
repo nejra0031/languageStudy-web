@@ -70,9 +70,9 @@ export function callsNeeded(settings, kind) {
     const hit = out.find((r) => r.model === model);
     if (hit) { hit.count += count; hit.jobs.push(label); } else out.push({ model, count, jobs: [label] });
   };
-  add('textModel', 'the scene', 1);
+  add('sceneModel', 'the scene', 1);
   add('chatModel', 'the replies', repliesNeeded(kind));
-  add('gradeModel', 'the feedback', 1);
+  add('conversationGradeModel', 'the feedback', 1);
   return out;
 }
 

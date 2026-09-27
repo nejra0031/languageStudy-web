@@ -340,7 +340,7 @@ function renderCount() {
 function renderHandIn() {
   const btn = $('wr-hand-in');
   if (busy) return;
-  const g = store.quotaReport().grade;
+  const g = store.jobUsage('writingGradeModel');
   const ok = task && !shown && wordStatus(countWords($('wr-text').value), bounds()).ok;
   btn.disabled = !ok || g.retryAfter > 0 || !storage.getApiKey();
   /* Why a piece that is the right length cannot go in yet is said beside
@@ -366,7 +366,7 @@ async function handIn() {
   btn.disabled = true;
   $('wr-text').readOnly = true;
   $('wr-busy').hidden = false;
-  $('wr-busy').textContent = `${s.gradeModel} is reading it. This can take half a minute.`;
+  $('wr-busy').textContent = `${s.writingGradeModel} is reading it. This can take half a minute.`;
 
   try {
     const { result, model } = await store.client.gradeWriting({
@@ -622,9 +622,8 @@ function clear() {
 
 function renderQuota() {
   if (!isActive()) return;
-  const q = store.quotaReport();
-  const g = q.grade;
-  const t = q.text;
+  const g = store.jobUsage('writingGradeModel');
+  const t = store.jobUsage('writingBriefModel');
   const el = $('wr-quota');
   const usage = `feedback ${g.usedDay}/${g.rpd || '∞'} in 24h`;
   if (g.retryAfter > 0) {

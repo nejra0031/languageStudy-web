@@ -226,7 +226,7 @@ function renderSummary() {
 function renderCheck() {
   const btn = $('tr-check');
   if (busy) return;
-  const g = store.quotaReport().grade;
+  const g = store.jobUsage('translateModel');
   btn.disabled = !!results || !answers.some((a) => cleanAnswer(a)) || g.retryAfter > 0 || !storage.getApiKey();
   btn.hidden = !!results;
   const wait = $('tr-wait');
@@ -306,7 +306,7 @@ function stopPlayer() {
 
 function renderQuota() {
   if (!isActive()) return;
-  const g = store.quotaReport().grade;
+  const g = store.jobUsage('translateModel');
   const el = $('tr-quota');
   const usage = `feedback ${g.usedDay}/${g.rpd || '∞'} in 24h`;
   if (g.retryAfter > 0) {

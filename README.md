@@ -892,19 +892,34 @@ never see, you need a server, and this project deliberately does not have one.
 ### Models, and the call budget
 
 **Settings → Models** is a list: every Gemini model you use, entered once, each
-with its own calls-per-minute and calls-per-day. **Settings → What each model
-does** then hands out the six jobs — writing the sentence (and the
-Reading tab's texts), speaking it,
-listening to your shadowing (and to your spoken conversation turns), writing a card's notes when you ask for them
-in the [selection form](#adding-a-card-from-selected-text), giving
-**feedback** on writing, translations and conversations, and playing the other
-side of a **conversation** — from that list. A settings file from before the
-notes, feedback or conversation job existed gives it the text model.
+with its own calls-per-minute and calls-per-day. **Every call the app makes is
+a job of its own**, and each job is given one model from that list:
 
-The conversation job suits a flash-lite model with a bigger daily allowance
-than the flash models have: one conversation spends five or six of its calls,
-each a reply of a line or two, and feedback on the whole of it comes from the
-feedback model at the end.
+| Job | What it does |
+|---|---|
+| Dictation | writes dictation sentences |
+| Dictation speech | reads them aloud (a TTS model) |
+| Shadowing | listens to your shadowing recordings |
+| Listening rules | drafts and revises the listening rules |
+| Reading | writes reading texts |
+| Reading aloud | reads a text aloud (a TTS model) |
+| Writing questions | writes a question for an opinion piece |
+| Writing feedback | reads your writing |
+| Translate feedback | checks your translations |
+| Conversation scenes | sets the scene and the opening line |
+| Conversation replies | plays the other side |
+| Conversation feedback | gives the feedback at the end |
+| Conversation listening | writes down spoken turns, and hears how a spoken roleplay sounded |
+| Notes | writes a card's notes in the [selection form](#adding-a-card-from-selected-text) |
+
+So a cheap model can answer conversation turns while a stronger one gives
+feedback, say. A settings file from before a job existed gives it the model of
+the job it was split from: the text model for anything that writes, the speech
+model for reading aloud, the shadowing model for conversation listening.
+
+Conversation replies suit a flash-lite model with a bigger daily allowance
+than the flash models have: one conversation spends five or six of them, each
+a line or two.
 
 The limits belong to the model, not to the job, because that is how Google
 counts them. So `gemini-3.6-flash` is typed once even when it both writes

@@ -298,22 +298,19 @@ export class RateLimiter {
   }
 
   /* canGenerate, retryAfter and cardsLeftToday are all about making one
-     dictation card, which takes a text call and a speech call. Shadowing,
-     feedback and conversation are reported alongside but deliberately left
-     out of them: they spend neither of those models, and a grading budget
-     that had run down must not stop you writing a sentence. */
+     dictation card, which takes a text call and a speech call. Shadowing is
+     reported alongside but deliberately left out of them: it spends neither
+     of those models, and a shadowing budget that had run down must not stop
+     you writing a sentence. Every other job is asked about through
+     usageOf(settings, settings[job]). */
   report(settings) {
     const text = this.usageOf(settings, settings.textModel);
     const tts = this.usageOf(settings, settings.ttsModel);
     const shadow = this.usageOf(settings, settings.shadowModel);
-    const grade = this.usageOf(settings, settings.gradeModel);
-    const chat = this.usageOf(settings, settings.chatModel);
     return {
       text,
       tts,
       shadow,
-      grade,
-      chat,
       retryAfter: Math.max(text.retryAfter, tts.retryAfter),
       canGenerate: text.retryAfter <= 0 && tts.retryAfter <= 0,
       cardsLeftToday: cardsLeft(settings, text, tts),
@@ -613,12 +610,14 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     throw new GeminiError(`Could not get a usable sentence from ${s.textModel}.\n` + problems.join('\n'));
   }
 
-  async function speak(sentence, voice) {
+  /* `model` is the speech job's model: Dictation's by default, Reading's
+     when a text is read aloud. */
+  async function speak(sentence, voice, model = getSettings().ttsModel) {
     const s = getSettings();
     const text = speechText(s, sentence);
-    const l = modelLimits(s, s.ttsModel);
+    const l = modelLimits(s, model);
     for (let attempt = 0; attempt < 2; attempt++) {
-      const data = await call(s.ttsModel, {
+      const data = await call(model, {
         contents: [{ parts: [{ text }] }],
         generationConfig: {
           responseModalities: ['AUDIO'],
@@ -720,27 +719,28 @@ export function createClient({ getSettings, getApiKey, limiter }) {
   /* ── listening rules ───────────────────────────────────────────────── */
 
   /* Drafting and revising the rules are writing jobs, not listening ones, so
-     they go to the text model and spend its allowance — the shadowing budget
-     is left for the thing you actually press Hand in for. Both return the
+     they have a job of their own, on the text model unless you change it —
+     the shadowing budget is left for the thing you actually press Hand in
+     for. Both return the
      rules read back, or throw; a reply that cannot be read changes nothing. */
   function rulesPreflight() {
     const s = getSettings();
-    const l = modelLimits(s, s.textModel);
-    const why = limiter.why(s.textModel, l.rpm, l.rpd);
-    if (why) throw new QuotaError(why, limiter.waitFor(s.textModel, l.rpm, l.rpd));
+    const l = modelLimits(s, s.rulesModel);
+    const why = limiter.why(s.rulesModel, l.rpm, l.rpd);
+    if (why) throw new QuotaError(why, limiter.waitFor(s.rulesModel, l.rpm, l.rpd));
   }
 
   async function rulesCall(prompt, what) {
     rulesPreflight();
     const s = getSettings();
-    const l = modelLimits(s, s.textModel);
-    const data = await callWithoutThinking(s.textModel, {
+    const l = modelLimits(s, s.rulesModel);
+    const data = await callWithoutThinking(s.rulesModel, {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: { temperature: 0.4, maxOutputTokens: 8192 },
     }, l.rpm, l.rpd);
     const reply = readRules(firstText(data));
     if (!reply) {
-      throw new GeminiError(`${s.textModel} replied with something that could not be read as ${what}. The listening rules were left as they were.`);
+      throw new GeminiError(`${s.rulesModel} replied with something that could not be read as ${what}. The listening rules were left as they were.`);
     }
     return reply;
   }
@@ -773,7 +773,7 @@ export function createClient({ getSettings, getApiKey, limiter }) {
   /* ── any job ───────────────────────────────────────────────────────── */
 
   /* Refuses before spending, for a call on the model doing `job` — a key of
-     MODEL_ROLES, such as 'gradeModel'. The preflights above are this, one
+     MODEL_ROLES, such as 'translateModel'. The preflights above are this, one
      job each; the modes that came after them use this one. */
   function jobPreflight(job) {
     const s = getSettings();
@@ -805,11 +805,11 @@ export function createClient({ getSettings, getApiKey, limiter }) {
 
   /* ── writing ───────────────────────────────────────────────────────── */
 
-  /* The question an opinion piece answers: a writing job, so one call on
-     the text model. */
+  /* The question an opinion piece answers: one call on Writing's question
+     model. */
   async function writeWritingBrief(cards) {
     const s = getSettings();
-    const { text, model } = await jobCall('textModel', {
+    const { text, model } = await jobCall('writingBriefModel', {
       parts: [{ text: fillTemplate(s.prompts.writingBrief, briefVars(s, cards)) }],
       temperature: 0.9,
       maxOutputTokens: 2048,
@@ -819,12 +819,12 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     return { brief, model };
   }
 
-  /* One call on the feedback model. `task` is {kind, brief, sourceText,
+  /* One call on Writing's feedback model. `task` is {kind, brief, sourceText,
      cards, text}; the level and the language come from the settings. A
      reply that cannot be read throws, and nothing is kept or scored. */
   async function gradeWriting(task) {
     const s = getSettings();
-    const { text, model } = await jobCall('gradeModel', {
+    const { text, model } = await jobCall('writingGradeModel', {
       system: writingGradeSystem(s),
       parts: [{ text: writingGradeUser({ ...task, level: s.learnerLevel, language: s.targetLanguage }) }],
       temperature: 0.3,
@@ -839,12 +839,12 @@ export function createClient({ getSettings, getApiKey, limiter }) {
 
   /* ── translations ──────────────────────────────────────────────────── */
 
-  /* One call on the feedback model for the whole set, blanks included.
+  /* One call on Translate's model for the whole set, blanks included.
      Returns one result per item, or throws, and then nothing is scored and
      the answers stay as they were typed. */
   async function gradeTranslations(items, answers) {
     const s = getSettings();
-    const { text, model } = await jobCall('gradeModel', {
+    const { text, model } = await jobCall('translateModel', {
       system: translationGradeSystem(s),
       parts: [{ text: translationGradeUser(items, answers, s.targetLanguage) }],
       temperature: 0,
@@ -857,22 +857,22 @@ export function createClient({ getSettings, getApiKey, limiter }) {
 
   /* ── conversations ─────────────────────────────────────────────────── */
 
-  /* Before the scene is written: the text model must be free now, and every
+  /* Before the scene is written: the scene model must be free now, and every
      model the conversation will use must have the calls it needs left
      today, or the scene would be a call spent on a conversation that stops
      halfway. The refusal names the model and the count. */
   function conversationPreflight(kind) {
-    jobPreflight('textModel');
+    jobPreflight('sceneModel');
     const why = budgetProblem(getSettings(), kind, (model, rpm, rpd) => limiter.usage(model, rpm, rpd));
     if (why) throw new QuotaError(why, 0);
   }
 
-  /* One call on the text model: the scene and the other person's opening
+  /* One call on the scene model: the scene and the other person's opening
      line. A reply that cannot be read starts nothing. */
   async function writeScenario({ kind, cards, request }) {
     conversationPreflight(kind);
     const s = getSettings();
-    const { text, model } = await jobCall('textModel', {
+    const { text, model } = await jobCall('sceneModel', {
       parts: [{ text: fillTemplate(s.prompts.scenario, scenarioVars(s, kind, cards, request)) }],
       temperature: 0.7,
       maxOutputTokens: 4096,
@@ -901,13 +901,13 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     return { ...got, model };
   }
 
-  /* A spoken turn, written down as it was said: one call on the shadowing
-     model, since listening is that job. '' is "nothing was heard", which
+  /* A spoken turn, written down as it was said: one call on Conversation's
+     listening model. '' is "nothing was heard", which
      is not a failure; a reply with no transcript at all is. */
   async function transcribeTurn(session, clip) {
     const s = getSettings();
     const { system, parts } = transcribeRequest(s, session, clip);
-    const { text, model } = await jobCall('shadowModel', {
+    const { text, model } = await jobCall('listenModel', {
       system, parts, temperature: 0, maxOutputTokens: 2048,
     });
     const transcript = readTranscript(text);
@@ -915,17 +915,17 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     return { transcript, model };
   }
 
-  /* The feedback at the end, on the feedback model. A roleplay's sixth turn
+  /* The feedback at the end, on Conversation's feedback model. A roleplay's sixth turn
      asks for the closing line in the same call (`closing`); ending early
      does not, and is graded at temperature 0, as lessons-web does. A
      roleplay with recordings (`clips`, {turnIndex, mime, bytes}) sends them
-     too and asks how it sounded, and then the call goes to the shadowing
-     model instead, since it listens. */
+     too and asks how it sounded, and then the call goes to Conversation's
+     listening model instead, since it listens. */
   async function concludeConversation(session, cards, { closing = false, clips = [] } = {}) {
     const s = getSettings();
     if (session.kind === 'findout') {
       const { system, user } = findOutGradeRequest(s, session, cards);
-      const { text, model } = await jobCall('gradeModel', {
+      const { text, model } = await jobCall('conversationGradeModel', {
         system, parts: [{ text: user }], temperature: 0.4, maxOutputTokens: 8192,
       });
       const got = readFindOutGrade(text, session, cards);
@@ -933,7 +933,7 @@ export function createClient({ getSettings, getApiKey, limiter }) {
       return { ...got, model };
     }
     const request = withDelivery(s, roleplayGradeRequest(s, session, cards, { closing }), clips);
-    const { text, model } = await jobCall(request.attached ? 'shadowModel' : 'gradeModel', {
+    const { text, model } = await jobCall(request.attached ? 'listenModel' : 'conversationGradeModel', {
       system: request.system, parts: request.parts, temperature: closing ? 0.5 : 0, maxOutputTokens: 16384,
     });
     const got = readRoleplayGrade(text, session, cards, { closing });
@@ -969,13 +969,13 @@ export function createClient({ getSettings, getApiKey, limiter }) {
 
   /* ── reading texts ─────────────────────────────────────────────────── */
 
-  /* A reading text is a writing job, so it goes to the text model and spends
+  /* A reading text goes to Reading's model and spends
      one call of its allowance. Refuses before spending, like the others. */
   function readingPreflight() {
     const s = getSettings();
-    const l = modelLimits(s, s.textModel);
-    const why = limiter.why(s.textModel, l.rpm, l.rpd);
-    if (why) throw new QuotaError(why, limiter.waitFor(s.textModel, l.rpm, l.rpd));
+    const l = modelLimits(s, s.readingModel);
+    const why = limiter.why(s.readingModel, l.rpm, l.rpd);
+    if (why) throw new QuotaError(why, limiter.waitFor(s.readingModel, l.rpm, l.rpd));
   }
 
   /* One call, and no retry: a long text is the most output any call here
@@ -985,25 +985,25 @@ export function createClient({ getSettings, getApiKey, limiter }) {
   async function writeReading({ cards, request }) {
     readingPreflight();
     const s = getSettings();
-    const l = modelLimits(s, s.textModel);
-    const data = await callWithoutThinking(s.textModel, {
+    const l = modelLimits(s, s.readingModel);
+    const data = await callWithoutThinking(s.readingModel, {
       contents: [{ parts: [{ text: fillTemplate(s.prompts.reading, readingVars(s, cards, request)) }] }],
       generationConfig: { temperature: 0.9, maxOutputTokens: 16384 },
     }, l.rpm, l.rpd);
     const reading = readReading(firstText(data), cards);
-    if (!reading) throw new GeminiError(`${s.textModel} wrote no text.`);
+    if (!reading) throw new GeminiError(`${s.readingModel} wrote no text.`);
     if (!reading.used.length) {
-      throw new GeminiError(`${s.textModel} wrote a text but marked none of your words in it, so there is nothing to click or score. Try again; if it keeps happening, check that the reading prompt in Settings still asks for [[number|words]] marks.`);
+      throw new GeminiError(`${s.readingModel} wrote a text but marked none of your words in it, so there is nothing to click or score. Try again; if it keeps happening, check that the reading prompt in Settings still asks for [[number|words]] marks.`);
     }
-    return { ...reading, model: s.textModel };
+    return { ...reading, model: s.readingModel };
   }
 
   /* Refuses before spending, for a call on the speech model alone. */
   function speechPreflight() {
     const s = getSettings();
-    const l = modelLimits(s, s.ttsModel);
-    const why = limiter.why(s.ttsModel, l.rpm, l.rpd);
-    if (why) throw new QuotaError(why, limiter.waitFor(s.ttsModel, l.rpm, l.rpd));
+    const l = modelLimits(s, s.readingSpeechModel);
+    const why = limiter.why(s.readingSpeechModel, l.rpm, l.rpd);
+    if (why) throw new QuotaError(why, limiter.waitFor(s.readingSpeechModel, l.rpm, l.rpd));
   }
 
   /* A whole reading text, read aloud in one call on the speech model, by the
@@ -1016,13 +1016,13 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     speechPreflight();
     const s = getSettings();
     const voice = VOICE_NAMES.includes(chosen) ? chosen : pickVoice(s);
-    const { bytes, mime } = await speak(text, voice);
+    const { bytes, mime } = await speak(text, voice, s.readingSpeechModel);
     const file = await speechFile(bytes, mime);
     return {
       blob: new Blob([file.bytes], { type: file.type }),
       ext: file.ext,
       voice,
-      model: s.ttsModel,
+      model: s.readingSpeechModel,
     };
   }
 

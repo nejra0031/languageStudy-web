@@ -72,7 +72,7 @@ test('a roleplay needs five replies and a find-out six', () => {
 });
 
 test('the calls are counted by model, two jobs on one model on one line', () => {
-  const s = withDefaults({ ...settings, textModel: 'flash', gradeModel: 'flash', chatModel: 'lite', models: [{ id: 'flash' }, { id: 'lite' }] });
+  const s = withDefaults({ ...settings, sceneModel: 'flash', conversationGradeModel: 'flash', chatModel: 'lite', models: [{ id: 'flash' }, { id: 'lite' }] });
   assert.deepEqual(callsNeeded(s, 'roleplay'), [
     { model: 'flash', count: 2, jobs: ['the scene', 'the feedback'] },
     { model: 'lite', count: 5, jobs: ['the replies'] },
@@ -80,7 +80,7 @@ test('the calls are counted by model, two jobs on one model on one line', () => 
 });
 
 test('a conversation that could not be finished today is refused before it starts', () => {
-  const s = withDefaults({ ...settings, textModel: 'flash', gradeModel: 'flash', chatModel: 'lite', models: [{ id: 'flash', rpd: 20 }, { id: 'lite', rpd: 6 }] });
+  const s = withDefaults({ ...settings, sceneModel: 'flash', conversationGradeModel: 'flash', chatModel: 'lite', models: [{ id: 'flash', rpd: 20 }, { id: 'lite', rpd: 6 }] });
   const lim = new RateLimiter({ now: () => 1000 });
   const usage = (m, rpm, rpd) => lim.usage(m, rpm, rpd);
   assert.equal(budgetProblem(s, 'roleplay', usage), null);
