@@ -1,7 +1,8 @@
-/* Conversation: six turns of your own in a scene, then feedback.
+/* Conversation: a few turns of your own in a scene (six unless Settings says
+   otherwise), then feedback.
 
    A roleplay is a scene with two roles, and the other person answers each
-   of your turns; your sixth gets their closing line and the feedback from
+   of your turns; your last gets their closing line and the feedback from
    one call. A find-out is a scene in which the other person knows three or
    four things you were sent to find out, and gives one only when you ask
    about it specifically; a checklist ticks as they do, and the feedback is
@@ -26,7 +27,7 @@ import * as storage from './storage.js';
 import { isPattern, inScope } from './deck.js';
 import { pickReadingCards, nextDatedId } from './reading.js';
 import {
-  MAX_LEARNER_TURNS, MAX_TURN_TEXT, CONVERSATION_TERMS, callsNeeded, budgetProblem, learnerTurns,
+  MAX_TURN_TEXT, turnsOf, callsNeeded, budgetProblem, learnerTurns,
   awaitingReply, factStatus, normaliseIds, suggestionChanged, conversationTitle, clipPath,
 } from './conversation.js';
 import { escapeHtml } from './text.js';
@@ -72,6 +73,7 @@ export function init() {
     if (!btn || working) return;
     kind = btn.dataset.kind;
     setSeg('cv-kind', 'kind', kind);
+    store.saveSettings({ conversationKind: kind });
     renderBriefing();
   });
   $('cv-scope').addEventListener('click', (e) => {
@@ -79,7 +81,7 @@ export function init() {
     if (!btn) return;
     scope = btn.dataset.scope;
     setSeg('cv-scope', 'scope', scope);
-    store.saveSettings({ readingScope: scope });
+    store.saveSettings({ conversationScope: scope });
     renderPool();
   });
   $('cv-request').addEventListener('change', (e) => store.saveSettings({ conversationRequest: e.target.value.trim() }));
@@ -112,7 +114,8 @@ export function init() {
     else if (e.target.closest('[data-act="open"]')) open(id);
   });
 
-  scope = store.state.settings.readingScope || 'all';
+  scope = store.state.settings.conversationScope || 'all';
+  kind = store.state.settings.conversationKind || 'roleplay';
   setSeg('cv-scope', 'scope', scope);
   setSeg('cv-kind', 'kind', kind);
   syncRequest();
@@ -121,8 +124,12 @@ export function init() {
   store.subscribe('conversation', renderList);
   store.subscribe('folder', () => { gate(); forgetIfGone(); });
   store.subscribe('settings', (st) => {
-    scope = st.settings.readingScope || 'all';
+    scope = st.settings.conversationScope || 'all';
     setSeg('cv-scope', 'scope', scope);
+    if (!working && !session) {
+      kind = st.settings.conversationKind || 'roleplay';
+      setSeg('cv-kind', 'kind', kind);
+    }
     syncRequest();
     renderBriefing();
   });
@@ -243,7 +250,7 @@ function costLine(k) {
   const total = needs.reduce((n, r) => n + r.count, 0);
   const parts = needs.map((r) => `${r.count} on ${r.model} (${r.jobs.join(', ')})`);
   return `This costs ${total} calls: ${parts.join('; ')}.`
-    + ` ${k === 'findout' ? 'The other person answers all six of your turns.' : 'Your sixth turn is answered by the same call as the feedback.'}`
+    + ` ${k === 'findout' ? `The other person answers all ${s.conversationTurns} of your turns.` : 'Your last turn is answered by the same call as the feedback.'}`
     + ' Ending early costs less.'
     + ` A spoken turn adds one call on ${s.listenModel} to write it down, and a roleplay with spoken turns is graded by ${s.listenModel}, since it listens to them.`;
 }
@@ -270,7 +277,7 @@ function renderStart() {
 
 async function start() {
   if (working || session) return;
-  const cards = pickReadingCards(pool(), CONVERSATION_TERMS).map((c) => ({
+  const cards = pickReadingCards(pool(), store.state.settings.conversationTerms).map((c) => ({
     front: c.front, back: c.back || '', deck: store.deckOf(c), ...(isPattern(c) ? { type: 'pattern' } : {}),
   }));
   const request = $('cv-request').value.trim();
@@ -299,6 +306,7 @@ async function start() {
       deliveryNote: null,
       ended: false,
       scored: false,
+      maxTurns: s.conversationTurns,
       models: { scene: model },
     };
     record.title = conversationTitle(record);
@@ -343,7 +351,7 @@ async function save() {
 async function send() {
   if (working || !session || session.ended || awaitingReply(session)) return;
   const text = $('cv-text').value.replace(/\s+/g, ' ').trim().slice(0, MAX_TURN_TEXT);
-  if (!text || learnerTurns(session) >= MAX_LEARNER_TURNS) return;
+  if (!text || learnerTurns(session) >= turnsOf(session)) return;
   $('cv-text').value = '';
   await dropTake();
   session.turns.push({ speaker: 'learner', text });
@@ -351,14 +359,14 @@ async function send() {
   await answer();
 }
 
-/* The other person's answer to your last turn. A roleplay's sixth turn is
-   answered by the closing call; a find-out answers all six and then
+/* The other person's answer to your last turn. A roleplay's last turn is
+   answered by the closing call; a find-out answers every one and then
    concludes. */
 async function answer() {
   const s = session;
   if (!s || s.ended) return;
   const n = learnerTurns(s);
-  if (s.kind === 'roleplay' && n >= MAX_LEARNER_TURNS) { await finish({ closing: true }); return; }
+  if (s.kind === 'roleplay' && n >= turnsOf(s)) { await finish({ closing: true }); return; }
   working = 'sending';
   retry = null;
   showError('');
@@ -384,7 +392,7 @@ async function answer() {
     render();
   }
   if (session !== s) return;
-  if (s.kind === 'findout' && learnerTurns(s) >= MAX_LEARNER_TURNS) await finish({ closing: false });
+  if (s.kind === 'findout' && learnerTurns(s) >= turnsOf(s)) await finish({ closing: false });
   else $('cv-text').focus();
 }
 
@@ -445,7 +453,7 @@ async function dropTake() {
    the learner records again. A failure keeps the take for Try again. */
 async function sendTake() {
   const s = session;
-  if (working || !s || s.ended || !pending || awaitingReply(s) || learnerTurns(s) >= MAX_LEARNER_TURNS) return;
+  if (working || !s || s.ended || !pending || awaitingReply(s) || learnerTurns(s) >= turnsOf(s)) return;
   const take = pending;
   working = 'listening';
   retry = null;
@@ -525,7 +533,7 @@ function endEarly() {
 /* The feedback. On success the conversation ends, the closing line (if
    asked for) joins the turns, and the cards are scored, once. A roleplay
    whose call fails stays open with Try again. A find-out ends either way,
-   as lessons-web's does: its six turns are spent, and a failed feedback
+   as lessons-web's does: its turns are spent, and a failed feedback
    call leaves "Ask for feedback again". */
 async function finish({ closing }) {
   const s = session;
@@ -597,7 +605,7 @@ function renderScene() {
   $('cv-meta').innerHTML = [
     findOut ? 'Find out' : 'Roleplay',
     escapeHtml(s.created),
-    s.ended ? 'ended' : `turn ${Math.min(learnerTurns(s) + 1, MAX_LEARNER_TURNS)} of ${MAX_LEARNER_TURNS}`,
+    s.ended ? 'ended' : `turn ${Math.min(learnerTurns(s) + 1, turnsOf(s))} of ${turnsOf(s)}`,
     s.level ? escapeHtml(s.level) : '',
   ].filter(Boolean).map((x) => `<span>${x}</span>`).join('');
 
@@ -655,14 +663,14 @@ function renderInput() {
   const n = learnerTurns(s);
   const waiting = awaitingReply(s);
   $('cv-turn').textContent = waiting
-    ? `Turn ${n} of ${MAX_LEARNER_TURNS} · waiting for the reply`
-    : `Turn ${n + 1} of ${MAX_LEARNER_TURNS}`;
+    ? `Turn ${n} of ${turnsOf(s)} · waiting for the reply`
+    : `Turn ${n + 1} of ${turnsOf(s)}`;
   const text = $('cv-text');
   text.disabled = !!working || waiting;
   text.lang = languageCode(s.language || store.state.settings.targetLanguage);
   text.placeholder = waiting ? 'Your turn is kept. Press Try again above.' : `Your turn, in ${s.language || store.state.settings.targetLanguage}…`;
   const st = store.state.settings;
-  const replyBlocked = store.limiter.usageOf(st, n + 1 >= MAX_LEARNER_TURNS && s.kind === 'roleplay' ? st.conversationGradeModel : st.chatModel).retryAfter > 0;
+  const replyBlocked = store.limiter.usageOf(st, n + 1 >= turnsOf(s) && s.kind === 'roleplay' ? st.conversationGradeModel : st.chatModel).retryAfter > 0;
   const gradeBlocked = store.limiter.usageOf(st, st.conversationGradeModel).retryAfter > 0;
   $('cv-send').disabled = !!working || waiting || recording || !text.value.trim() || !storage.getApiKey() || replyBlocked;
   $('cv-end').disabled = !!working || recording || n < 1 || !storage.getApiKey() || gradeBlocked;

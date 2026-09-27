@@ -107,11 +107,11 @@ meaning. See [Reading](#reading).
 texts or your opinion on a question, read by the feedback model and scored
 against your cards. See [Writing](#writing).
 
-**Translate** — six English sentences from the sentence bank to write in the
+**Translate** — English sentences from the sentence bank (six by default) to write in the
 language you are learning, in your own words, checked together in one call.
 See [Translate](#translate).
 
-**Conversation** — six turns of your own in a short scene, a roleplay or a
+**Conversation** — a few turns of your own (six by default) in a short scene, a roleplay or a
 *find out*, with the other side played by the conversation model and
 feedback at the end. See [Conversation](#conversation).
 
@@ -291,7 +291,9 @@ of text you get and nothing else: it cannot change how words are marked.
 The cards are drawn the way every practice tab draws them, weighted towards
 your weakest, from the ticked decks and the **Weak / + Developing / All**
 filter. When the decks have [grammar patterns](#the-deck-format), about a
-quarter of the cards are patterns; with none, they are all words.
+quarter of the cards are patterns (**Settings → Reading → Grammar patterns**,
+0% to 50%); with none, they are all words. The same section sets the filter
+the tab starts on and the number of cards a text uses.
 
 **Click a coloured word** (or Tab to it and press Enter) and a small popup
 opens under it with the card's word and a question: *did you understand it?*
@@ -358,19 +360,21 @@ learning and gives it back with feedback, the way a teacher marks a written
 exercise. There are two kinds of task, and both come from what you already
 have:
 
-- **Opinion**: *Write me a question* has the text model write one question,
-  in the language you are learning, around five cards drawn from the ticked
-  decks, weighted towards your weakest. That is one call on the text model.
-  Or type **a topic of your own** and press *Use my topic*, which costs
-  nothing; five cards are drawn for it all the same. The **Weak / +
-  Developing / All** filter is the one the Reading tab uses.
+- **Opinion**: *Write me a question* has the question model write one
+  question, in the language you are learning, around five cards (or as many
+  as **Settings → Writing → Cards to try to use** says) drawn from the ticked
+  decks, weighted towards your weakest. That is one call. Or type **a topic
+  of your own** and press *Use my topic*, which costs nothing; the cards are
+  drawn for it all the same. The **Weak / + Developing / All** filter is
+  Writing's own, and Settings sets the one it starts on.
 - **Summary**: pick one of your [kept Reading texts](#kept-texts-and-reading-them-aloud)
   and summarise it. *Show the text* opens it under the task while you write,
   and the cards that text used are the ones to try to use.
 
 The cards are listed under the task as **Try to use**. The task says how many
 words it wants: an opinion piece is **Settings → Writing → Writing words**,
-60 to 120 by default; a summary asks for about two thirds of that, scaled by
+60 to 120 by default; a summary asks for two thirds of that by default
+(**Summary length**, from 30% to 100%), scaled by
 the length of the text (a long article allows more, a short story less, at
 most 30% either way) and rounded to fives. The counter under the box turns
 red once you are short or over, and **Hand in** is live only inside the
@@ -411,8 +415,9 @@ until the next call.
 
 ## Translate
 
-The Translate tab gives you six English sentences to write in the language you
-are learning. **Any natural, correct way of saying the same thing is right**:
+The Translate tab gives you a set of English sentences to write in the
+language you are learning: six, unless **Settings → Translate → Sentences in a
+set** says otherwise (1 to 20, all checked in one call). **Any natural, correct way of saying the same thing is right**:
 the feedback model judges meaning and grammar, not whether you matched one
 particular answer word for word, which is what a string comparison would have
 to do.
@@ -422,8 +427,10 @@ in the Flashcards tab: a banked sentence's English is the prompt, the sentence
 itself is one right answer, and its target words are the cards it practises.
 So a set costs nothing to make, and the bank is only read, never written. Like
 Shadowing, a set prefers sentences you have already typed as a dictation,
-since checking a set shows every sentence in full. When fewer than six are in
-scope, the tab says so and gives you the set it has; it never writes new
+since checking a set shows every sentence in full; **Which sentences come
+first** in Settings can turn that round (ones not yet dictated, for a harder
+set at the cost of those dictations) or ignore it (random). When fewer than a
+full set are in scope, the tab says so and gives you the set it has; it never writes new
 sentences, which only Dictation's **New sentence** does. **New set** draws
 another.
 
@@ -442,7 +449,9 @@ else:
 - a **correct** answer scores all of its target words right;
 - an **incorrect** one scores wrong only the words the model says you got
   wrong, and leaves the rest alone;
-- a **blank** scores all of its words wrong, as *Show answer* does in Typing;
+- a **blank** scores all of its words wrong, as *Show answer* does in Typing,
+  unless you untick *A blank answer scores its words wrong* in Settings, and
+  then it scores nothing;
 - one that **could not be checked** scores nothing.
 
 A set is not kept, as a Typing session is not: what stays is the scores.
@@ -450,26 +459,31 @@ A set is not kept, as a Typing session is not: what stays is the scores.
 ## Conversation
 
 The Conversation tab is a short conversation in the language you are
-learning: **six turns of your own**, then feedback. There are two kinds.
+learning: **six turns of your own** (or as many as **Settings → Conversation
+→ Your turns** says, from 2 to 12), then feedback. A conversation keeps the
+number it started with. There are two kinds.
 
 - **Roleplay**: a scene with two roles, such as returning shoes to a shop or
   planning a weekend with a friend. The other person plays their part and
-  answers each of your turns. Your sixth turn gets their closing line and the
+  answers each of your turns. Your last turn gets their closing line and the
   feedback from the same call.
-- **Find out**: the other person knows three or four things you were sent to
-  find out, such as when the rubbish is collected. They answer all six of your
+- **Find out**: the other person knows four things you were sent to find out
+  (**Facts in a find out**, 2 to 6), such as when the rubbish is collected.
+  They answer every one of your
   turns, but **give a fact only when you ask about it specifically**; a vague
   "any tips?" gets a friendly answer with nothing in it. A checklist,
   *What you need to find out*, ticks each fact as they give it away. The
   answers stay hidden until the end.
 
 **Start** has the text model write the scene, in the language you are
-learning, around five cards from the ticked decks (the Weak / + Developing /
-All filter is the Reading tab's), with the other person's opening line: one
-call. **A situation you would like** is optional (*at the bakery*); left
+learning, around five cards from the ticked decks (**Cards in a scene**; the
+Weak / + Developing / All filter is Conversation's own), with the other
+person's opening line: one call. Settings also says which kind the tab starts
+on. **A situation you would like** is optional (*at the bakery*); left
 empty, the model chooses, and what you type is kept for next time. The note
 under it says what the conversation costs: one call on the text model, five
-replies (a roleplay) or six (a find out) on the **conversation model**, and
+replies (a roleplay: one fewer than your turns) or six (a find out: one per
+turn) on the **conversation model**, and
 one call on the **feedback model** at the end. If today's budget could not
 finish the conversation, Start is refused before anything is spent, and says
 which model is short.
@@ -1063,7 +1077,7 @@ message. The find-out one holds the facts and their answers (`{facts}`),
 strict rules about giving one only when it is asked for, and asks for
 `"revealed"`, the facts the line gave away, which is what ticks your
 checklist. The **roleplay feedback** prompt is sent when a roleplay ends:
-`{closing}` asks for the closing line too after your sixth turn, and for none
+`{closing}` asks for the closing line too after your last turn, and for none
 after an early end. The **find-out feedback** prompt is sent when a find out
 ends, told what you found out. All five are lessons-web's, with Dutch taken
 out and your cards added.

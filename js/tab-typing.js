@@ -41,6 +41,13 @@ const tally = { total: 0, right: 0, wrong: 0 };
 export function init() {
   scope = store.state.settings.typingScope || 'all';
   setSeg('ty-scope', 'scope', scope);
+  /* The filter can be changed in Settings too; the tab follows. */
+  store.subscribe('settings', (st) => {
+    const next = st.settings.typingScope || 'all';
+    if (next === scope) return;
+    scope = next;
+    setSeg('ty-scope', 'scope', scope);
+  });
   setSeg('ty-dir', 'dir', store.state.settings.typingDirection);
 
   $('ty-scope').addEventListener('click', (e) => {

@@ -21,9 +21,9 @@ import { fillTemplate, withFeedbackBlock, feedbackRequestText } from './gemini.j
 
 export const KINDS = ['summary', 'opinion'];
 
-/* How many cards an opinion question is written around. Enough to give the
-   question something to draw on, few enough that the learner can hold them
-   in mind while writing. */
+/* How many cards an opinion question is written around, unless the
+   writingTerms setting says otherwise. Enough to give the question something
+   to draw on, few enough that the learner can hold them in mind. */
 export const WRITING_TERMS = 5;
 
 /* The most the textarea takes. A cap on what one call carries, set well
@@ -38,7 +38,8 @@ export const TYPICAL_SOURCE_WORDS = 350;
 /* A summary is bounded by what it summarises and an opinion only by what
    you have to say, so a summary asks for fewer words. lessons-web's bounds
    for a summary are about two thirds of its bounds for an opinion piece at
-   every level, and this keeps that proportion. */
+   every level, which is the default; the writingSummaryShare setting, a
+   percentage, changes it. */
 export const SUMMARY_SHARE = 2 / 3;
 
 const MIN_SCALE = 0.7;
@@ -59,7 +60,7 @@ function roundTo5(n) {
 }
 
 /* {min, max} for a piece of this kind. An opinion piece gets the setting as
-   it is. A summary gets two thirds of it, scaled by how the source compares
+   it is. A summary gets its share of it (two thirds by default), scaled by how the source compares
    with a typical text, within 30% either way, so a summary of a long article
    may be longer than one of a short story without either running away from
    what the setting asks. A source of unknown length counts as typical. */
@@ -69,8 +70,9 @@ export function wordBounds(settings, kind, sourceWords = 0) {
   const scale = sourceWords > 0
     ? Math.min(MAX_SCALE, Math.max(MIN_SCALE, sourceWords / TYPICAL_SOURCE_WORDS))
     : 1;
-  const lo = roundTo5(min * SUMMARY_SHARE * scale);
-  return { min: lo, max: Math.max(lo + 5, roundTo5(max * SUMMARY_SHARE * scale)) };
+  const share = Number.isFinite(settings.writingSummaryShare) ? settings.writingSummaryShare / 100 : SUMMARY_SHARE;
+  const lo = roundTo5(min * share * scale);
+  return { min: lo, max: Math.max(lo + 5, roundTo5(max * share * scale)) };
 }
 
 /* Where a count sits against its bounds. Nothing typed yet is not out of

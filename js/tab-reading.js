@@ -164,6 +164,13 @@ export function init() {
   const s = store.state.settings;
   scope = s.readingScope || 'all';
   setSeg('rd-scope', 'scope', scope);
+  /* The filter can be changed in Settings too; the tab follows. */
+  store.subscribe('settings', (st) => {
+    const next = st.settings.readingScope || 'all';
+    if (next === scope) return;
+    scope = next;
+    setSeg('rd-scope', 'scope', scope);
+  });
   syncFields();
 
   store.subscribe('deck', () => {
@@ -293,7 +300,7 @@ async function generate() {
     return;
   }
   const n = clampTerms($('rd-terms').value);
-  const picked = pickReadingCards(cards, n);
+  const picked = pickReadingCards(cards, n, undefined, store.state.settings.readingPatternShare / 100);
   const request = $('rd-request').value;
   const s = store.state.settings;
 

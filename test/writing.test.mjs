@@ -196,3 +196,9 @@ test('a kept piece is listed by its question, or by the text it summarised', () 
   assert.equal(writingTitle({ kind: 'opinion', brief: ' Why? ' }), 'Why?');
   assert.equal(writingTitle({ kind: 'summary', readingTitle: 'La tienda' }), 'Summary of La tienda');
 });
+
+test('a summary\'s share of the opinion length can be set', () => {
+  const s = withDefaults({ writingWords: { min: 60, max: 120 }, writingSummaryShare: 100 });
+  assert.deepEqual(wordBounds(s, 'summary', TYPICAL_SOURCE_WORDS), { min: 60, max: 120 });
+  assert.deepEqual(wordBounds(withDefaults({ writingSummaryShare: 50 }), 'summary', 0), { min: 30, max: 60 });
+});

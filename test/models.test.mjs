@@ -197,3 +197,21 @@ test('a card costs two calls when one model writes and speaks', async () => {
   });
   assert.equal(lim.report(two).cardsLeftToday, 9);
 });
+
+test('every number a mode is given is held to its range, and every filter to the known ones', () => {
+  const s = withDefaults({
+    translateItems: 99, conversationTurns: 1, conversationFacts: '3', writingTerms: 'lots',
+    readingPatternShare: -5, writingScope: 'nonsense', translateOrder: 'backwards', conversationKind: 'debate',
+    translateBlankWrong: false,
+  });
+  assert.equal(s.translateItems, 20);
+  assert.equal(s.conversationTurns, 2);
+  assert.equal(s.conversationFacts, 3);
+  assert.equal(s.writingTerms, 5, 'unreadable is the default');
+  assert.equal(s.readingPatternShare, 0);
+  assert.equal(s.writingScope, 'all');
+  assert.equal(s.translateOrder, 'dictated');
+  assert.equal(s.conversationKind, 'roleplay');
+  assert.equal(s.translateBlankWrong, false);
+  assert.equal(withDefaults(null).translateBlankWrong, true);
+});

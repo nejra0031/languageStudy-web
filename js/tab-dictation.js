@@ -75,6 +75,13 @@ export function init() {
 
   scope = store.state.settings.dictationScope || 'all';
   setSeg('dc-scope', 'scope', scope);
+  /* The filter can be changed in Settings too; the tab follows. */
+  store.subscribe('settings', (st) => {
+    const next = st.settings.dictationScope || 'all';
+    if (next === scope) return;
+    scope = next;
+    setSeg('dc-scope', 'scope', scope);
+  });
   setSeg('dc-rate', 'rate', '1');
 
   store.subscribe('deck', () => {

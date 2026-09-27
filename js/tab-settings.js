@@ -207,6 +207,8 @@ function openQuietly(d) {
 /* One line under each closed section's title, so the setup can be read
    without opening anything. Sections whose line was already drawn by their
    own code (Your data, Add from selected text, Shadowing) are not here. */
+const SCOPE_LABEL = { weak: 'weak cards', developing: 'weak and developing', all: 'all cards', accents: 'accents' };
+const ORDER_LABEL = { dictated: 'dictated first', fresh: 'not yet dictated first', random: 'random order' };
 const DIRECTION_LABEL = { 'front-to-back': 'front → back', 'back-to-front': 'back → front', random: 'mixed' };
 
 function renderSummaries() {
@@ -217,12 +219,12 @@ function renderSummaries() {
     models: [plural(s.models.length, 'model'), plural(MODEL_ROLES.length, 'job')],
     language: [s.targetLanguage, s.learnerLevel],
     feedback: [String(s.feedbackRequest || '').trim() || 'English'],
-    typing: [DIRECTION_LABEL[s.typingDirection] || s.typingDirection, s.typingSpeak ? 'read aloud' : 'silent'],
-    dictation: [`${s.sentenceWords.min}–${s.sentenceWords.max} words`, `${s.termsPerSentence} per sentence`, plural(s.voices.length, 'voice'), s.textModel],
-    reading: [s.readingModel, s.readingVoice || 'any dictation voice'],
-    writing: [`${s.writingWords.min}–${s.writingWords.max} words`, s.writingGradeModel],
-    translate: [s.translateModel],
-    conversation: [`replies ${s.chatModel}`, `feedback ${s.conversationGradeModel}`],
+    typing: [SCOPE_LABEL[s.typingScope], DIRECTION_LABEL[s.typingDirection] || s.typingDirection, s.typingSpeak ? 'read aloud' : 'silent'],
+    dictation: [SCOPE_LABEL[s.dictationScope], `${s.sentenceWords.min}–${s.sentenceWords.max} words`, `${s.termsPerSentence} per sentence`, plural(s.voices.length, 'voice'), s.textModel],
+    reading: [SCOPE_LABEL[s.readingScope], plural(s.readingTerms, 'card'), `${s.readingPatternShare}% patterns`, s.readingModel],
+    writing: [SCOPE_LABEL[s.writingScope], `${s.writingWords.min}–${s.writingWords.max} words`, plural(s.writingTerms, 'card'), s.writingGradeModel],
+    translate: [plural(s.translateItems, 'sentence'), ORDER_LABEL[s.translateOrder], s.translateModel],
+    conversation: [plural(s.conversationTurns, 'turn'), plural(s.conversationTerms, 'card'), plural(s.conversationFacts, 'fact'), `replies ${s.chatModel}`],
   };
   for (const [name, parts] of Object.entries(lines)) {
     const el = $(`sum-${name}`);
@@ -230,16 +232,55 @@ function renderSummaries() {
   }
 }
 
-/* Typing's direction and read-aloud switch, which the tab also sets. */
+/* The practice modes' own options, one control each: [id, settings key,
+   kind]. A number is saved as it is typed, and withDefaults() holds it to
+   the range in NUMBER_RANGES, which is what the control then shows; so an
+   out-of-range number snaps back rather than being refused. Several of
+   these are also set on their tab (a filter, the direction, the kind of
+   conversation), and each is one setting, whichever place changes it. */
+const MODE_FIELDS = [
+  ['set-typing-scope', 'typingScope', 'select'],
+  ['set-typing-direction', 'typingDirection', 'select'],
+  ['set-typing-speak', 'typingSpeak', 'check'],
+  ['set-dictation-scope', 'dictationScope', 'select'],
+  ['set-shadow-scope', 'shadowScope', 'select'],
+  ['set-reading-scope', 'readingScope', 'select'],
+  ['set-reading-terms', 'readingTerms', 'int'],
+  ['set-reading-patterns', 'readingPatternShare', 'int'],
+  ['set-writing-scope', 'writingScope', 'select'],
+  ['set-writing-terms', 'writingTerms', 'int'],
+  ['set-writing-share', 'writingSummaryShare', 'int'],
+  ['set-translate-items', 'translateItems', 'int'],
+  ['set-translate-order', 'translateOrder', 'select'],
+  ['set-translate-blank', 'translateBlankWrong', 'check'],
+  ['set-conversation-kind', 'conversationKind', 'select'],
+  ['set-conversation-scope', 'conversationScope', 'select'],
+  ['set-conversation-turns', 'conversationTurns', 'int'],
+  ['set-conversation-terms', 'conversationTerms', 'int'],
+  ['set-conversation-facts', 'conversationFacts', 'int'],
+];
+
 function wireTyping() {
-  $('set-typing-direction').addEventListener('change', (e) => store.saveSettings({ typingDirection: e.target.value }));
-  $('set-typing-speak').addEventListener('change', (e) => store.saveSettings({ typingSpeak: e.target.checked }));
+  for (const [id, key, kind] of MODE_FIELDS) {
+    $(id).addEventListener('change', async (e) => {
+      const el = e.target;
+      const value = kind === 'check' ? el.checked : kind === 'int' ? Number(el.value) : el.value;
+      await store.saveSettings({ [key]: value });
+      /* Put back what was kept, in case it was held to its range. */
+      renderTyping();
+      renderPreview();
+    });
+  }
 }
 
 function renderTyping() {
   const s = store.state.settings;
-  $('set-typing-direction').value = s.typingDirection;
-  $('set-typing-speak').checked = !!s.typingSpeak;
+  for (const [id, key, kind] of MODE_FIELDS) {
+    const el = $(id);
+    if (document.activeElement === el) continue;
+    if (kind === 'check') el.checked = !!s[key];
+    else el.value = String(s[key]);
+  }
 }
 
 /* Every prompt back to this build's default, asked twice in place: fourteen

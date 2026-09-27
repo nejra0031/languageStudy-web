@@ -270,7 +270,7 @@ Reply with ONLY this JSON, no other text: {"scenario":"<one or two sentences des
 
 FOR A FIND-OUT:
 The learner has to find out several specific things from the other person by asking, and the other person will not volunteer them. Invent one concrete everyday situation in which one person knows things the other needs to know -- examples: a new neighbour asking about the building, a guest asking their host about the house, a new colleague on their first morning, a tourist at a hotel reception, a parent asking about a school trip.
-- Write 3 or 4 facts the other person knows. Each is specific and can be asked about in one question: a time, a place, a price, a name, a rule. No two facts are about the same thing.
+- Write exactly {factCount} facts the other person knows. Each is specific and can be asked about in one question: a time, a place, a price, a name, a rule. No two facts are about the same thing.
 - "label" names what to find out without giving the answer, e.g. "when the rubbish is collected"; "detail" is the answer, e.g. "Tuesday and Friday mornings, before eight".
 - "goal" is one sentence telling the learner what they were sent to find out, without any of the details.
 - The opening line says hello and sets the scene in one or two short sentences, something that makes it natural for the learner to start asking. It must give away NONE of the facts.
@@ -679,6 +679,32 @@ export const DEFAULT_SETTINGS = {
   readingRequest: '',
   readingTerms: 10,
   readingScope: 'all',
+  /* Of the cards a text is written around, the percentage that are grammar
+     patterns when the decks have any (0 to 50). */
+  readingPatternShare: 25,
+  /* Which cards Typing and Dictation draw from: 'weak', 'developing', 'all'
+     or 'accents'. Each tab keeps its own, and so does every mode below. */
+  typingScope: 'all',
+  dictationScope: 'all',
+  /* Writing: the cards an opinion piece is asked to use, the filter they are
+     drawn with, and a summary's length as a percentage of writingWords. */
+  writingTerms: 5,
+  writingScope: 'all',
+  writingSummaryShare: 67,
+  /* Translate: how many sentences a set asks for; which come first
+     ('dictated': already typed as a dictation, 'fresh': not yet, 'random');
+     and whether an answer left blank scores its words wrong. */
+  translateItems: 6,
+  translateOrder: 'dictated',
+  translateBlankWrong: true,
+  /* Conversation: your turns in one, the cards a scene is written around,
+     the filter they are drawn with, how many facts a find-out hides, and
+     which kind the tab starts on. */
+  conversationTurns: 6,
+  conversationTerms: 5,
+  conversationScope: 'all',
+  conversationFacts: 4,
+  conversationKind: 'roleplay',
   /* The voice Read aloud uses on the Reading tab: one of VOICES by name, or
      '' to draw one from the dictation voices, as a dictation sentence does. */
   readingVoice: '',
@@ -981,6 +1007,28 @@ export function rolesUsing(settings, id) {
   return MODEL_ROLES.filter(([key]) => settings[key] === id).map(([, label]) => label);
 }
 
+/* The numbered settings of the practice modes and the range each may take:
+   [key, lowest, highest]. The Settings controls offer the same ranges. */
+export const NUMBER_RANGES = [
+  ['readingPatternShare', 0, 50],
+  ['writingTerms', 1, 10],
+  ['writingSummaryShare', 30, 100],
+  ['translateItems', 1, 20],
+  ['conversationTurns', 2, 12],
+  ['conversationTerms', 1, 10],
+  ['conversationFacts', 2, 6],
+];
+
+/* The card filters every drawing tab offers. Accents is Typing's, Dictation's
+   and Shadowing's only; elsewhere the tab offers the other three. */
+export const SCOPES = ['weak', 'developing', 'all', 'accents'];
+const SCOPE_KEYS = ['typingScope', 'dictationScope', 'shadowScope', 'readingScope', 'writingScope', 'conversationScope'];
+
+export function clampSetting(value, lo, hi, fallback) {
+  const n = Math.round(Number(value));
+  return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : fallback;
+}
+
 /* Whole numbers, at least five words, and a ceiling above the floor: a
    range the word counter can actually be inside. */
 function cleanWritingWords(raw) {
@@ -1046,6 +1094,13 @@ export function withDefaults(loaded) {
   s.readingVoice = VOICE_NAMES.includes(s.readingVoice) ? s.readingVoice : '';
   const terms = Math.round(Number(s.readingTerms));
   s.readingTerms = Number.isFinite(terms) ? Math.max(1, Math.min(40, terms)) : DEFAULT_SETTINGS.readingTerms;
+  /* Every number a mode is given, whole and inside the range its control
+     offers; anything unreadable is the default. */
+  for (const [key, lo, hi] of NUMBER_RANGES) s[key] = clampSetting(s[key], lo, hi, DEFAULT_SETTINGS[key]);
+  for (const key of SCOPE_KEYS) if (!SCOPES.includes(s[key])) s[key] = 'all';
+  if (!['dictated', 'fresh', 'random'].includes(s.translateOrder)) s.translateOrder = DEFAULT_SETTINGS.translateOrder;
+  if (!['roleplay', 'findout'].includes(s.conversationKind)) s.conversationKind = DEFAULT_SETTINGS.conversationKind;
+  s.translateBlankWrong = s.translateBlankWrong !== false;
   s.shadowReviseAfter = Math.max(1, Math.round(Number(s.shadowReviseAfter)) || DEFAULT_SETTINGS.shadowReviseAfter);
   /* Filter the ticked voices through the catalogue so a renamed or dropped
      voice cannot end up in a request. Never leave the pool empty. */

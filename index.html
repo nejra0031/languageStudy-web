@@ -6,7 +6,7 @@
 <title>Language Study</title>
 <meta name="description" content="Flashcards, typing practice and AI dictation for any language. Your own API key, your own files, no accounts and no server.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230f1117'/><rect x='3' y='3' width='10' height='10' fill='%23d4b455'/></svg>">
-<link rel="stylesheet" href="css/app.css?v=2026-09-27.8">
+<link rel="stylesheet" href="css/app.css?v=2026-09-27.9">
 <!-- Cache-busting. GitHub Pages lets a browser keep any file for ten minutes,
      so without this a deploy can leave you with a new index.html and an old
      module, or the reverse, and the page fails to start. Every module is
@@ -18,41 +18,41 @@
 <script type="importmap">
 {
   "imports": {
-    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-27.8",
-    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-27.8",
-    "./js/bundle.js": "./js/bundle.js?v=2026-09-27.8",
-    "./js/conversation.js": "./js/conversation.js?v=2026-09-27.8",
-    "./js/convert-audio.js": "./js/convert-audio.js?v=2026-09-27.8",
-    "./js/deck.js": "./js/deck.js?v=2026-09-27.8",
-    "./js/defaults.js": "./js/defaults.js?v=2026-09-27.8",
-    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-27.8",
-    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-27.8",
-    "./js/gemini.js": "./js/gemini.js?v=2026-09-27.8",
-    "./js/json-reply.js": "./js/json-reply.js?v=2026-09-27.8",
-    "./js/lookup.js": "./js/lookup.js?v=2026-09-27.8",
-    "./js/lookup-popup.js": "./js/lookup-popup.js?v=2026-09-27.8",
-    "./js/opus.js": "./js/opus.js?v=2026-09-27.8",
-    "./js/reading.js": "./js/reading.js?v=2026-09-27.8",
-    "./js/recorder.js": "./js/recorder.js?v=2026-09-27.8",
-    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-27.8",
-    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-27.8",
-    "./js/speech.js": "./js/speech.js?v=2026-09-27.8",
-    "./js/storage.js": "./js/storage.js?v=2026-09-27.8",
-    "./js/store.js": "./js/store.js?v=2026-09-27.8",
-    "./js/tab-conversation.js": "./js/tab-conversation.js?v=2026-09-27.8",
-    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-27.8",
-    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-27.8",
-    "./js/tab-reading.js": "./js/tab-reading.js?v=2026-09-27.8",
-    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-27.8",
-    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-27.8",
-    "./js/tab-translate.js": "./js/tab-translate.js?v=2026-09-27.8",
-    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-27.8",
-    "./js/tab-writing.js": "./js/tab-writing.js?v=2026-09-27.8",
-    "./js/text.js": "./js/text.js?v=2026-09-27.8",
-    "./js/translate.js": "./js/translate.js?v=2026-09-27.8",
-    "./js/translation.js": "./js/translation.js?v=2026-09-27.8",
-    "./js/writing.js": "./js/writing.js?v=2026-09-27.8",
-    "./js/zip.js": "./js/zip.js?v=2026-09-27.8"
+    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-27.9",
+    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-27.9",
+    "./js/bundle.js": "./js/bundle.js?v=2026-09-27.9",
+    "./js/conversation.js": "./js/conversation.js?v=2026-09-27.9",
+    "./js/convert-audio.js": "./js/convert-audio.js?v=2026-09-27.9",
+    "./js/deck.js": "./js/deck.js?v=2026-09-27.9",
+    "./js/defaults.js": "./js/defaults.js?v=2026-09-27.9",
+    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-27.9",
+    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-27.9",
+    "./js/gemini.js": "./js/gemini.js?v=2026-09-27.9",
+    "./js/json-reply.js": "./js/json-reply.js?v=2026-09-27.9",
+    "./js/lookup.js": "./js/lookup.js?v=2026-09-27.9",
+    "./js/lookup-popup.js": "./js/lookup-popup.js?v=2026-09-27.9",
+    "./js/opus.js": "./js/opus.js?v=2026-09-27.9",
+    "./js/reading.js": "./js/reading.js?v=2026-09-27.9",
+    "./js/recorder.js": "./js/recorder.js?v=2026-09-27.9",
+    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-27.9",
+    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-27.9",
+    "./js/speech.js": "./js/speech.js?v=2026-09-27.9",
+    "./js/storage.js": "./js/storage.js?v=2026-09-27.9",
+    "./js/store.js": "./js/store.js?v=2026-09-27.9",
+    "./js/tab-conversation.js": "./js/tab-conversation.js?v=2026-09-27.9",
+    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-27.9",
+    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-27.9",
+    "./js/tab-reading.js": "./js/tab-reading.js?v=2026-09-27.9",
+    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-27.9",
+    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-27.9",
+    "./js/tab-translate.js": "./js/tab-translate.js?v=2026-09-27.9",
+    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-27.9",
+    "./js/tab-writing.js": "./js/tab-writing.js?v=2026-09-27.9",
+    "./js/text.js": "./js/text.js?v=2026-09-27.9",
+    "./js/translate.js": "./js/translate.js?v=2026-09-27.9",
+    "./js/translation.js": "./js/translation.js?v=2026-09-27.9",
+    "./js/writing.js": "./js/writing.js?v=2026-09-27.9",
+    "./js/zip.js": "./js/zip.js?v=2026-09-27.9"
   }
 }
 </script>
@@ -261,6 +261,10 @@
     <summary><span class="sec-title">Typing</span><span class="sec-sum" id="sum-typing"></span></summary>
     <div class="sec-body">
       <div class="grid">
+        <label class="field"><span>Cards to draw from</span>
+          <select id="set-typing-scope"><option value="weak">Weak</option><option value="developing">Weak and developing</option><option value="all">All</option><option value="accents">Accents: last missed on the marks alone</option></select>
+          <em class="field-sub">the filter the tab starts on; changing it on the tab changes it here</em>
+        </label>
         <label class="field"><span>Direction</span>
           <select id="set-typing-direction">
             <option value="front-to-back">Front → back: see the word, type the meaning</option>
@@ -300,6 +304,12 @@
     <summary><span class="sec-title">Dictation</span><span class="sec-sum" id="sum-dictation"></span></summary>
     <div class="sec-body">
       <div class="grid" data-roles="dictation"></div>
+      <div class="grid">
+        <label class="field"><span>Cards to draw from</span>
+          <select id="set-dictation-scope"><option value="weak">Weak</option><option value="developing">Weak and developing</option><option value="all">All</option><option value="accents">Accents: last missed on the marks alone</option></select>
+          <em class="field-sub">the filter the tab starts on; changing it on the tab changes it here</em>
+        </label>
+      </div>
       <div class="grid grid--tight">
         <label class="field"><span>Words min</span><input type="number" id="set-wmin" min="2" max="60"></label>
         <label class="field"><span>Words max</span><input type="number" id="set-wmax" min="3" max="80"></label>
@@ -356,6 +366,12 @@
     <summary><span class="sec-title">Shadowing</span><span class="sec-sum" id="shadow-hint"></span></summary>
     <div class="sec-body">
       <div class="grid" data-roles="shadowing"></div>
+      <div class="grid">
+        <label class="field"><span>Cards to draw from</span>
+          <select id="set-shadow-scope"><option value="weak">Weak</option><option value="developing">Weak and developing</option><option value="all">All</option><option value="accents">Accents: last missed on the marks alone</option></select>
+          <em class="field-sub">the filter the tab starts on; changing it on the tab changes it here</em>
+        </label>
+      </div>
       <p class="note">A set is some lines to read aloud and record. Both sources are drawn from what you already have, and <strong>nothing on the Shadowing tab ever writes a new sentence</strong> — the only thing that does is the Dictation tab's <em>New sentence</em> button, and both tabs share one bank, so whatever it makes is immediately shadowable.</p>
       <div class="row">
         <label class="voice" style="flex:1 1 240px"><input type="checkbox" id="set-shadow-cards"><span>Flashcards</span><em>read by your device's voice</em></label>
@@ -412,6 +428,16 @@
     <summary><span class="sec-title">Reading</span><span class="sec-sum" id="sum-reading"></span></summary>
     <div class="sec-body">
       <div class="grid" data-roles="reading"></div>
+      <div class="grid">
+        <label class="field"><span>Cards to draw from</span>
+          <select id="set-reading-scope"><option value="weak">Weak</option><option value="developing">Weak and developing</option><option value="all">All</option></select>
+          <em class="field-sub">the filter the tab starts on; changing it on the tab changes it here</em>
+        </label>
+        <label class="field"><span>Cards in a text</span><input type="number" id="set-reading-terms" min="1" max="40">
+          <em class="field-sub">1 to 40; the presets on the tab set it too</em></label>
+        <label class="field"><span>Grammar patterns, % of those</span><input type="number" id="set-reading-patterns" min="0" max="50">
+          <em class="field-sub">0 to 50; 0 writes texts around words only</em></label>
+      </div>
 
       <details class="sec-prompts" data-acc="reading.prompts">
         <summary>Prompts <span class="sec-count">1</span></summary>
@@ -440,11 +466,21 @@
     <summary><span class="sec-title">Writing</span><span class="sec-sum" id="sum-writing"></span></summary>
     <div class="sec-body">
       <div class="grid" data-roles="writing"></div>
+      <div class="grid">
+        <label class="field"><span>Cards to draw from</span>
+          <select id="set-writing-scope"><option value="weak">Weak</option><option value="developing">Weak and developing</option><option value="all">All</option></select>
+          <em class="field-sub">the filter the tab starts on; changing it on the tab changes it here</em>
+        </label>
+        <label class="field"><span>Cards to try to use</span><input type="number" id="set-writing-terms" min="1" max="10">
+          <em class="field-sub">1 to 10, for an opinion piece; a summary uses its text's cards</em></label>
+        <label class="field"><span>Summary length, % of the words below</span><input type="number" id="set-writing-share" min="30" max="100">
+          <em class="field-sub">30 to 100; then scaled by the length of the text</em></label>
+      </div>
       <div class="grid grid--tight">
         <label class="field"><span>Writing words min</span><input type="number" id="set-writing-min" min="5" max="1000"></label>
         <label class="field"><span>Writing words max</span><input type="number" id="set-writing-max" min="10" max="1000"></label>
       </div>
-      <p class="note">How long an opinion piece should be. A summary asks for about two thirds of that, more for a long text and less for a short one.</p>
+      <p class="note">How long an opinion piece should be. A summary asks for the percentage above of that, more for a long text and less for a short one.</p>
 
       <details class="sec-prompts" data-acc="writing.prompts">
         <summary>Prompts <span class="sec-count">2</span></summary>
@@ -488,6 +524,20 @@
     <summary><span class="sec-title">Translate</span><span class="sec-sum" id="sum-translate"></span></summary>
     <div class="sec-body">
       <div class="grid" data-roles="translate"></div>
+      <div class="grid">
+        <label class="field"><span>Sentences in a set</span><input type="number" id="set-translate-items" min="1" max="20">
+          <em class="field-sub">1 to 20, all checked in one call</em></label>
+        <label class="field"><span>Which sentences come first</span>
+          <select id="set-translate-order">
+            <option value="dictated">Ones already dictated</option>
+            <option value="fresh">Ones not yet dictated</option>
+            <option value="random">Any, at random</option>
+          </select>
+          <em class="field-sub">a checked set shows every sentence, which gives away its dictation</em></label>
+      </div>
+      <div class="row">
+        <label class="voice" style="flex:1 1 280px"><input type="checkbox" id="set-translate-blank"><span>A blank answer scores its words wrong</span><em>as Show answer does in Typing</em></label>
+      </div>
 
       <details class="sec-prompts" data-acc="translate.prompts">
         <summary>Prompts <span class="sec-count">1</span></summary>
@@ -516,6 +566,21 @@
     <summary><span class="sec-title">Conversation</span><span class="sec-sum" id="sum-conversation"></span></summary>
     <div class="sec-body">
       <div class="grid" data-roles="conversation"></div>
+      <div class="grid">
+        <label class="field"><span>Start on</span>
+          <select id="set-conversation-kind"><option value="roleplay">Roleplay</option><option value="findout">Find out</option></select>
+        </label>
+        <label class="field"><span>Cards to draw from</span>
+          <select id="set-conversation-scope"><option value="weak">Weak</option><option value="developing">Weak and developing</option><option value="all">All</option></select>
+          <em class="field-sub">the filter the tab starts on; changing it on the tab changes it here</em>
+        </label>
+        <label class="field"><span>Your turns</span><input type="number" id="set-conversation-turns" min="2" max="12">
+          <em class="field-sub">2 to 12; a conversation keeps the number it started with</em></label>
+        <label class="field"><span>Cards in a scene</span><input type="number" id="set-conversation-terms" min="1" max="10">
+          <em class="field-sub">1 to 10</em></label>
+        <label class="field"><span>Facts in a find out</span><input type="number" id="set-conversation-facts" min="2" max="6">
+          <em class="field-sub">2 to 6 things to find out</em></label>
+      </div>
       <p class="note">A conversation spends one call on the scene model, one on the replies model for each of the other person's turns, and one on the feedback model at the end. A spoken turn adds one on the listening model, and a roleplay with spoken turns is graded by the listening model, since it listens to them.</p>
 
       <details class="sec-prompts" data-acc="conversation.prompts">
@@ -580,7 +645,7 @@
         <textarea id="prompt-preview-conversationGrade" class="prompt-preview" rows="18" readonly spellcheck="false" aria-label="Roleplay feedback prompt, as it will be sent" hidden></textarea>
       </div>
       <p class="note prompt-warn" id="prompt-warn-conversationGrade" hidden></p>
-      <p class="note">Sent when a roleplay ends. Placeholders: <code>{closing}</code>, which after your sixth turn asks for the other person's closing line as well, and after an early end says to write none; <code>{scenario}</code>, <code>{studentRole}</code>, <code>{llmRole}</code>, <code>{language}</code>, <code>{level}</code>, <code>{languageNote}</code> and <code>{feedback}</code>. The transcript, your turns by position and your cards follow as the message. The reply has to be the JSON object it describes; <code>"cards"</code> is how your cards are scored.</p>
+      <p class="note">Sent when a roleplay ends. Placeholders: <code>{closing}</code>, which after your last turn asks for the other person's closing line as well, and after an early end says to write none; <code>{scenario}</code>, <code>{studentRole}</code>, <code>{llmRole}</code>, <code>{language}</code>, <code>{level}</code>, <code>{languageNote}</code> and <code>{feedback}</code>. The transcript, your turns by position and your cards follow as the message. The reply has to be the JSON object it describes; <code>"cards"</code> is how your cards are scored.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-conversationGrade-reset">Reset to default</button></div>
 
       <div class="field">
@@ -1060,7 +1125,7 @@
       <span class="hint" id="tr-pool"></span>
     </div>
     <div class="block-body">
-      <p class="note">Six English sentences to write in the language you are learning, <strong>in your own words</strong>: any natural, correct way of saying the same thing is right, not only the one the bank holds. They come from the <strong>sentence bank</strong> Dictation fills, for the decks ticked in the Flashcards tab, and each practises that sentence's target words. <strong>Check answers</strong> sends the whole set in one call, and the cards move with the verdicts.</p>
+      <p class="note">English sentences to write in the language you are learning (six, unless <a href="#sec-translate" data-open-sec="translate">Settings → Translate</a> says otherwise), <strong>in your own words</strong>: any natural, correct way of saying the same thing is right, not only the one the bank holds. They come from the <strong>sentence bank</strong> Dictation fills, for the decks ticked in the Flashcards tab, and each practises that sentence's target words. <strong>Check answers</strong> sends the whole set in one call, and the cards move with the verdicts.</p>
       <div id="tr-gate"></div>
 
       <div id="tr-stage" hidden>
@@ -1101,7 +1166,7 @@
       <span class="hint" id="cv-pool"></span>
     </div>
     <div class="block-body">
-      <p class="note">Six turns of your own in a short scene, then feedback on how it went. In a <strong>roleplay</strong> the other person plays their part and answers each of your turns; the feedback goes through them one by one, with a more natural way to say each where there is one. In a <strong>find out</strong> they know a few things you were sent to find out, and give one only when you ask about it specifically; the feedback is about whether you listened to the answers. Either way the scene is written around a few of your cards, and they are scored on what you said. <strong>Speak</strong> your turns or type them: a recording is played back before you send it, written down as you said it, mistakes and all, and a roleplay you spoke gets a note on how it sounded.</p>
+      <p class="note">A few turns of your own (six, unless <a href="#sec-conversation" data-open-sec="conversation">Settings → Conversation</a> says otherwise) in a short scene, then feedback on how it went. In a <strong>roleplay</strong> the other person plays their part and answers each of your turns; the feedback goes through them one by one, with a more natural way to say each where there is one. In a <strong>find out</strong> they know a few things you were sent to find out, and give one only when you ask about it specifically; the feedback is about whether you listened to the answers. Either way the scene is written around a few of your cards, and they are scored on what you said. <strong>Speak</strong> your turns or type them: a recording is played back before you send it, written down as you said it, mistakes and all, and a roleplay you spoke gets a note on how it sounded.</p>
       <div id="cv-gate"></div>
 
       <div id="cv-stage" hidden>
@@ -1179,6 +1244,6 @@
 <!-- The Reading tab's word popup: the selection popup's shape, filled by tab-reading.js. -->
 <div class="lookup-pop" id="reading-pop" role="dialog" aria-label="A word from the text" hidden></div>
 
-<script type="module" src="js/app.js?v=2026-09-27.8"></script>
+<script type="module" src="js/app.js?v=2026-09-27.9"></script>
 </body>
 </html>

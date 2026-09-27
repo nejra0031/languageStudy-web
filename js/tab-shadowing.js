@@ -179,6 +179,13 @@ export function init() {
 
   scope = store.state.settings.shadowScope || 'all';
   setSeg('sh-scope', 'scope', scope);
+  /* The filter can be changed in Settings too; the tab follows. */
+  store.subscribe('settings', (st) => {
+    const next = st.settings.shadowScope || 'all';
+    if (next === scope) return;
+    scope = next;
+    setSeg('sh-scope', 'scope', scope);
+  });
 
   store.subscribe('deck', renderPool);
   store.subscribe('bank', renderPool);

@@ -877,7 +877,7 @@ export function createClient({ getSettings, getApiKey, limiter }) {
       temperature: 0.7,
       maxOutputTokens: 4096,
     });
-    const scenario = readScenario(text, kind);
+    const scenario = readScenario(text, kind, s.conversationFacts);
     if (!scenario) {
       throw new GeminiError(`${model} replied with something that could not be read as a scene, so nothing was started. Press Start to try again.`);
     }

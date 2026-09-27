@@ -109,8 +109,9 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
   again). `tab-writing.js` is the task, the box and the feedback; its
   `scoreVerdicts` and `cardsResultHtml` are shared with the other graded
   modes. Every hand-in is kept in `writing/`.
-- `translation.js` is Translate's pure logic: a set of six drawn from the
-  bank in Shadowing's order (a checked set shows every sentence), the
+- `translation.js` is Translate's pure logic: a set (`translateItems`, six
+  by default) drawn from the bank in `translateOrder`, Shadowing's order by
+  default since a checked set shows every sentence, the
   request (every item, blanks included, keyed by id), reading the array
   back (`null` if it is not one; an item without a verdict is ungraded), and
   `translationScores`, which decides what moves. The bank is only read.
@@ -122,7 +123,9 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
   text), its closing call (line and feedback in one) and its early end; a
   find-out's replies (with `revealed`, run through `normaliseIds`) and its
   conclusion, where found and missed are worked out in code. Only learner
-  turns are graded. A spoken turn is recorded with `recorder.js`, written to
+  turns are graded. A session stores its number of turns as `maxTurns` when
+  it starts (`turnsOf`), so a change in Settings never moves the end of one
+  under way. A spoken turn is recorded with `recorder.js`, written to
   `conversation/<id>_<position>.<ext>` as soon as it stops, transcribed by
   the shadowing model (`transcribeRequest`; an empty transcript spends no
   turn), and a roleplay with recordings is graded by the shadowing model
