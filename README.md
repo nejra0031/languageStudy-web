@@ -1,7 +1,7 @@
 # Language Study
 
-Flashcards, typing practice, AI dictation, speaking practice, reading texts
-and graded writing for whatever language you are learning. One static page. No account, no server, no database
+Flashcards, typing practice, AI dictation, speaking practice, reading texts,
+graded writing and translation for whatever language you are learning. One static page. No account, no server, no database
 — your cards, your audio and your own recordings stay on your own computer, in
 a folder you choose where the browser allows it, and the only thing that ever
 leaves the machine is a request to Google, signed with your own API key.
@@ -35,9 +35,8 @@ without knowing anything about any of them.
 ## The tabs
 
 The tab strip has two groups: Settings and Flashcards set things up, and
-after a gap come the practice modes. Translate and Conversation are greyed
-out at the end of it: they are planned, and clicking one says it is coming
-soon.
+after a gap come the practice modes. Conversation is greyed out at the end
+of it: it is planned, and clicking it says it is coming soon.
 
 **Settings** — where your data is saved, your API key, the language, the models, the call
 budget, the prompts, the read-aloud voice, and which Gemini voices may read to you.
@@ -106,6 +105,10 @@ meaning. See [Reading](#reading).
 **Writing** — a short piece of your own, a summary of one of your Reading
 texts or your opinion on a question, read by the feedback model and scored
 against your cards. See [Writing](#writing).
+
+**Translate** — six English sentences from the sentence bank to write in the
+language you are learning, in your own words, checked together in one call.
+See [Translate](#translate).
 
 ## Shadowing
 
@@ -400,6 +403,44 @@ its task; **Delete** asks once more in place. The feedback model is its own
 job in Settings, so a grading budget that runs out does not stop you writing
 sentences, and while it is spent the note beside *Hand in* says how long
 until the next call.
+
+## Translate
+
+The Translate tab gives you six English sentences to write in the language you
+are learning. **Any natural, correct way of saying the same thing is right**:
+the feedback model judges meaning and grammar, not whether you matched one
+particular answer word for word, which is what a string comparison would have
+to do.
+
+The sentences are the **sentence bank** Dictation fills, for the decks ticked
+in the Flashcards tab: a banked sentence's English is the prompt, the sentence
+itself is one right answer, and its target words are the cards it practises.
+So a set costs nothing to make, and the bank is only read, never written. Like
+Shadowing, a set prefers sentences you have already typed as a dictation,
+since checking a set shows every sentence in full. When fewer than six are in
+scope, the tab says so and gives you the set it has; it never writes new
+sentences, which only Dictation's **New sentence** does. **New set** draws
+another.
+
+Type each answer in its box (Enter moves to the next; on the last it
+checks). **Check answers** is live once anything is typed, and sends the whole
+set, blanks included, in **one call** on the feedback model. Afterwards the
+answers lock, and each row says **Correct**, or shows *One correct answer* with
+the banked sentence, and a sentence on why. ▶ plays the sentence's banked
+recording. A row the model did not grade says *This one could not be
+checked*. If the check fails, nothing is scored, your answers stay editable,
+and **Try again** sends them again.
+
+The cards under each row move with it, through the same rules as everywhere
+else:
+
+- a **correct** answer scores all of its target words right;
+- an **incorrect** one scores wrong only the words the model says you got
+  wrong, and leaves the rest alone;
+- a **blank** scores all of its words wrong, as *Show answer* does in Typing;
+- one that **could not be checked** scores nothing.
+
+A set is not kept, as a Typing session is not: what stays is the scores.
 
 ## Choosing which decks are in play
 
@@ -887,6 +928,16 @@ and your writing treated as data, never as instructions. The reply has to be
 the JSON object it describes; `"cards"` is how your cards are scored. The
 Feedback language and style setting applies here as it does to Shadowing.
 
+The translation feedback prompt is sent as the system instruction when you
+**Check answers** on the [Translate](#translate) tab. It takes `{language}`
+and `{feedback}`; the items follow in a message of their own, each with its
+id, its English, the banked sentence as one reference answer, what you wrote,
+and its target words, numbered. It is lessons-web's translation grader, with
+one addition: for a wrong answer, `"cards"` names the target words you got
+wrong. The reply has to be a JSON array with one object per `"id"`, so a
+reply that drops or reorders a sentence cannot move a grade onto the wrong
+one; a reply that is not an array is a failure.
+
 ## Running it locally
 
 It is plain ES modules with no build step and no dependencies, but modules do
@@ -924,6 +975,7 @@ js/lookup-popup.js    the form that opens under selected text, on every tab
 js/reading.js         Reading: presets, choosing the cards, reading the marked text,
                       naming and indexing kept texts
 js/writing.js         Writing: word bounds, the grading request, reading the feedback
+js/translation.js     Translate: drawing a set from the bank, grading, what moves
 js/deck.js            deck format, scoring, card selection
 js/speech.js          the device's own voices, for reading words aloud
 js/recorder.js        the microphone: MediaRecorder, and releasing it again

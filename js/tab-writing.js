@@ -498,6 +498,14 @@ function resultHtml(record) {
 
 const VERDICT_LABEL = { right: 'Right', wrong: 'Wrong', absent: 'Not used' };
 
+/* What one answer did to a card's score: nothing when it stayed put, and
+   only where it landed for a card that had no score before this. */
+export function moveHtml(m) {
+  if (m.before === m.after) return '';
+  const after = scoreMark(m.after, SCORE_LABEL[m.after].toLowerCase());
+  return Number.isInteger(m.before) ? ` · ${scoreMark(m.before)} → ${after}` : ` · → ${after}`;
+}
+
 /* One line per card: its verdict, the grader's note, and, right after a
    hand-in, what the score did. A card the grader said nothing about is
    listed as not judged, and scored nothing. Conversation draws its cards
@@ -512,8 +520,7 @@ export function cardsResultHtml(cards, verdicts, moved, ok, lang = '') {
     const verdict = v ? v.verdict : null;
     const cls = verdict === 'right' ? 'chip--ok' : verdict === 'wrong' ? 'chip--bad' : '';
     const m = moved && moved.get(i);
-    const move = m && m.before !== m.after
-      ? ` · ${scoreMark(m.before)} → ${scoreMark(m.after, SCORE_LABEL[m.after].toLowerCase())}` : '';
+    const move = m ? moveHtml(m) : '';
     const gone = !store.findCard(c.front, c.deck) ? ' · no longer in its deck, so nothing was scored' : '';
     return `<li>
       <span class="chip ${cls}" lang="${escapeHtml(lang)}">${escapeHtml(c.front)}</span>

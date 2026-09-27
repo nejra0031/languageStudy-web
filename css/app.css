@@ -1284,6 +1284,22 @@ textarea { resize: vertical; font: 13px/1.6 var(--mono); }
 .note.is-bad { color: var(--bad); }
 #wr-again-row { margin-top: 16px; }
 
+/* ── translate ────────────────────────────────────────────────── */
+
+.tr-list { list-style: decimal; padding-left: 22px; display: grid; gap: 18px; }
+.tr-list li::marker { font: 12px var(--mono); color: var(--fg-dim); }
+.tr-en { font-size: 16px; line-height: 1.5; color: var(--fg-warm); margin-bottom: 6px; overflow-wrap: anywhere; }
+.tr-input { width: 100%; }
+.tr-verdict { margin-top: 8px; display: grid; gap: 6px; font-size: 13.5px; color: var(--fg-muted); }
+.tr-head { display: flex; gap: 10px; align-items: center; overflow-wrap: anywhere; }
+.tr-head b { color: var(--fg); font-weight: 600; }
+.tr-ok { color: var(--ok); }
+.tr-item.is-ungraded .tr-head { color: var(--warn); }
+.tr-why { font-size: 13px; color: var(--fg-dim); }
+.tr-go { margin-top: 18px; }
+.tr-summary { flex: 1 1 200px; }
+.tr-summary .is-bad { color: var(--bad); }
+
 /* ── responsive ───────────────────────────────────────────────── */
 
 @media (max-width: 720px) {

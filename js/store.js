@@ -423,6 +423,18 @@ export function bankInScope(entry) {
   return (entry.terms || []).some((t) => known.has(t));
 }
 
+/* A banked sentence's audio as a URL to play, and whether the caller owns
+   it: a sentence made without a store is held in memory as a URL the entry
+   keeps, and one on disk is read into a fresh URL the caller revokes once
+   it has played. Null when the file cannot be read. */
+export async function bankAudioUrl(entry) {
+  if (!entry) return null;
+  if (entry.blobUrl) return { url: entry.blobUrl, owned: false };
+  if (!entry.file) return null;
+  const url = await storage.readBlobUrl(entry.file);
+  return url ? { url, owned: true } : null;
+}
+
 /* Both tabs count on the same entry. `times_practiced` is dictations typed,
    `times_shadowed` is sets it was read aloud in — kept apart because they
    answer different questions, and because each tab prefers what the other has

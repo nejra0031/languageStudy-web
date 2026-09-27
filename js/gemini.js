@@ -25,6 +25,7 @@ import { readingVars, readReading } from './reading.js';
 import {
   briefVars, readBrief, writingGradeSystem, writingGradeUser, readWritingGrade,
 } from './writing.js';
+import { translationGradeSystem, translationGradeUser, readTranslationGrade } from './translation.js';
 
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent';
 const MINUTE = 60;
@@ -831,6 +832,24 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     return { result, model };
   }
 
+  /* ── translations ──────────────────────────────────────────────────── */
+
+  /* One call on the feedback model for the whole set, blanks included.
+     Returns one result per item, or throws, and then nothing is scored and
+     the answers stay as they were typed. */
+  async function gradeTranslations(items, answers) {
+    const s = getSettings();
+    const { text, model } = await jobCall('gradeModel', {
+      system: translationGradeSystem(s),
+      parts: [{ text: translationGradeUser(items, answers, s.targetLanguage) }],
+      temperature: 0,
+      maxOutputTokens: 8192,
+    });
+    const results = readTranslationGrade(text, items);
+    if (!results) throw new GeminiError(`${model} replied with something that could not be read as grades.`);
+    return { results, model };
+  }
+
   /* ── card notes ────────────────────────────────────────────────────── */
 
   /* Refuses before spending, like the other preflights: the notes job has a
@@ -920,7 +939,7 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     call, testKey, generateCard, preflight, gradeShadowing, shadowPreflight,
     draftShadowRules, reviseShadowRules, rulesPreflight, notesPreflight, writeNotes,
     readingPreflight, writeReading, speechPreflight, speakReading, jobPreflight, jobCall,
-    writeWritingBrief, gradeWriting,
+    writeWritingBrief, gradeWriting, gradeTranslations,
   };
 }
 

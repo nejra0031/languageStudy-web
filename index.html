@@ -6,7 +6,7 @@
 <title>Language Study</title>
 <meta name="description" content="Flashcards, typing practice and AI dictation for any language. Your own API key, your own files, no accounts and no server.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230f1117'/><rect x='3' y='3' width='10' height='10' fill='%23d4b455'/></svg>">
-<link rel="stylesheet" href="css/app.css?v=2026-09-27.2">
+<link rel="stylesheet" href="css/app.css?v=2026-09-27.3">
 <!-- Cache-busting. GitHub Pages lets a browser keep any file for ten minutes,
      so without this a deploy can leave you with a new index.html and an old
      module, or the reverse, and the page fails to start. Every module is
@@ -18,37 +18,39 @@
 <script type="importmap">
 {
   "imports": {
-    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-27.2",
-    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-27.2",
-    "./js/bundle.js": "./js/bundle.js?v=2026-09-27.2",
-    "./js/convert-audio.js": "./js/convert-audio.js?v=2026-09-27.2",
-    "./js/deck.js": "./js/deck.js?v=2026-09-27.2",
-    "./js/defaults.js": "./js/defaults.js?v=2026-09-27.2",
-    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-27.2",
-    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-27.2",
-    "./js/gemini.js": "./js/gemini.js?v=2026-09-27.2",
-    "./js/json-reply.js": "./js/json-reply.js?v=2026-09-27.2",
-    "./js/lookup.js": "./js/lookup.js?v=2026-09-27.2",
-    "./js/lookup-popup.js": "./js/lookup-popup.js?v=2026-09-27.2",
-    "./js/opus.js": "./js/opus.js?v=2026-09-27.2",
-    "./js/reading.js": "./js/reading.js?v=2026-09-27.2",
-    "./js/recorder.js": "./js/recorder.js?v=2026-09-27.2",
-    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-27.2",
-    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-27.2",
-    "./js/speech.js": "./js/speech.js?v=2026-09-27.2",
-    "./js/storage.js": "./js/storage.js?v=2026-09-27.2",
-    "./js/store.js": "./js/store.js?v=2026-09-27.2",
-    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-27.2",
-    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-27.2",
-    "./js/tab-reading.js": "./js/tab-reading.js?v=2026-09-27.2",
-    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-27.2",
-    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-27.2",
-    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-27.2",
-    "./js/tab-writing.js": "./js/tab-writing.js?v=2026-09-27.2",
-    "./js/text.js": "./js/text.js?v=2026-09-27.2",
-    "./js/translate.js": "./js/translate.js?v=2026-09-27.2",
-    "./js/writing.js": "./js/writing.js?v=2026-09-27.2",
-    "./js/zip.js": "./js/zip.js?v=2026-09-27.2"
+    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-27.3",
+    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-27.3",
+    "./js/bundle.js": "./js/bundle.js?v=2026-09-27.3",
+    "./js/convert-audio.js": "./js/convert-audio.js?v=2026-09-27.3",
+    "./js/deck.js": "./js/deck.js?v=2026-09-27.3",
+    "./js/defaults.js": "./js/defaults.js?v=2026-09-27.3",
+    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-27.3",
+    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-27.3",
+    "./js/gemini.js": "./js/gemini.js?v=2026-09-27.3",
+    "./js/json-reply.js": "./js/json-reply.js?v=2026-09-27.3",
+    "./js/lookup.js": "./js/lookup.js?v=2026-09-27.3",
+    "./js/lookup-popup.js": "./js/lookup-popup.js?v=2026-09-27.3",
+    "./js/opus.js": "./js/opus.js?v=2026-09-27.3",
+    "./js/reading.js": "./js/reading.js?v=2026-09-27.3",
+    "./js/recorder.js": "./js/recorder.js?v=2026-09-27.3",
+    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-27.3",
+    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-27.3",
+    "./js/speech.js": "./js/speech.js?v=2026-09-27.3",
+    "./js/storage.js": "./js/storage.js?v=2026-09-27.3",
+    "./js/store.js": "./js/store.js?v=2026-09-27.3",
+    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-27.3",
+    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-27.3",
+    "./js/tab-reading.js": "./js/tab-reading.js?v=2026-09-27.3",
+    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-27.3",
+    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-27.3",
+    "./js/tab-translate.js": "./js/tab-translate.js?v=2026-09-27.3",
+    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-27.3",
+    "./js/tab-writing.js": "./js/tab-writing.js?v=2026-09-27.3",
+    "./js/text.js": "./js/text.js?v=2026-09-27.3",
+    "./js/translate.js": "./js/translate.js?v=2026-09-27.3",
+    "./js/translation.js": "./js/translation.js?v=2026-09-27.3",
+    "./js/writing.js": "./js/writing.js?v=2026-09-27.3",
+    "./js/zip.js": "./js/zip.js?v=2026-09-27.3"
   }
 }
 </script>
@@ -72,7 +74,7 @@
   <!-- Planned modes: shown so the shape of the app is visible, but with no
        panel behind them yet. app.js says so when one is clicked. -->
   <button class="tab" role="tab" id="tab-writing" data-tab="writing" aria-selected="false" aria-controls="panel-writing">Writing</button>
-  <button class="tab tab--soon" role="tab" aria-disabled="true" data-soon="Translate">Translate</button>
+  <button class="tab" role="tab" id="tab-translate" data-tab="translate" aria-selected="false" aria-controls="panel-translate">Translate</button>
   <button class="tab tab--soon" role="tab" aria-disabled="true" data-soon="Conversation">Conversation</button>
 </nav>
 
@@ -401,6 +403,21 @@
       <p class="note prompt-warn" id="prompt-warn-writingGrade" hidden></p>
       <p class="note">Sent when you press <em>Hand in</em> on the Writing tab, as the system instruction. Placeholders: <code>{language}</code>, <code>{languageNote}</code> and <code>{feedback}</code>, the Feedback language and style setting, added at the end when the prompt has none. Nothing in it changes from one hand-in to the next, so the model can reuse it: the task, your level, a summary's source text, your cards and your writing go in a message of their own after it, in tagged blocks. The reply has to be the JSON object it describes: <code>"valid"</code>, the sections, and <code>"cards"</code>, which is how your cards are scored. A reply that cannot be read is a failure, and nothing is kept or scored.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-writingGrade-reset">Reset to default</button></div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="set-prompt-translationGrade">Translation feedback prompt — feedback model, as the system instruction</label>
+          <div class="seg" role="group" aria-label="Show the translation feedback prompt as" data-prompt="translationGrade">
+            <button type="button" data-view="edit" aria-pressed="true">Edit</button>
+            <button type="button" data-view="preview" aria-pressed="false">Preview</button>
+          </div>
+        </div>
+        <textarea id="set-prompt-translationGrade" rows="12" spellcheck="false"></textarea>
+        <textarea id="prompt-preview-translationGrade" class="prompt-preview" rows="12" readonly spellcheck="false" aria-label="Translation feedback prompt, as it will be sent" hidden></textarea>
+      </div>
+      <p class="note prompt-warn" id="prompt-warn-translationGrade" hidden></p>
+      <p class="note">Sent when you press <em>Check answers</em> on the Translate tab, as the system instruction. Placeholders: <code>{language}</code> and <code>{feedback}</code>. The items follow in a message of their own: each one's id, its English, the banked sentence as one reference answer, what you wrote, and its target words, numbered. The reply has to be a JSON array with one object per <code>"id"</code>; a reply that is not an array is a failure and nothing is scored. <code>"cards"</code> in it names the target words a wrong answer got wrong, which is how those cards are scored.</p>
+      <div class="row"><button class="btn btn--sm" id="prompt-translationGrade-reset">Reset to default</button></div>
     </div>
   </div>
 
@@ -864,6 +881,47 @@
 </div>
 </section>
 
+<!-- ── TRANSLATE ─────────────────────────────────────────────── -->
+<section class="panel" id="panel-translate" role="tabpanel" aria-labelledby="tab-translate" hidden>
+<div class="wrap">
+
+  <div class="block">
+    <div class="block-head">
+      <h2>Translate</h2>
+      <span class="hint" id="tr-pool"></span>
+    </div>
+    <div class="block-body">
+      <p class="note">Six English sentences to write in the language you are learning, <strong>in your own words</strong>: any natural, correct way of saying the same thing is right, not only the one the bank holds. They come from the <strong>sentence bank</strong> Dictation fills, for the decks ticked in the Flashcards tab, and each practises that sentence's target words. <strong>Check answers</strong> sends the whole set in one call, and the cards move with the verdicts.</p>
+      <div id="tr-gate"></div>
+
+      <div id="tr-stage" hidden>
+        <div class="row">
+          <button class="btn" id="tr-new">New set</button>
+          <span class="spacer"></span>
+          <span class="quota" id="tr-quota"></span>
+        </div>
+        <p class="note" id="tr-short" hidden></p>
+        <div id="tr-error"></div>
+
+        <div class="card" id="tr-card" hidden>
+          <div class="card-body">
+            <ol class="tr-list" id="tr-list"></ol>
+            <div class="row tr-go">
+              <button class="btn btn--primary" id="tr-check" disabled>Check answers</button>
+              <span class="note" id="tr-wait" hidden></span>
+              <span class="note tr-summary" id="tr-summary"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="gate" id="tr-idle" hidden></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</section>
+
 </main>
 
 <!-- The selection popup: filled and placed by lookup-popup.js, under whatever was selected. -->
@@ -871,6 +929,6 @@
 <!-- The Reading tab's word popup: the selection popup's shape, filled by tab-reading.js. -->
 <div class="lookup-pop" id="reading-pop" role="dialog" aria-label="A word from the text" hidden></div>
 
-<script type="module" src="js/app.js?v=2026-09-27.2"></script>
+<script type="module" src="js/app.js?v=2026-09-27.3"></script>
 </body>
 </html>

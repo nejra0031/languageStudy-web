@@ -10,6 +10,7 @@ import {
 import { LANGUAGES, codeFor, nameFor } from './lookup.js';
 import { readingVars } from './reading.js';
 import { briefVars, writingGradeSystem, writingGradeUser } from './writing.js';
+import { translationGradeSystem, translationGradeUser } from './translation.js';
 import { rulesToText, totalOf, RATINGS } from './shadow-rules.js';
 import { serializeDeck } from './deck.js';
 import { serializeBundle, parseBundle, describeBundle, bundleFilename } from './bundle.js';
@@ -556,7 +557,9 @@ function render() {
    second, read-only textarea that takes the editor's place rather than the
    editor's own text being swapped out: the editor is what draftSettings()
    reads, and what a blur commits, so it must never hold rendered text. */
-const PROMPT_VIEWS = ['sentence', 'speech', 'shadowing', 'notes', 'reading', 'writingBrief', 'writingGrade'];
+const PROMPT_VIEWS = [
+  'sentence', 'speech', 'shadowing', 'notes', 'reading', 'writingBrief', 'writingGrade', 'translationGrade',
+];
 
 /* Every prompt box works the same way: typing redraws the preview, leaving
    the box saves it, and Reset to default puts back the default this build
@@ -640,6 +643,15 @@ const PREVIEWS = {
       language: draft.targetLanguage, cards: sample, text: '<what you wrote>',
     }),
   ],
+  translationGrade: (draft, sample) => [
+    `── to ${draft.gradeModel}, as the system instruction ──`,
+    translationGradeSystem(draft),
+    '',
+    '── then, as the message, one block per sentence in the set ──',
+    translationGradeUser([{
+      id: '0', english: '<the English of a banked sentence>', sentence: '<the banked sentence>', cards: sample,
+    }], ['<what you wrote>'], draft.targetLanguage),
+  ],
 };
 
 function renderPreview() {
@@ -689,6 +701,9 @@ function renderPreview() {
      without them is a failure every time. */
   if (!draft.prompts.writingGrade.includes('"valid"') || !draft.prompts.writingGrade.includes('"cards"')) {
     warnings.writingGrade.push('The writing feedback prompt no longer asks for "valid" and "cards" in its JSON. A reply without "valid" cannot be read, and without "cards" none of your cards are scored.');
+  }
+  if (!draft.prompts.translationGrade.includes('"id"')) {
+    warnings.translationGrade.push('The translation feedback prompt no longer asks for an array keyed by "id". Grades are matched to sentences by id, so without it none can be read.');
   }
   for (const name of PROMPT_VIEWS) {
     const el = $(`prompt-warn-${name}`);
