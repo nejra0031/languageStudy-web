@@ -301,9 +301,16 @@ function renderCard() {
   $('wr-source-text').textContent = task.sourceText || '';
   $('wr-source-text').lang = lang;
 
+  /* Each card with its meaning in plain view, as Conversation lists them:
+     a meaning in a tooltip is one a phone never shows. */
   $('wr-try').innerHTML = task.cards.length
-    ? `<span class="note">Try to use:</span>${task.cards.map((c) => `<span class="chip" lang="${escapeHtml(lang)}"${c.back ? ` title="${escapeHtml(c.back)}"` : ''}>${escapeHtml(c.front)}</span>`).join('')}`
+    ? `<div class="cv-facts-head">Try to use these</div>
+      <ul>${task.cards.map((c) => `<li>
+        <span class="try-front" lang="${escapeHtml(lang)}">${escapeHtml(c.front)}</span>
+        <span class="try-back">${c.type === 'pattern' ? 'grammar pattern · ' : ''}${escapeHtml(c.back || '')}</span>
+      </li>`).join('')}</ul>`
     : '';
+  $('wr-try').hidden = !task.cards.length;
 
   const editing = !record;
   $('wr-text').hidden = !editing;

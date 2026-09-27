@@ -372,7 +372,7 @@ have:
   and summarise it. *Show the text* opens it under the task while you write,
   and the cards that text used are the ones to try to use.
 
-The cards are listed under the task as **Try to use**. The task says how many
+The cards are listed under the task as **Try to use these**, each with its meaning. The task says how many
 words it wants: an opinion piece is **Settings → Writing → Writing words**,
 60 to 120 by default; a summary asks for two thirds of that by default
 (**Summary length**, from 30% to 100%), scaled by

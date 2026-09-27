@@ -1312,7 +1312,6 @@ textarea { resize: vertical; font: 13px/1.6 var(--mono); }
   overflow-wrap: anywhere;
 }
 .wr-try { margin-top: 14px; }
-.wr-try .note { margin-right: 4px; }
 #wr-bounds { margin: 12px 0 8px; }
 .wr-text { width: 100%; font-size: 15px; line-height: 1.6; }
 .wr-written {
@@ -1391,9 +1390,12 @@ textarea { resize: vertical; font: 13px/1.6 var(--mono); }
 .cv-facts li { display: flex; gap: 8px; align-items: baseline; color: var(--fg-muted); }
 .cv-facts li.is-ok { color: var(--fg); }
 .cv-facts li.is-ok .wr-mark { color: var(--ok); }
-.cv-try li { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; }
-.cv-try-front { color: var(--fg-warm); font-weight: 600; }
-.cv-try-back { font-size: 12.5px; color: var(--fg-dim); }
+/* The cards to try to use, in Writing and Conversation: each one's front
+   and its meaning, in plain view. */
+.try-list li { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; }
+.try-front { color: var(--fg-warm); font-weight: 600; }
+.try-back { font-size: 12.5px; color: var(--fg-dim); }
+.try-list[hidden] { display: none; }
 
 /* The chat: the other person on the left, you on the right, each line in a
    ruled box rather than a rounded bubble, as everything here is. */

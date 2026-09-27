@@ -641,11 +641,11 @@ function renderScene() {
 function tryToUseHtml(s, lang) {
   const cards = liveCards(s);
   if (!cards.length) return '';
-  return `<div class="cv-facts cv-try">
+  return `<div class="cv-facts try-list">
       <div class="cv-facts-head">Try to use these in your turns</div>
       <ul>${cards.map((c) => `<li>
-        <span class="cv-try-front" lang="${lang}">${escapeHtml(c.front)}</span>
-        <span class="cv-try-back">${c.type === 'pattern' ? 'grammar pattern · ' : ''}${escapeHtml(c.back || '')}</span>
+        <span class="try-front" lang="${lang}">${escapeHtml(c.front)}</span>
+        <span class="try-back">${c.type === 'pattern' ? 'grammar pattern · ' : ''}${escapeHtml(c.back || '')}</span>
       </li>`).join('')}</ul>
     </div>`;
 }
