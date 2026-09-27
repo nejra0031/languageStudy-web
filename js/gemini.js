@@ -29,7 +29,7 @@ import { translationGradeSystem, translationGradeUser, readTranslationGrade } fr
 import {
   scenarioVars, readScenario, budgetProblem, roleplayReplyRequest, readRoleplayReply,
   findOutReplyRequest, readFindOutReply, roleplayGradeRequest, readRoleplayGrade,
-  findOutGradeRequest, readFindOutGrade,
+  findOutGradeRequest, readFindOutGrade, transcribeRequest, readTranscript, withDelivery,
 } from './conversation.js';
 
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent';
@@ -901,10 +901,27 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     return { ...got, model };
   }
 
+  /* A spoken turn, written down as it was said: one call on the shadowing
+     model, since listening is that job. '' is "nothing was heard", which
+     is not a failure; a reply with no transcript at all is. */
+  async function transcribeTurn(session, clip) {
+    const s = getSettings();
+    const { system, parts } = transcribeRequest(s, session, clip);
+    const { text, model } = await jobCall('shadowModel', {
+      system, parts, temperature: 0, maxOutputTokens: 2048,
+    });
+    const transcript = readTranscript(text);
+    if (transcript === null) throw new GeminiError(`${model} did not return a transcript. Your recording is kept, so you can send it again.`);
+    return { transcript, model };
+  }
+
   /* The feedback at the end, on the feedback model. A roleplay's sixth turn
      asks for the closing line in the same call (`closing`); ending early
-     does not, and is graded at temperature 0, as lessons-web does. */
-  async function concludeConversation(session, cards, { closing = false } = {}) {
+     does not, and is graded at temperature 0, as lessons-web does. A
+     roleplay with recordings (`clips`, {turnIndex, mime, bytes}) sends them
+     too and asks how it sounded, and then the call goes to the shadowing
+     model instead, since it listens. */
+  async function concludeConversation(session, cards, { closing = false, clips = [] } = {}) {
     const s = getSettings();
     if (session.kind === 'findout') {
       const { system, user } = findOutGradeRequest(s, session, cards);
@@ -915,9 +932,9 @@ export function createClient({ getSettings, getApiKey, limiter }) {
       if (!got) throw new GeminiError(`${model} replied with something that could not be read as feedback.`);
       return { ...got, model };
     }
-    const { system, user } = roleplayGradeRequest(s, session, cards, { closing });
-    const { text, model } = await jobCall('gradeModel', {
-      system, parts: [{ text: user }], temperature: closing ? 0.5 : 0, maxOutputTokens: 16384,
+    const request = withDelivery(s, roleplayGradeRequest(s, session, cards, { closing }), clips);
+    const { text, model } = await jobCall(request.attached ? 'shadowModel' : 'gradeModel', {
+      system: request.system, parts: request.parts, temperature: closing ? 0.5 : 0, maxOutputTokens: 16384,
     });
     const got = readRoleplayGrade(text, session, cards, { closing });
     if (!got) throw new GeminiError(`${model} replied with something that could not be read as ${closing ? 'a closing line and feedback' : 'feedback'}.`);
@@ -1014,7 +1031,7 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     draftShadowRules, reviseShadowRules, rulesPreflight, notesPreflight, writeNotes,
     readingPreflight, writeReading, speechPreflight, speakReading, jobPreflight, jobCall,
     writeWritingBrief, gradeWriting, gradeTranslations,
-    conversationPreflight, writeScenario, partnerReply, concludeConversation,
+    conversationPreflight, writeScenario, partnerReply, concludeConversation, transcribeTurn,
   };
 }
 

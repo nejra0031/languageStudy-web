@@ -695,6 +695,10 @@ function keeper({ dir, key, topic }) {
       if (!state.persistent) return heldBlobs.get(name) || null;
       return storage.readBlob(name);
     },
+    async removeBlob(name) {
+      heldBlobs.delete(name);
+      if (state.persistent) await storage.remove(name);
+    },
     async adopt() {
       held.clear();
       heldBlobs.clear();
@@ -731,6 +735,13 @@ const conversations = keeper({ dir: 'conversation', key: 'conversations', topic:
 export const saveWriting = (record) => writings.save(record);
 export const loadWriting = (id) => writings.load(id);
 export const deleteWriting = (id) => writings.remove(id);
+
+/* A spoken turn's recording, written the moment it is made, and read back
+   to play or to send; deleting the conversation takes it too. Removing one
+   is for a take recorded over, or one in which nothing was heard. */
+export const writeConversationClip = (path, blob) => conversations.writeBlob(path, blob);
+export const readConversationClip = (path) => conversations.readBlob(path);
+export const removeConversationClip = (path) => conversations.removeBlob(path);
 
 export const saveConversation = (record) => conversations.save(record);
 export const loadConversation = (id) => conversations.load(id);

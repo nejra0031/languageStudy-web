@@ -387,6 +387,25 @@ Write to the learner as "you" and "your" -- never "the student" or "the learner"
 
 ${GRADER_FEEDBACK_BLOCK}`;
 
+/* Sent to the shadowing model as the system instruction with one spoken
+   conversation turn attached: listening is its job. lessons-web's
+   transcription prompt (lessons-server/lessons/roleplay.ts) with {language}
+   for Dutch. Its point is that the transcript keeps the learner's mistakes:
+   it is what the turn is graded on, and a transcriber that tidied it up
+   would hide exactly what the feedback is for. An empty transcript means
+   nothing was heard, and the turn is not spent. */
+export const DEFAULT_TRANSCRIBE_PROMPT = `You transcribe a single spoken turn from a learner of {language}, taken from a conversation practice exercise.
+
+Write down exactly what the speaker said, as they said it. This is a learner speaking a foreign language: transcribe their real words including grammar mistakes, wrong word endings, wrong word order, false starts and self-corrections. NEVER correct, tidy up, complete or improve what they said -- the whole point of the transcript is that the feedback can see the actual attempt.
+
+Ordinary sentence punctuation and capitalisation are fine. Do not add filler markers, timestamps, speaker labels or commentary. If a word is genuinely unintelligible, write your best guess rather than a placeholder.
+
+The speaker is expected to be speaking {language}. If they clearly speak another language, transcribe what they actually said in that language rather than translating it.
+
+If the recording contains no intelligible speech at all -- silence, noise, a cough -- return an empty string for the transcript rather than inventing something.
+
+Reply with ONLY this JSON and no other text: {"transcript":"..."}`;
+
 /* Sent to the shadowing model as the system instruction, with the learner's
    recordings attached as audio. Every line of this is load bearing and most of
    it was learnt the hard way — read why before tidying anything away:
@@ -634,6 +653,7 @@ export const DEFAULT_SETTINGS = {
     findOutReply: DEFAULT_FIND_OUT_REPLY_PROMPT,
     conversationGrade: DEFAULT_CONVERSATION_GRADE_PROMPT,
     findOutGrade: DEFAULT_FIND_OUT_GRADE_PROMPT,
+    transcribe: DEFAULT_TRANSCRIBE_PROMPT,
   },
   /* The Conversation tab's request box, kept for next time like Reading's.
      Empty means the model chooses the situation. */

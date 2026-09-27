@@ -111,7 +111,12 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
   text), its closing call (line and feedback in one) and its early end; a
   find-out's replies (with `revealed`, run through `normaliseIds`) and its
   conclusion, where found and missed are worked out in code. Only learner
-  turns are graded. `tab-conversation.js` saves the session after every
+  turns are graded. A spoken turn is recorded with `recorder.js`, written to
+  `conversation/<id>_<position>.<ext>` as soon as it stops, transcribed by
+  the shadowing model (`transcribeRequest`; an empty transcript spends no
+  turn), and a roleplay with recordings is graded by the shadowing model
+  with `withDelivery`, which attaches the clips and asks for a delivery note
+  judged by the language's listening rules. `tab-conversation.js` saves the session after every
   turn, the learner's turn before the call that answers it, resumes an open
   one when shown, and scores the cards once, when it ends with feedback.
 - The selection popup (Add from selected text) is not a tab: it opens over
@@ -163,14 +168,20 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
   is right, what it deliberately does not do, and anything found on the way.
   One logical change per commit.
 
-## Planned modes
+## Where the graded modes came from
 
-The last part of the port is still to come: **spoken turns** in
-Conversation, recorded with `recorder.js`, transcribed by the shadowing
-model, with a note on how the roleplay sounded. The plan is written in full
-in `practice-mode-port.md` at the repo root, a working note kept out of git
-(see `.gitignore`); its phases 0 to 3 (the shared foundations, Writing,
-Translate and typed Conversation) are built.
+Writing, Translate and Conversation are ported from lessons-web (the
+`praat-site` branch of the durkle repo), following a plan kept out of git as
+`practice-mode-port.md`. Their prompts are lessons-web's with the Dutch, the
+CEFR tables, scores and lesson content taken out, and each prompt's comment
+in `defaults.js` says what was changed and why. Left out on purpose: Praat
+(the live voice conversation, which would need a WebSocket client written
+from scratch), reading the partner's lines aloud, a microphone check screen,
+numeric scores and any per-language cleanup. A new graded mode should follow
+the same shape: prompts in `defaults.js` with a box in Settings, pure request
+building and reply reading in a module of its own, `jobCall` on one job's
+model, card verdicts through `cardVerdicts`, and one call per press with a
+Try again, never an automatic retry.
 
 ## Checking a change in a browser
 
@@ -194,6 +205,15 @@ cost time the first time:
   app's. Check those steps in Chromium instead
   (`chromium.launchPersistentContext(dir, { channel: 'chromium' })`), whose
   OPFS works; real Safari runs a different WebKit.
+- Chromium records from a fake microphone when launched with
+  `--use-fake-ui-for-media-stream --use-fake-device-for-media-stream`, which
+  is enough to drive Shadowing and spoken Conversation turns. To see the
+  refused-microphone path, replace `navigator.mediaDevices.getUserMedia` in
+  an init script with one that rejects.
+- Stub `generativelanguage.googleapis.com` with `context.route` to check the
+  graded modes without a key; tell the calls apart by their system
+  instruction. A `waitForFunction` given an async function passes at once
+  (the promise is truthy), so poll `store.state.ready` with `evaluate`.
 - Headless browsers have no speech voices. Stub `window.speechSynthesis` and
   `SpeechSynthesisUtterance` with an init script to see what would be said.
 - The repo has no package.json, so Node detects the modules as ESM. Running

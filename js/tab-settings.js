@@ -13,6 +13,7 @@ import { briefVars, writingGradeSystem, writingGradeUser } from './writing.js';
 import { translationGradeSystem, translationGradeUser } from './translation.js';
 import {
   scenarioVars, roleplayReplyRequest, findOutReplyRequest, roleplayGradeRequest, findOutGradeRequest,
+  transcribeRequest,
 } from './conversation.js';
 import { rulesToText, totalOf, RATINGS } from './shadow-rules.js';
 import { serializeDeck } from './deck.js';
@@ -562,7 +563,7 @@ function render() {
    reads, and what a blur commits, so it must never hold rendered text. */
 const PROMPT_VIEWS = [
   'sentence', 'speech', 'shadowing', 'notes', 'reading', 'writingBrief', 'writingGrade', 'translationGrade',
-  'scenario', 'roleplayReply', 'findOutReply', 'conversationGrade', 'findOutGrade',
+  'scenario', 'roleplayReply', 'findOutReply', 'conversationGrade', 'findOutGrade', 'transcribe',
 ];
 
 /* A conversation to preview the conversation prompts with: two turns of
@@ -695,6 +696,10 @@ const PREVIEWS = {
     const r = roleplayGradeRequest(draft, SAMPLE_ROLEPLAY, sample, { closing: true });
     return [`── to ${draft.gradeModel}, as the system instruction (after your sixth turn) ──`, r.system, '', '── then, as the message ──', r.user];
   },
+  transcribe: (draft) => {
+    const r = transcribeRequest(draft, SAMPLE_ROLEPLAY, { mime: 'audio/webm', base64: '…' });
+    return [`── to ${draft.shadowModel}, as the system instruction ──`, r.system, '', '── then, as the message ──', r.parts[0].text, '(then your recording)'];
+  },
   findOutGrade: (draft, sample) => {
     const r = findOutGradeRequest(draft, SAMPLE_FIND_OUT, sample);
     return [`── to ${draft.gradeModel}, as the system instruction ──`, r.system, '', '── then, as the message ──', r.user];
@@ -763,6 +768,9 @@ function renderPreview() {
   }
   if (!draft.prompts.findOutGrade.includes('"conversation"')) {
     warnings.findOutGrade.push('The find-out feedback prompt no longer asks for "conversation" in its JSON, so no reply can be read.');
+  }
+  if (!draft.prompts.transcribe.includes('"transcript"')) {
+    warnings.transcribe.push('The transcription prompt no longer asks for {"transcript": …}, so no spoken turn can be read.');
   }
   for (const name of PROMPT_VIEWS) {
     const el = $(`prompt-warn-${name}`);

@@ -1315,6 +1315,20 @@ textarea { resize: vertical; font: 13px/1.6 var(--mono); }
 .cv-natural { margin-top: 2px; }
 .cv-natural b { color: var(--ok); font-weight: 600; }
 #cv-done-row { margin-top: 16px; }
+.cv-speak { margin-bottom: 8px; }
+.cv-take { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+.cv-take audio { flex: 1 1 240px; min-width: 0; }
+.cv-take[hidden] { display: none; }
+.cv-play {
+  margin-left: 6px;
+  padding: 0 5px;
+  border: 1px solid var(--line-strong);
+  background: none;
+  color: var(--fg-muted);
+  font-size: 10px;
+  cursor: pointer;
+}
+.cv-play:hover { color: var(--fg); border-color: var(--fg-dim); }
 
 /* ── responsive ───────────────────────────────────────────────── */
 

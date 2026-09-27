@@ -479,6 +479,30 @@ press **Send** (or Enter; Shift+Enter is a new line). A turn takes 1,000
 characters at most. **End and get feedback** ends the conversation early,
 once you have had a turn, and costs one feedback call.
 
+### Speaking your turns
+
+Any turn can be spoken instead. **Speak** starts the microphone and **Stop
+recording** ends the take, which is saved at once. Play it back, then **Send
+recording**, or **Record again** to replace it. Sending has the shadowing
+model **write down what you said, as you said it**: your mistakes are kept,
+since they are what the feedback is about. That is one call on the shadowing
+model per spoken turn. If nothing could be heard, the turn is not spent and
+the take is dropped, so record it again. If the call fails, the recording is
+kept and **Try again** sends it again. A spoken turn shows ▶ in the chat to
+hear it again.
+
+A **roleplay** you spoke some of gets one more thing in its feedback, **How
+you sounded**: a few sentences on how your turns sounded, judged by the
+[listening rules](#listening-rules-and-how-they-learn) Shadowing uses for your
+language. The closing call then carries your recordings, oldest first, up to
+12 MB, and goes to the shadowing model rather than the feedback model, since
+it listens. A conversation typed throughout is graded as before, with no such
+note. The note cannot be rated, so it does not change the listening rules.
+
+Where the browser cannot record, or the microphone is blocked, the typed box
+is all there is, and the tab says why. Recordings are kept beside the
+conversation and go when it is deleted.
+
 **Nothing is lost when a call fails.** Your turn is saved before it is sent,
 and every turn after it, so a reply that fails keeps your turn and **Try
 again** sends the same conversation again. A conversation you leave open,
@@ -706,6 +730,8 @@ writing/<id>.json         one piece: the task, the cards, what you wrote,
                           and the feedback
 conversation/manifest.json   the index of conversations
 conversation/<id>.json       one conversation: its scene, turns and feedback
+conversation/<id>_<n>.webm   your own voice: the spoken turn at position n
+                             (.ogg on Firefox, .mp4 on Safari)
 ```
 
 The shadowing takes are named from the recorder's own container, so they are
@@ -849,7 +875,8 @@ the device voice reads instead and Settings says why.
 
 ## The API key
 
-Dictation calls `generativelanguage.googleapis.com` directly from the page. Get
+Dictation, Shadowing, Reading, Writing, Translate and Conversation call
+`generativelanguage.googleapis.com` directly from the page. Get
 a free key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
 and paste it into Settings.
 
@@ -868,7 +895,7 @@ never see, you need a server, and this project deliberately does not have one.
 with its own calls-per-minute and calls-per-day. **Settings → What each model
 does** then hands out the six jobs — writing the sentence (and the
 Reading tab's texts), speaking it,
-listening to your shadowing, writing a card's notes when you ask for them
+listening to your shadowing (and to your spoken conversation turns), writing a card's notes when you ask for them
 in the [selection form](#adding-a-card-from-selected-text), giving
 **feedback** on writing, translations and conversations, and playing the other
 side of a **conversation** — from that list. A settings file from before the
@@ -1018,6 +1045,14 @@ checklist. The **roleplay feedback** prompt is sent when a roleplay ends:
 after an early end. The **find-out feedback** prompt is sent when a find out
 ends, told what you found out. All five are lessons-web's, with Dutch taken
 out and your cards added.
+
+The **transcription prompt** is sent to the shadowing model with each spoken
+turn, and takes `{language}`. It asks for exactly what you said, mistakes
+included, as `{"transcript": "…"}`; an empty transcript means nothing was
+heard. When a roleplay with spoken turns ends, its feedback prompt is sent
+with a **delivery addendum** added by the app, not editable here: it asks for
+`"deliveryNote"` and lists your language's listening rules, as the shadowing
+prompt's `{rules}` does.
 
 ## Running it locally
 

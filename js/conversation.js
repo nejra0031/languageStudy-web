@@ -31,6 +31,8 @@ import { extractTrailingJson, cardVerdicts } from './json-reply.js';
 import { fillTemplate, withFeedbackBlock, feedbackRequestText } from './gemini.js';
 import { normalize } from './text.js';
 import { modelLimits } from './defaults.js';
+import { attachableClips, toBase64 } from './shadowing.js';
+import { rulesFor, formatRulesBlock } from './shadow-rules.js';
 
 export const KINDS = ['roleplay', 'findout'];
 export const MAX_LEARNER_TURNS = 6;
@@ -395,4 +397,99 @@ export function readFindOutGrade(reply, session, cards) {
 export function conversationTitle(session) {
   const sc = session.scenario || {};
   return String((session.kind === 'findout' ? sc.goal || sc.situation : sc.scenario) || '').trim();
+}
+
+/* ── spoken turns ────────────────────────────────────────────────────── */
+
+/* What the transcriber is given besides the recording: the scene and the
+   line being answered, to hear a hesitant speaker accurately, and a warning
+   not to let that context put words in their mouth. `clip` is
+   {mime, bytes}. */
+export function transcribeRequest(settings, session, clip) {
+  const sc = session.scenario || {};
+  const context = [
+    sc.scenario || sc.situation ? `Situation: ${sc.scenario || sc.situation}` : '',
+    sc.studentRole ? `The speaker is playing: ${sc.studentRole}` : '',
+    sc.llmRole ? `They are talking to: ${sc.llmRole}` : '',
+    settings.learnerLevel ? `Their level: ${settings.learnerLevel}` : '',
+  ].filter(Boolean).join('\n');
+  const last = [...(session.turns || [])].reverse().find((t) => t.speaker !== 'learner');
+  const text = [
+    context,
+    last ? `The line they are replying to: "${last.text}"` : '',
+    'Use the above only to hear the recording accurately. Do not let it lead you into transcribing a reply the speaker did not actually give.',
+    'The recording:',
+  ].filter(Boolean).join('\n\n');
+  return {
+    system: fillTemplate(settings.prompts.transcribe, { language: settings.targetLanguage }),
+    parts: [
+      { text },
+      { inlineData: { mimeType: clip.mime || 'audio/webm', data: clip.base64 || toBase64(clip.bytes) } },
+    ],
+  };
+}
+
+/* The transcript, trimmed and capped, which may be '' for a recording with
+   nothing in it; null for a reply without one at all, which is a failure. */
+export function readTranscript(reply) {
+  const p = extractTrailingJson(reply);
+  if (!p || typeof p !== 'object' || typeof p.transcript !== 'string') return null;
+  return p.transcript.replace(/\s+/g, ' ').trim().slice(0, MAX_TURN_TEXT);
+}
+
+/* How the model is to listen, lessons-web's PRONUNCIATION_JUDGING with
+   {language} for Dutch. The rules it applies are this language's own
+   listening rules, the ones Shadowing grades by and your ratings revise. */
+export const DELIVERY_JUDGING = `How to use the <rules>:
+- Check every recording against every rule that applies to the words in it. Your job is to find where the {language} went wrong; a note that finds nothing wrong in recordings that had problems teaches nothing.
+- Every problem you report names the sound, quotes the {language} word it happened in, and says what the sound should do instead. Report the clearest problems, most important first. The rule numbers are for your reference only: the learner never sees the list, so never write a number in your feedback.
+- Say nothing about anything outside the rules.
+- Praise is allowed ONLY for a rule that was clearly met on a word where it is easy to get wrong, and it must name the sound and the word. Never praise in general terms ("good pace", "clear", "nice job", "well done").
+- Do not soften a problem into something smaller than it was ("slightly", "a tiny bit", "almost perfect") unless it really was minor.
+- NEVER pass judgement on their accent as a whole, never call an accent strong, heavy or foreign, and never hold up sounding like a native speaker as the goal. A concrete finding about one sound in one word is useful; a verdict on how foreign they sound is not.
+- Judge ONLY what you can actually hear. If you are not sure how a sound came out, leave it out rather than guessing either way.`;
+
+/* lessons-web's DELIVERY_ADDENDUM, appended to the roleplay grader's system
+   instruction when the conversation has recordings. The rules are this
+   language's listening rules, formatted as shadowSystem() formats them, in
+   place of lessons-web's Dutch list. */
+export function deliveryAddendum(settings) {
+  const entry = rulesFor(settings, settings.targetLanguage);
+  const rules = formatRulesBlock(entry ? entry.rules : []);
+  return `
+ONE ADDITION TO THE JSON DESCRIBED ABOVE. Attached after the text below are the learner's own recordings of the turns you are reviewing -- each one introduced by a line naming the transcript position it belongs to. The recordings are the authoritative record of what was actually said; the written turns are a transcription of them.
+
+Listen to them, and include ONE extra top-level field in the JSON alongside the fields already specified: "deliveryNote" -- two to four short sentences on how the {language} SOUNDED, rather than on what it said, judged against these rules and nothing else:
+
+<rules>
+${rules}
+</rules>
+
+${DELIVERY_JUDGING}
+
+In "deliveryNote", lead with the problems that came up most across the turns, each with the {language} word you heard it in. Address the learner as "you".
+
+Base "deliveryNote" ONLY on the recordings; if there is nothing audible to say, return an empty string for it rather than inventing something. Nothing you hear may change any other field: the closing line, "natural", "comment" and "cards" are still judged on the words alone.`.replace(/\{language\}/g, settings.targetLanguage);
+}
+
+/* The grading request with the recordings attached, oldest turn first and
+   as many as fit the 12 MB budget, each introduced by its position. With no
+   clip that fits, the request is returned as it was, with no addendum: a
+   conversation typed throughout is graded exactly as before. `clips` are
+   {turnIndex, mime, bytes}. */
+export function withDelivery(settings, { system, user }, clips) {
+  const attach = attachableClips((clips || []).slice().sort((a, b) => a.turnIndex - b.turnIndex));
+  const parts = [{ text: user }];
+  if (!attach.length) return { system, parts, attached: 0 };
+  for (const clip of attach) {
+    parts.push({ text: `Recording of the learner's turn at position ${clip.turnIndex}:` });
+    parts.push({ inlineData: { mimeType: clip.mime || 'audio/webm', data: clip.base64 || toBase64(clip.bytes) } });
+  }
+  return { system: `${system}\n${deliveryAddendum(settings)}`, parts, attached: attach.length };
+}
+
+/* Where a spoken turn's recording is kept: beside the conversation, named
+   for the position the turn takes in it. */
+export function clipPath(sessionId, turnIndex, ext) {
+  return `conversation/${sessionId}_${turnIndex}.${ext}`;
 }

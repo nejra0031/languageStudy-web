@@ -238,3 +238,75 @@ test('turns are counted for the learner only, and an unanswered last turn waits 
   assert.equal(conversationTitle(findOut), 'Averigua cómo funciona el edificio.');
   assert.equal(conversationTitle(roleplay), 'Quieres devolver unos zapatos a la tienda');
 });
+
+/* ── spoken turns ────────────────────────────────────────────────────── */
+
+import {
+  transcribeRequest, readTranscript, withDelivery, deliveryAddendum, clipPath,
+} from '../js/conversation.js';
+
+const clip = (turnIndex, size = 4) => ({ turnIndex, mime: 'audio/ogg', bytes: new Uint8Array(size).fill(65) });
+
+test('the transcriber hears the scene and the line being answered, then the recording', () => {
+  const { system, parts } = transcribeRequest(settings, roleplay, clip(5));
+  assert.match(system, /spoken turn from a learner of Spanish/);
+  assert.match(system, /NEVER correct, tidy up/);
+  assert.match(parts[0].text, /Situation: Quieres devolver unos zapatos a la tienda\nThe speaker is playing: Cliente\nThey are talking to: Dependienta\nTheir level: B1/);
+  assert.match(parts[0].text, /The line they are replying to: "¿Tiene el tique\?"/);
+  assert.ok(parts[0].text.endsWith('The recording:'));
+  assert.deepEqual(parts[1], { inlineData: { mimeType: 'audio/ogg', data: 'QUFBQQ==' } });
+});
+
+test('a transcript keeps the learner\'s words, an empty one means nothing was heard, and none is a failure', () => {
+  assert.equal(readTranscript('{"transcript":"  yo quiere   devolver "}'), 'yo quiere devolver');
+  assert.equal(readTranscript('{"transcript":""}'), '');
+  assert.equal(readTranscript('{"text":"x"}'), null);
+  assert.equal(readTranscript('garbage'), null);
+  assert.equal(readTranscript(JSON.stringify({ transcript: 'x'.repeat(3000) })).length, 1000);
+});
+
+test('a typed conversation is graded as it was: no addendum, no audio', () => {
+  const out = withDelivery(settings, { system: 'SYS', user: 'USER' }, []);
+  assert.deepEqual(out, { system: 'SYS', parts: [{ text: 'USER' }], attached: 0 });
+});
+
+test('recordings go oldest first, each after a line naming its position, with the delivery addendum', () => {
+  const out = withDelivery(settings, { system: 'SYS', user: 'USER' }, [clip(3), clip(1)]);
+  assert.equal(out.attached, 2);
+  assert.deepEqual(out.parts.map((p) => p.text || 'AUDIO'), [
+    'USER',
+    "Recording of the learner's turn at position 1:", 'AUDIO',
+    "Recording of the learner's turn at position 3:", 'AUDIO',
+  ]);
+  assert.ok(out.system.startsWith('SYS\n'));
+  assert.match(out.system, /"deliveryNote" -- two to four short sentences on how the Spanish SOUNDED/);
+});
+
+test('recordings past the 12 MB budget are dropped from the end', () => {
+  const big = { turnIndex: 1, mime: 'audio/webm', bytes: new Uint8Array(8 * 1024 * 1024) };
+  const out = withDelivery(settings, { system: 'SYS', user: 'USER' }, [big, { ...big, turnIndex: 3 }]);
+  assert.equal(out.attached, 1);
+});
+
+test('the delivery addendum listens by this language\'s own rules', () => {
+  const withRules = withDefaults({
+    targetLanguage: 'Spanish',
+    shadowRules: { spanish: { generation: 1, rules: [{ id: 1, kind: 'listen', text: 'Tap the r in "pero".' }] } },
+  });
+  const text = deliveryAddendum(withRules);
+  assert.match(text, /<rules>\nWhat to listen for:\n1\. Tap the r in "pero"\.\n<\/rules>/);
+  assert.doesNotMatch(text, /Dutch|\{language\}/);
+  assert.match(deliveryAddendum(withDefaults({ targetLanguage: 'Klingon' })), /No rules yet/);
+});
+
+test('the delivery note is read when there is one, and empty is none', () => {
+  const base = { feedback: [], cards: [] };
+  assert.equal(readRoleplayGrade(JSON.stringify({ ...base, deliveryNote: '  Your r in "pero" was an English r.  ' }), roleplay, cards, { closing: false }).deliveryNote,
+    'Your r in "pero" was an English r.');
+  assert.equal(readRoleplayGrade(JSON.stringify({ ...base, deliveryNote: ' ' }), roleplay, cards, { closing: false }).deliveryNote, null);
+  assert.equal(readRoleplayGrade(JSON.stringify(base), roleplay, cards, { closing: false }).deliveryNote, null);
+});
+
+test('a spoken turn\'s recording is named for its conversation and its position', () => {
+  assert.equal(clipPath('c_20260927_0001', 3, 'webm'), 'conversation/c_20260927_0001_3.webm');
+});

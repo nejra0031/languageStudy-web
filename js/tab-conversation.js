@@ -27,13 +27,15 @@ import { isPattern, inScope } from './deck.js';
 import { pickReadingCards, nextDatedId } from './reading.js';
 import {
   MAX_LEARNER_TURNS, MAX_TURN_TEXT, CONVERSATION_TERMS, callsNeeded, budgetProblem, learnerTurns,
-  awaitingReply, factStatus, normaliseIds, suggestionChanged, conversationTitle,
+  awaitingReply, factStatus, normaliseIds, suggestionChanged, conversationTitle, clipPath,
 } from './conversation.js';
 import { escapeHtml } from './text.js';
 import { formatWait } from './gemini.js';
 import { describe } from './tab-settings.js';
 import { languageCode } from './speech.js';
 import { scoreVerdicts, cardsResultHtml } from './tab-writing.js';
+import { createRecorder, SUPPORTED as CAN_RECORD } from './recorder.js';
+import { extensionFor } from './shadowing.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -53,6 +55,16 @@ let saved = null;
 /* The row whose Delete has been pressed once. */
 let armed = null;
 let disarm = 0;
+/* The microphone, and a take recorded but not yet sent: {blob, url, path,
+   mime}. The take is written to the store the moment it is recorded, so
+   it survives a failed send; it becomes a turn only once it has been
+   written down. */
+let micDenied = false;
+const recorder = createRecorder({ onChange: (st) => { micDenied = st.micDenied; } });
+let recording = false;
+let pending = null;
+/* The one recording playing. */
+let player = null;
 
 export function init() {
   $('cv-kind').addEventListener('click', (e) => {
@@ -79,6 +91,12 @@ export function init() {
   });
   $('cv-text').addEventListener('input', renderInput);
   $('cv-end').addEventListener('click', endEarly);
+  $('cv-record').addEventListener('click', toggleRecord);
+  $('cv-send-take').addEventListener('click', sendTake);
+  $('cv-chat').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-play]');
+    if (btn) playTurn(Number(btn.dataset.play));
+  });
   $('cv-again').addEventListener('click', startAgain);
   $('cv-error').addEventListener('click', (e) => {
     if (e.target.closest('[data-act="retry"]') && retry) retry();
@@ -133,6 +151,7 @@ export async function onShow() {
    whose last turn was never answered offers Try again at once: that reply
    is what it is waiting for. */
 function take(record) {
+  if (!session || session.id !== record.id) forgetTake();
   session = record;
   moves = null;
   saved = null;
@@ -142,6 +161,17 @@ function take(record) {
     retry = () => answer();
     showError('Your last turn has no reply yet.', true);
   }
+}
+
+/* Leaving the tab closes the microphone: a stream left running keeps the
+   browser's recording indicator lit. A take being recorded is abandoned;
+   one already recorded stays, waiting to be sent. */
+export function onHide() {
+  if (recording) {
+    recorder.dispose();
+    recording = false;
+  }
+  stopPlayer();
 }
 
 function isActive() {
@@ -214,7 +244,8 @@ function costLine(k) {
   const parts = needs.map((r) => `${r.count} on ${r.model} (${r.jobs.join(', ')})`);
   return `This costs ${total} calls: ${parts.join('; ')}.`
     + ` ${k === 'findout' ? 'The other person answers all six of your turns.' : 'Your sixth turn is answered by the same call as the feedback.'}`
-    + ' Ending early costs less.';
+    + ' Ending early costs less.'
+    + ` A spoken turn adds one call on ${s.shadowModel} to write it down, and a roleplay with spoken turns is graded by ${s.shadowModel}, since it listens to them.`;
 }
 
 function renderBriefing() {
@@ -288,6 +319,7 @@ async function start() {
 
 function startAgain() {
   if (working) return;
+  forgetTake();
   session = null;
   moves = null;
   saved = null;
@@ -313,6 +345,7 @@ async function send() {
   const text = $('cv-text').value.replace(/\s+/g, ' ').trim().slice(0, MAX_TURN_TEXT);
   if (!text || learnerTurns(session) >= MAX_LEARNER_TURNS) return;
   $('cv-text').value = '';
+  await dropTake();
   session.turns.push({ speaker: 'learner', text });
   await save();
   await answer();
@@ -355,6 +388,135 @@ async function answer() {
   else $('cv-text').focus();
 }
 
+/* ── spoken turns ────────────────────────────────────────────────────── */
+
+async function toggleRecord() {
+  if (working || !session || session.ended || awaitingReply(session)) return;
+  stopPlayer();
+  if (recording) { await finishTake(); return; }
+  const ok = await recorder.start();
+  if (!ok) {
+    showError(micDenied
+      ? 'The microphone is blocked for this page. Allow it in your browser’s address bar, then try again, or type your turn.'
+      : 'The microphone could not be started. Check that this site may use it and that something is plugged in, or type your turn.');
+    renderInput();
+    return;
+  }
+  showError('');
+  recording = true;
+  renderInput();
+}
+
+/* Stopping is keeping: the take is written to the store at once, under the
+   position the turn will take, replacing an earlier take of the same turn. */
+async function finishTake() {
+  recording = false;
+  const s = session;
+  const blob = await recorder.stop();
+  if (!blob || !blob.size) {
+    showError('Nothing was recorded. Try again, and give it a moment before you speak.');
+    renderInput();
+    return;
+  }
+  const mime = blob.type || 'audio/webm';
+  const path = clipPath(s.id, s.turns.length, extensionFor(mime));
+  if (pending && pending.path !== path) await store.removeConversationClip(pending.path);
+  if (pending) URL.revokeObjectURL(pending.url);
+  pending = null;
+  if (!(await store.writeConversationClip(path, blob))) {
+    showError('That recording could not be saved. Record your turn again.');
+    renderInput();
+    return;
+  }
+  pending = { blob, url: URL.createObjectURL(blob), path, mime };
+  showError('');
+  renderInput();
+}
+
+async function dropTake() {
+  if (!pending) return;
+  URL.revokeObjectURL(pending.url);
+  await store.removeConversationClip(pending.path);
+  pending = null;
+}
+
+/* The take, written down by the shadowing model, then sent like a typed
+   turn. Nothing heard means the turn is not spent: the take is dropped and
+   the learner records again. A failure keeps the take for Try again. */
+async function sendTake() {
+  const s = session;
+  if (working || !s || s.ended || !pending || awaitingReply(s) || learnerTurns(s) >= MAX_LEARNER_TURNS) return;
+  const take = pending;
+  working = 'listening';
+  retry = null;
+  showError('');
+  render();
+  let transcript = null;
+  try {
+    const bytes = new Uint8Array(await take.blob.arrayBuffer());
+    ({ transcript } = await store.client.transcribeTurn(s, { mime: take.mime, bytes }));
+  } catch (e) {
+    console.error(e);
+    if (session === s) {
+      retry = () => sendTake();
+      showError(`${describe(e)} Your recording is kept.`, true);
+    }
+    return;
+  } finally {
+    working = null;
+    render();
+  }
+  if (session !== s || pending !== take) return;
+  if (!transcript) {
+    await dropTake();
+    showError('Nothing was heard in that recording, so the turn was not spent. Record it again.');
+    renderInput();
+    return;
+  }
+  URL.revokeObjectURL(take.url);
+  pending = null;
+  s.turns.push({ speaker: 'learner', text: transcript, take: take.path, mime: take.mime });
+  await save();
+  await answer();
+}
+
+/* A take belongs to the conversation it was recorded in. Moving to
+   another leaves the file where it is: it goes with its conversation. */
+function forgetTake() {
+  if (recording) { recorder.dispose(); recording = false; }
+  if (pending) URL.revokeObjectURL(pending.url);
+  pending = null;
+}
+
+/* Every spoken turn's recording, oldest first, as bytes, for the closing
+   call to listen to. A file that cannot be read is left out. */
+async function clipsOf(s) {
+  const out = [];
+  for (let i = 0; i < s.turns.length; i++) {
+    const t = s.turns[i];
+    if (t.speaker !== 'learner' || !t.take) continue;
+    const blob = await store.readConversationClip(t.take);
+    if (blob) out.push({ turnIndex: i, mime: t.mime || blob.type || 'audio/webm', bytes: new Uint8Array(await blob.arrayBuffer()) });
+  }
+  return out;
+}
+
+async function playTurn(i) {
+  const t = session && session.turns[i];
+  if (!t || !t.take) return;
+  stopPlayer();
+  const blob = await store.readConversationClip(t.take);
+  if (!blob) { showError('That recording could not be read.'); return; }
+  const url = URL.createObjectURL(blob);
+  player = new Audio(url);
+  player.onended = () => URL.revokeObjectURL(url);
+  player.play().catch(() => URL.revokeObjectURL(url));
+}
+
+function stopPlayer() {
+  if (player) { player.pause(); player = null; }
+}
+
 function endEarly() {
   if (working || !session || session.ended || learnerTurns(session) < 1) return;
   finish({ closing: false });
@@ -373,7 +535,8 @@ async function finish({ closing }) {
   showError('');
   render();
   try {
-    const got = await store.client.concludeConversation(s, liveCards(s), { closing });
+    const clips = s.kind === 'roleplay' ? await clipsOf(s) : [];
+    const got = await store.client.concludeConversation(s, liveCards(s), { closing, clips });
     if (session !== s) return;
     if (closing && got.reply) s.turns.push({ speaker: 'partner', text: got.reply });
     s.feedback = s.kind === 'findout'
@@ -464,10 +627,17 @@ function renderScene() {
 function renderChat() {
   const s = session;
   const lang = escapeHtml(languageCode(s.language || store.state.settings.targetLanguage));
-  const bubbles = s.turns.map((t) => `<div class="cv-bubble cv-bubble--${t.speaker === 'learner' ? 'me' : 'them'}">
-      <span class="cv-who">${escapeHtml(t.speaker === 'learner' ? s.scenario.studentRole : s.scenario.llmRole)}</span>
+  const bubbles = s.turns.map((t, i) => `<div class="cv-bubble cv-bubble--${t.speaker === 'learner' ? 'me' : 'them'}">
+      <span class="cv-who">${escapeHtml(t.speaker === 'learner' ? s.scenario.studentRole : s.scenario.llmRole)}${t.take
+        ? ` <button type="button" class="cv-play" data-play="${i}" aria-label="Play your recording of this turn" title="Play your recording">▶</button>` : ''}</span>
       <span class="cv-said" lang="${lang}">${escapeHtml(t.text)}</span>
     </div>`);
+  if (working === 'listening') {
+    bubbles.push(`<div class="cv-bubble cv-bubble--me cv-thinking" aria-live="polite">
+      <span class="cv-who">${escapeHtml(s.scenario.studentRole)}</span>
+      <span class="cv-said"><span class="spinner"></span>Writing down what you said</span>
+    </div>`);
+  }
   if (working === 'sending' || working === 'grading') {
     bubbles.push(`<div class="cv-bubble cv-bubble--them cv-thinking" aria-live="polite">
       <span class="cv-who">${escapeHtml(working === 'grading' ? 'Feedback' : s.scenario.llmRole)}</span>
@@ -494,8 +664,41 @@ function renderInput() {
   const st = store.state.settings;
   const replyBlocked = store.limiter.usageOf(st, n + 1 >= MAX_LEARNER_TURNS && s.kind === 'roleplay' ? st.gradeModel : st.chatModel).retryAfter > 0;
   const gradeBlocked = store.limiter.usageOf(st, st.gradeModel).retryAfter > 0;
-  $('cv-send').disabled = !!working || waiting || !text.value.trim() || !storage.getApiKey() || replyBlocked;
-  $('cv-end').disabled = !!working || n < 1 || !storage.getApiKey() || gradeBlocked;
+  $('cv-send').disabled = !!working || waiting || recording || !text.value.trim() || !storage.getApiKey() || replyBlocked;
+  $('cv-end').disabled = !!working || recording || n < 1 || !storage.getApiKey() || gradeBlocked;
+  renderSpeak(waiting, replyBlocked);
+}
+
+/* The spoken half of the input: Speak, Stop recording, then the take to
+   play back with Record again and Send recording. Where the browser cannot
+   record, or the microphone is blocked, the typed box is all there is, and
+   the note says why. */
+function renderSpeak(waiting, replyBlocked) {
+  const btn = $('cv-record');
+  const note = $('cv-mic-note');
+  if (!CAN_RECORD) {
+    btn.hidden = true;
+    $('cv-take').hidden = true;
+    note.hidden = false;
+    note.textContent = 'This browser cannot record audio, so type your turns.';
+    return;
+  }
+  btn.hidden = false;
+  btn.disabled = !!working || waiting || !storage.getApiKey();
+  btn.classList.toggle('is-rec', recording);
+  btn.textContent = recording ? '■ Stop recording' : pending ? '● Record again' : '● Speak';
+  note.hidden = !micDenied;
+  note.textContent = micDenied ? 'The microphone is blocked for this page. Allow it in the address bar, or type your turn.' : '';
+  const take = $('cv-take');
+  take.hidden = !pending || recording;
+  if (pending) {
+    const audio = $('cv-take-audio');
+    if (audio.dataset.url !== pending.url) { audio.src = pending.url; audio.dataset.url = pending.url; }
+    const st = store.state.settings;
+    const listenBlocked = store.limiter.usageOf(st, st.shadowModel).retryAfter > 0;
+    $('cv-send-take').disabled = !!working || waiting || listenBlocked || replyBlocked || !storage.getApiKey();
+    $('cv-send-take').title = `One call on ${st.shadowModel} to write it down, then the reply`;
+  }
 }
 
 function renderResult() {
@@ -590,7 +793,7 @@ async function remove(id) {
     return;
   }
   armed = null;
-  if (session && session.id === id) { session = null; retry = null; showError(''); }
+  if (session && session.id === id) { forgetTake(); session = null; retry = null; showError(''); }
   await store.deleteConversation(id);
   render();
 }
