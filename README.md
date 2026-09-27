@@ -38,10 +38,11 @@ without knowing anything about any of them.
 The tab strip has two groups: Settings and Flashcards set things up, and
 after a gap come the practice modes.
 
-**Settings** — where your data is saved, your API key, the language, the models, the call
-budget, the prompts, the read-aloud voice, and which Gemini voices may read to you.
-It is also where you turn on [adding a card from selected
-text](#adding-a-card-from-selected-text), which works on every tab.
+**Settings** — every setting, in sections that open and close: first the
+general ones (your data, API keys, models and budget, language, feedback, and
+[adding a card from selected text](#adding-a-card-from-selected-text)), then
+one section per practice mode, holding everything about that mode, its models
+and its prompts included. See [Settings](#settings).
 
 **Flashcards** — a text box containing the deck file exactly as it is stored.
 There is no form over the top of it and no hidden second file: what you read is
@@ -168,7 +169,7 @@ row of its own, which opens the set at that hand-in.
 
 ### The language of the feedback
 
-**Settings → Shadowing → Feedback language and style** says how the notes are
+**Settings → Feedback → Feedback language and style** says how the notes are
 written, in your own words: *English*, *English and Vietnamese*, *English,
 avoid technical terms*, *Vietnamese, with an English summary at the end*.
 Whatever you type goes to the model as your request. The only things it cannot
@@ -368,7 +369,7 @@ have:
   and the cards that text used are the ones to try to use.
 
 The cards are listed under the task as **Try to use**. The task says how many
-words it wants: an opinion piece is **Settings → Language → Writing words**,
+words it wants: an opinion piece is **Settings → Writing → Writing words**,
 60 to 120 by default; a summary asks for about two thirds of that, scaled by
 the length of the text (a long article allows more, a short story less, at
 most 30% either way) and rounded to fives. The counter under the box turns
@@ -863,7 +864,7 @@ To make a key: sign in at [portal.azure.com](https://portal.azure.com),
 **Create a resource**, search **Speech**, and create one with the **Free F0**
 pricing tier and a region near you (Southeast Asia, say). Once it is
 deployed, **Keys and Endpoint** shows *KEY 1* and the *Location/Region*;
-paste both into **Settings → Read-aloud voice**.
+paste both into **Settings → Typing**, under *Read-aloud voice*.
 
 The free tier covers 500,000 characters a month. Each word is fetched from
 Azure once, ever: the clip is saved in `voice/` beside the rest of your data,
@@ -891,9 +892,11 @@ never see, you need a server, and this project deliberately does not have one.
 
 ### Models, and the call budget
 
-**Settings → Models** is a list: every Gemini model you use, entered once, each
-with its own calls-per-minute and calls-per-day. **Every call the app makes is
-a job of its own**, and each job is given one model from that list:
+**Settings → Models and budget** is a list: every Gemini model you use, entered
+once, each with its own calls-per-minute and calls-per-day. **Every call the
+app makes is a job of its own**, and each job is given one model from that
+list, in the Settings section of the mode it belongs to (Dictation's two in
+Dictation, Conversation's four in Conversation):
 
 | Job | What it does |
 |---|---|
@@ -949,8 +952,12 @@ key is worse than no card at all.
 
 ### Prompts
 
-All the prompts sent to the API are yours to edit, in **Settings → Prompts**.
-The switch beside each one turns its box from **Edit** to **Preview**: exactly
+All the prompts sent to the API are yours to edit. Each is in the Settings
+section of the mode that sends it, in a **Prompts** panel there, closed until
+you open it: the sentence and speech prompts under Dictation, the notes prompt
+under Add from selected text, and so on. **Reset prompts**, at the end of the
+page, puts all of them back to the defaults at once, after asking once more in
+place. The switch beside each one turns its box from **Edit** to **Preview**: exactly
 what will be sent, filled in with your settings and three of your cards, and
 kept up to date as you type. The preview cannot be edited; switch back to make
 a change. A prompt that has lost something it needs, such as `{terms}`, says so
@@ -1068,6 +1075,30 @@ heard. When a roleplay with spoken turns ends, its feedback prompt is sent
 with a **delivery addendum** added by the app, not editable here: it asks for
 `"deliveryNote"` and lists your language's listening rules, as the shadowing
 prompt's `{rules}` does.
+
+## Settings
+
+Settings is one page of sections that open and close, in three groups:
+
+- **General**: *Your data* (where it is saved, backups, the bundle), *API
+  keys*, *Models and budget* (the model list, which job each is doing, and
+  what has been spent), *Language*, *Feedback* (the feedback language and
+  style every graded mode uses) and *Add from selected text*.
+- **Practice modes**: one section each for Typing, Dictation, Shadowing,
+  Reading, Writing, Translate and Conversation, holding everything about that
+  mode: its options, the model for each of its jobs, and a **Prompts** panel
+  with its prompts.
+- **Reset**: *Reset prompts*.
+
+Each closed section shows a one-line summary of what it holds beside its
+title, such as the word counts and model of Dictation, so the setup can be
+read without opening anything. **Which sections are open is remembered in
+this browser** (not in your data folder or a bundle, since it is not part of
+your setup); a first visit opens API keys. **Expand all** and **Collapse
+all** open or close every section, and **Find a setting** shows only the
+sections whose words match, opened, until the box is cleared. A section that
+needs attention opens itself when the page loads: API keys while there is no
+Gemini key, and a section holding a prompt that has lost something it needs.
 
 ## Running it locally
 

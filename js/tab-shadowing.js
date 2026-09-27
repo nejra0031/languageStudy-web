@@ -750,7 +750,7 @@ function renderRulesNews() {
       <strong>Your ratings revised the ${escapeHtml(store.state.settings.targetLanguage)} listening rules. They are version ${entry.generation} now${summary ? `: ${summary}` : ''}.</strong>
       ${entry.reason ? `<p class="note">${escapeHtml(entry.reason)}</p>` : ''}
       ${whys.length ? `<details><summary>What changed</summary><ul>${whys.join('')}</ul></details>` : ''}
-      <p class="note">You can read and edit the rules in Settings → Shadowing.</p>
+      <p class="note">You can read and edit the rules in <a href="#sec-shadowing" data-open-sec="shadowing">Settings → Shadowing</a>.</p>
     </div>
     <div class="row"><button class="btn btn--sm" data-act="rules-undo">Undo</button>${dismiss}</div>
     </div>`;

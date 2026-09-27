@@ -68,6 +68,8 @@ export function init() {
     renderSpeak();
   });
   store.subscribe('settings', renderSpeak);
+  /* The direction can be changed in Settings too. */
+  store.subscribe('settings', (st) => setSeg('ty-dir', 'dir', st.settings.typingDirection));
   speech.onVoicesChanged(renderSpeak);
   speech.onSpoken(renderVoiceNote);
   wireSpeechPanel();

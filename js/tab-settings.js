@@ -63,10 +63,206 @@ export function init() {
   store.subscribe('bank', () => renderBankConvert());
   wireBackupDue();
   wireBankConvert();
+  wireSections();
+  wireTyping();
+  wireResetAll();
   render();
   renderStore();
   renderQuota();
   setInterval(renderQuota, 1000);
+  store.subscribe('folder', renderSummaries);
+  store.subscribe('ready', openProblems);
+}
+
+/* ── the sections ────────────────────────────────────────────────────── */
+
+/* Every section, and the Prompts panel inside some of them, is a <details>
+   named by data-acc. Which are open is a convenience of this browser, not
+   part of the setup, so it is kept in localStorage — never in
+   settings.json, where it would travel with the data folder and a bundle.
+   A first visit opens API keys only. */
+const OPEN_KEY = 'lsw.settingsOpen';
+let openState = {};
+/* While a search is filtering the page, opening and closing is the search's
+   doing and is not remembered. */
+let searching = false;
+
+function readOpen() {
+  try {
+    const v = JSON.parse(localStorage.getItem(OPEN_KEY));
+    return v && typeof v === 'object' && !Array.isArray(v) ? v : null;
+  } catch (e) { return null; }
+}
+
+function writeOpen() {
+  try { localStorage.setItem(OPEN_KEY, JSON.stringify(openState)); } catch (e) { /* ignore */ }
+}
+
+function allDetails() {
+  return [...document.querySelectorAll('#panel-settings details[data-acc]')];
+}
+
+function sections() {
+  return [...document.querySelectorAll('#panel-settings details.sec')];
+}
+
+function wireSections() {
+  openState = readOpen() || { keys: true };
+  for (const d of allDetails()) {
+    d.open = !!openState[d.dataset.acc];
+    d.addEventListener('toggle', () => {
+      if (searching) return;
+      if (!!openState[d.dataset.acc] === d.open) return;
+      openState[d.dataset.acc] = d.open;
+      writeOpen();
+    });
+  }
+  $('sec-open-all').addEventListener('click', () => setAll(true));
+  $('sec-close-all').addEventListener('click', () => setAll(false));
+  $('sec-search').addEventListener('input', (e) => search(e.target.value));
+  $('api-key').addEventListener('change', renderSummaries);
+}
+
+/* The sections, not the Prompts panels inside them: expanding everything
+   should not unroll fourteen prompts. */
+function setAll(open) {
+  clearSearch();
+  for (const d of sections()) {
+    d.open = open;
+    openState[d.dataset.acc] = open;
+  }
+  writeOpen();
+}
+
+/* Shows only the sections whose words match, opened, and a Prompts panel
+   too when the match is inside it. Clearing it puts back what was open. */
+function search(query) {
+  const q = String(query || '').trim().toLowerCase();
+  searching = !!q;
+  let any = false;
+  for (const d of sections()) {
+    if (!q) {
+      d.hidden = false;
+      d.open = !!openState[d.dataset.acc];
+      for (const p of d.querySelectorAll('details[data-acc]')) p.open = !!openState[p.dataset.acc];
+      continue;
+    }
+    const hit = d.textContent.toLowerCase().includes(q);
+    d.hidden = !hit;
+    if (!hit) continue;
+    any = true;
+    d.open = true;
+    for (const p of d.querySelectorAll('details[data-acc]')) {
+      if (p.textContent.toLowerCase().includes(q)) p.open = true;
+    }
+  }
+  /* A group heading with nothing left under it goes too. */
+  for (const h of document.querySelectorAll('#panel-settings .sec-group')) {
+    let el = h.nextElementSibling;
+    let shown = false;
+    while (el && !el.classList.contains('sec-group')) {
+      if (el.matches('details.sec') && !el.hidden) shown = true;
+      el = el.nextElementSibling;
+    }
+    h.hidden = !shown;
+  }
+  $('sec-none').hidden = !q || any;
+}
+
+function clearSearch() {
+  if (!searching) return;
+  $('sec-search').value = '';
+  search('');
+}
+
+/* Opened from elsewhere: a link on another tab, or a note on this one. */
+export function openSection(name) {
+  clearSearch();
+  const d = document.querySelector(`#panel-settings details.sec[data-acc="${name}"]`);
+  if (!d) return;
+  d.open = true;
+  d.scrollIntoView({ block: 'start', behavior: 'smooth' });
+}
+
+/* Once the store is read: a section that needs attention opens itself —
+   API keys when there is no Gemini key, and any section holding a prompt
+   that has lost something it needs, with its Prompts panel. What the
+   learner closed afterwards stays closed. */
+let problemsShown = false;
+function openProblems() {
+  if (problemsShown) return;
+  problemsShown = true;
+  if (!storage.getApiKey()) openQuietly(document.querySelector('details.sec[data-acc="keys"]'));
+  for (const warn of document.querySelectorAll('#panel-settings .prompt-warn')) {
+    if (warn.hidden) continue;
+    openQuietly(warn.closest('details.sec-prompts'));
+    openQuietly(warn.closest('details.sec'));
+  }
+}
+
+function openQuietly(d) {
+  if (d) d.open = true;
+}
+
+/* One line under each closed section's title, so the setup can be read
+   without opening anything. Sections whose line was already drawn by their
+   own code (Your data, Add from selected text, Shadowing) are not here. */
+const DIRECTION_LABEL = { 'front-to-back': 'front → back', 'back-to-front': 'back → front', random: 'mixed' };
+
+function renderSummaries() {
+  const s = store.state.settings;
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  const lines = {
+    keys: [storage.getApiKey() ? 'Gemini key set' : 'no Gemini key', azure.getKey() ? 'Azure key set' : ''],
+    models: [plural(s.models.length, 'model'), plural(MODEL_ROLES.length, 'job')],
+    language: [s.targetLanguage, s.learnerLevel],
+    feedback: [String(s.feedbackRequest || '').trim() || 'English'],
+    typing: [DIRECTION_LABEL[s.typingDirection] || s.typingDirection, s.typingSpeak ? 'read aloud' : 'silent'],
+    dictation: [`${s.sentenceWords.min}–${s.sentenceWords.max} words`, `${s.termsPerSentence} per sentence`, plural(s.voices.length, 'voice'), s.textModel],
+    reading: [s.readingModel, s.readingVoice || 'any dictation voice'],
+    writing: [`${s.writingWords.min}–${s.writingWords.max} words`, s.writingGradeModel],
+    translate: [s.translateModel],
+    conversation: [`replies ${s.chatModel}`, `feedback ${s.conversationGradeModel}`],
+  };
+  for (const [name, parts] of Object.entries(lines)) {
+    const el = $(`sum-${name}`);
+    if (el) el.textContent = parts.filter(Boolean).join(' · ');
+  }
+}
+
+/* Typing's direction and read-aloud switch, which the tab also sets. */
+function wireTyping() {
+  $('set-typing-direction').addEventListener('change', (e) => store.saveSettings({ typingDirection: e.target.value }));
+  $('set-typing-speak').addEventListener('change', (e) => store.saveSettings({ typingSpeak: e.target.checked }));
+}
+
+function renderTyping() {
+  const s = store.state.settings;
+  $('set-typing-direction').value = s.typingDirection;
+  $('set-typing-speak').checked = !!s.typingSpeak;
+}
+
+/* Every prompt back to this build's default, asked twice in place: fourteen
+   prompts may hold a lot of editing. */
+let resetArmed = false;
+let resetDisarm = 0;
+function wireResetAll() {
+  const btn = $('prompts-reset-all');
+  btn.addEventListener('click', async () => {
+    clearTimeout(resetDisarm);
+    if (!resetArmed) {
+      resetArmed = true;
+      btn.textContent = 'Really reset every prompt?';
+      resetDisarm = setTimeout(() => { resetArmed = false; btn.textContent = 'Reset every prompt'; }, 4000);
+      return;
+    }
+    resetArmed = false;
+    btn.textContent = 'Reset every prompt';
+    for (const name of PROMPT_VIEWS) $(`set-prompt-${name}`).value = DEFAULT_SETTINGS.prompts[name];
+    await store.saveSettings({ prompts: { ...store.state.settings.prompts, ...DEFAULT_SETTINGS.prompts } });
+    renderPreview();
+    $('prompts-reset-note').textContent = `All ${PROMPT_VIEWS.length} prompts are back to their defaults.`;
+  });
 }
 
 /* ── where data is saved ─────────────────────────────────────────────── */
@@ -550,6 +746,8 @@ function render() {
     if (document.activeElement !== el) el.value = s.prompts[name];
   }
   renderModels();
+  renderTyping();
+  renderSummaries();
   renderLookup();
   renderVoices();
   renderShadowing();
@@ -1012,6 +1210,15 @@ function modelRow(model, at, jobs) {
   </div>`;
 }
 
+/* What a job is called inside its own section, where the section's name
+   would only be said twice: "Replies model" under Conversation. */
+const ROLE_SHORT = {
+  textModel: 'Sentences', ttsModel: 'Speech', shadowModel: 'Listening', rulesModel: 'Listening rules',
+  readingModel: 'Texts', readingSpeechModel: 'Reading aloud', writingBriefModel: 'Questions',
+  writingGradeModel: 'Feedback', translateModel: 'Feedback', sceneModel: 'Scenes', chatModel: 'Replies',
+  conversationGradeModel: 'Feedback', listenModel: 'Listening', notesModel: 'Notes',
+};
+
 /* Every element marked data-roles="<section>" holds that section's jobs,
    one labelled dropdown each, drawn from MODEL_ROLES; "*" holds them all.
    The dropdowns are built once and then only refilled, so one that is open
@@ -1021,8 +1228,9 @@ function renderRoles() {
   for (const box of document.querySelectorAll('[data-roles]')) {
     if (box.dataset.drawn) continue;
     const rows = box.dataset.roles === '*' ? MODEL_ROLES : rolesIn(box.dataset.roles);
-    box.innerHTML = rows.map(([key, label, does]) => `<label class="field"><span>${escapeAttr(label)} model — ${escapeAttr(does)}</span>
+    box.innerHTML = rows.map(([key, label, does]) => `<label class="field"><span>${escapeAttr(ROLE_SHORT[key] || label)} model</span>
         <select data-role="${key}"></select>
+        <em class="field-sub">${escapeAttr(does)}</em>
       </label>`).join('');
     box.dataset.drawn = '1';
   }

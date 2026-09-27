@@ -62,6 +62,14 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
   block appended by `withFeedbackBlock`. What the speech
   model is given is built by `speechText`, which adds the register or dialect
   note for audio in code, so a rewritten speech prompt cannot drop it.
+- `tab-settings.js` is one accordion: a `<details data-acc>` per section,
+  and a Prompts panel inside some, whose open state is kept in localStorage
+  (`lsw.settingsOpen`), never in `settings.json`. A section's job dropdowns
+  are drawn from `MODEL_ROLES` into its `data-roles` element; its prompts are
+  listed in `PROMPT_VIEWS` with a preview function in `PREVIEWS`. A new
+  setting goes in the section of the mode it belongs to, with a default in
+  `defaults.js` and a line in that section's summary (`renderSummaries`).
+  Anything with `data-open-sec="<section>"`, on any tab, opens that section.
 - `speech.js` is the device's own text-to-speech, not Gemini: free, instant,
   offline. `azure-tts.js` is Azure's neural voices, optional, with the user's
   own key, called from the page like Gemini. `recorder.js` is the microphone.
