@@ -696,11 +696,18 @@ never see, you need a server, and this project deliberately does not have one.
 
 **Settings → Models** is a list: every Gemini model you use, entered once, each
 with its own calls-per-minute and calls-per-day. **Settings → What each model
-does** then hands out the four jobs — writing the sentence (and the
+does** then hands out the six jobs — writing the sentence (and the
 Reading tab's texts), speaking it,
-listening to your shadowing, and writing a card's notes when you ask for them
-in the [selection form](#adding-a-card-from-selected-text) — from that list. A
-settings file from before the notes job existed gives it the text model.
+listening to your shadowing, writing a card's notes when you ask for them
+in the [selection form](#adding-a-card-from-selected-text), giving
+**feedback** on writing, translations and conversations, and playing the other
+side of a **conversation** — from that list. A settings file from before the
+notes, feedback or conversation job existed gives it the text model.
+
+The conversation job suits a flash-lite model with a bigger daily allowance
+than the flash models have: one conversation spends five or six of its calls,
+each a reply of a line or two, and feedback on the whole of it comes from the
+feedback model at the end.
 
 The limits belong to the model, not to the job, because that is how Google
 counts them. So `gemini-3.6-flash` is typed once even when it both writes
@@ -839,6 +846,7 @@ js/recorder.js        the microphone: MediaRecorder, and releasing it again
 js/shadowing.js       building a set, laying out the grading call, reading it back
 js/shadow-rules.js    shadowing's listening rules: seeding, rating, revising, undo
 js/gemini.js          API calls, call budget, WAV wrapping
+js/json-reply.js      reading a grader's JSON reply, and its verdicts on your cards
 js/opus.js            dictation audio as Ogg Opus, through the browser's encoder
 js/convert-audio.js   turning a bank's older WAV sentences into Ogg, in place
 js/bundle.js          the export/import file format

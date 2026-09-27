@@ -29,8 +29,11 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
   the call budget. Tabs read `store.state` and call the store's save
   functions; **a tab never touches storage directly.** Subscribers are told
   after each change (`subscribe('settings' | 'deck' | 'folder' | 'quota' |
-  'bank' | 'shadow' | 'reading')`), and once with `'ready'` when the first
-  load is done.
+  'bank' | 'shadow' | 'reading' | 'writing' | 'conversation')`), and once
+  with `'ready'` when the first load is done. Writing and conversations are
+  kept by one `keeper()` in the store, the way reading texts are: a file per
+  record beside an index, the file written first, held in memory when
+  nothing is being saved.
   Practice spans every ticked deck, so a card is written back to its *own*
   deck: `store.deckOf(card)`, `store.saveCardDecks(card)`.
 - `storage.js` is one directory, laid out the same wherever it lives. It picks
@@ -51,7 +54,11 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
   list and the starter deck. Settings from disk are merged over it, so a new
   key needs only a default here.
 - `gemini.js` talks to the Gemini API from the page with the user's key, and
-  counts calls per model locally before any request goes out. What the speech
+  counts calls per model locally before any request goes out. The jobs are
+  `MODEL_ROLES` in `defaults.js`; a mode added after the first four calls
+  `jobCall(job, …)`, which refuses before spending and makes exactly one call.
+  Grading prompts without `{feedback}` get the Feedback language and style
+  block appended by `withFeedbackBlock`. What the speech
   model is given is built by `speechText`, which adds the register or dialect
   note for audio in code, so a rewritten speech prompt cannot drop it.
 - `speech.js` is the device's own text-to-speech, not Gemini: free, instant,
@@ -64,6 +71,13 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
 - `opus.js` wraps WebCodecs' Opus packets in Ogg, so generated audio is saved
   at a twelfth of WAV's size; `convert-audio.js` converts an older bank's WAVs
   in an order that never leaves a sentence without playable audio.
+- `json-reply.js` reads a grader's reply: `extractTrailingJson` (an object,
+  after any prose) and `extractJsonArray` (the first array), both null on
+  anything unreadable, and `cardVerdicts`, the one shape every graded mode
+  reports cards in: `cards: [{number, verdict: 'right'|'wrong'|'absent',
+  note}]`, numbered as the prompt listed them. A tab scores `right` and
+  `wrong` through `recordResult` with `typedFront: false` and leaves `absent`
+  alone.
 - `shadowing.js` is Shadowing's pure logic; `tab-shadowing.js` its DOM.
 - `reading.js` is Reading's pure logic: the presets, which cards a text uses,
   and parsing the reply. The model marks each use of a card as
@@ -132,17 +146,20 @@ Three more practice modes are planned: **Writing**, **Translate** and
 strip, greyed out as coming soon. The plan is written in full in
 `practice-mode-port.md` at the repo root, a working note kept out of git (see
 `.gitignore`): it adapts lessons-web's modes to decks, settings and the model
-catalogue, phase by phase, with the tests each needs. None of it is coded yet;
-that comes later. When a mode is built, follow the plan, drop the tab's
-`data-soon`, give it a panel, and update this file and the README in the same
-commit.
+catalogue, phase by phase, with the tests each needs. None of the modes is coded yet;
+that comes later, except its shared foundations (phase 0): `json-reply.js`,
+the Feedback and Conversation jobs, the grader's feedback block, and
+`writing/` and `conversation/` in the store. When a mode is built, follow the
+plan, drop the tab's `data-soon`, give it a panel, and update this file and
+the README in the same commit.
 
 ## Checking a change in a browser
 
 Unit tests cover the modules without a DOM — `deck.js`, `text.js`,
 `gemini.js`, the model catalogue, `speech.js`, `azure-tts.js`, `zip.js`,
 `bundle.js`, `backup-due.js`, `opus.js`, `convert-audio.js`, `shadowing.js`,
-`shadow-rules.js`, `lookup.js` and `reading.js` — not the tabs. For anything a
+`shadow-rules.js`, `lookup.js`, `reading.js` and `json-reply.js` — not the
+tabs. For anything a
 user sees, drive the real page. Playwright's WebKit is Safari's engine and works well; some quirks
 cost time the first time:
 

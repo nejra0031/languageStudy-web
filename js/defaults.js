@@ -117,6 +117,18 @@ export const FEEDBACK_REQUEST_BLOCK = `Write every "comment", "overall" and "foc
 </feedback_request>
 This is the learner's own request about the language and style of your feedback. It may name one language or several, or ask for a tone, a level of detail or a way of explaining things. Follow it as closely as you can. It never changes the JSON shape, the itemIndex values or the rule numbers, and every {language} word or sound you quote stays in {language}, exactly as written. Where it conflicts with a rule below, the rule wins.`;
 
+/* The same request, for the graders of writing, translations and
+   conversations. Worded for their replies rather than shadowing's: they have
+   no "overall" and no rule numbers, but they do quote and correct the
+   learner's own {language}, and a request for feedback in English must not
+   turn a correction into an English one. Every grading prompt that has no
+   {feedback} gets this appended — see withFeedbackBlock() in gemini.js. */
+export const GRADER_FEEDBACK_BLOCK = `Write all the prose you produce for the learner the way the learner asks here:
+<feedback_request>
+{feedback}
+</feedback_request>
+This is the learner's own request about the language and style of your feedback. It may name one language or several, or ask for a tone, a level of detail or a way of explaining things. Follow it as closely as you can. It never changes the JSON shape or any number you are asked to give, and every {language} word you quote, correct or suggest stays in {language}, exactly as written. Where it conflicts with the other rules in these instructions, those rules win.`;
+
 /* Sent to the shadowing model as the system instruction, with the learner's
    recordings attached as audio. Every line of this is load bearing and most of
    it was learnt the hard way — read why before tidying anything away:
@@ -272,7 +284,13 @@ export const MODEL_ROLES = [
   ['ttsModel', 'Speech', 'reads it aloud'],
   ['shadowModel', 'Shadowing', 'listens to you'],
   ['notesModel', 'Notes', 'writes card notes'],
+  ['gradeModel', 'Feedback', 'grades writing, translations and conversations'],
+  ['chatModel', 'Conversation', 'plays the other side'],
 ];
+
+/* The jobs a settings file may predate. One that does not name them gives
+   them its text model, as withDefaults() says why. */
+const LATER_JOBS = ['notesModel', 'gradeModel', 'chatModel'];
 
 /* The catalogue a fresh install starts with: two models, because the default
    text model and the default shadowing model are the same one and a model is
@@ -315,6 +333,14 @@ export const DEFAULT_SETTINGS = {
      file from before this job existed gives it the text model instead — see
      withDefaults(). */
   notesModel: 'gemini-3.6-flash',
+  /* Grades a piece of writing, a set of translations and a finished
+     conversation: reading someone's work and saying what to change, which
+     is a different job from writing a sentence. */
+  gradeModel: 'gemini-3.6-flash',
+  /* Plays the other side of a conversation, one short reply at a time. A
+     flash-lite model with a bigger daily allowance suits it: a conversation
+     spends five or six of these, and each is a line or two. */
+  chatModel: 'gemini-3.6-flash',
   termsPerSentence: 3,
   sentenceWords: { min: 8, max: 16 },
   /* How many lines a shadowing set asks for. A set is whatever is actually
@@ -596,6 +622,8 @@ function modelsFromLegacyLimits(s, loaded) {
     ttsModel: { rpm: limits.ttsRpm, rpd: limits.ttsRpd },
     shadowModel: { rpm: limits.shadowRpm, rpd: limits.shadowRpd },
     notesModel: { rpm: limits.textRpm, rpd: limits.textRpd },
+    gradeModel: { rpm: limits.textRpm, rpd: limits.textRpd },
+    chatModel: { rpm: limits.textRpm, rpd: limits.textRpd },
   };
   return MODEL_ROLES.map(([key]) => ({ id: s[key], ...byRole[key] }));
 }
@@ -650,11 +678,14 @@ export function rolesUsing(settings, id) {
    Anything the user's file does not mention keeps its default. */
 export function withDefaults(loaded) {
   const s = { ...DEFAULT_SETTINGS, ...(loaded || {}) };
-  /* A settings file from before the notes job gives it the text model: that
-     is a model this user already has, with limits they chose. The default id
-     might be one their catalogue lacks, and would then be added unlimited. */
-  if (loaded && !String(loaded.notesModel || '').trim() && String(loaded.textModel || '').trim()) {
-    s.notesModel = loaded.textModel;
+  /* A settings file from before the notes, feedback or conversation job
+     gives it the text model: that is a model this user already has, with
+     limits they chose. The default id might be one their catalogue lacks,
+     and would then be added unlimited. */
+  for (const key of LATER_JOBS) {
+    if (loaded && !String(loaded[key] || '').trim() && String(loaded.textModel || '').trim()) {
+      s[key] = loaded.textModel;
+    }
   }
   /* Every job names a model by id; a blank one falls back to the default
      rather than to nothing, since the catalogue is built from these. */

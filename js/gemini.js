@@ -13,7 +13,9 @@
 
 import { words, contains } from './text.js';
 import { isPattern } from './deck.js';
-import { VOICE_NAMES, modelLimits, FEEDBACK_REQUEST_BLOCK } from './defaults.js';
+import {
+  VOICE_NAMES, modelLimits, FEEDBACK_REQUEST_BLOCK, GRADER_FEEDBACK_BLOCK,
+} from './defaults.js';
 import { buildGradingParts, readGrading, attachableClips } from './shadowing.js';
 import {
   rulesFor, formatRulesBlock, buildSeedPrompt, buildRevisionPrompt, readRules,
@@ -287,18 +289,22 @@ export class RateLimiter {
   }
 
   /* canGenerate, retryAfter and cardsLeftToday are all about making one
-     dictation card, which takes a text call and a speech call. Shadowing is
-     reported alongside but deliberately left out of them: it spends neither of
-     those models, and a shadowing budget that had run down must not stop you
-     writing a sentence. */
+     dictation card, which takes a text call and a speech call. Shadowing,
+     feedback and conversation are reported alongside but deliberately left
+     out of them: they spend neither of those models, and a grading budget
+     that had run down must not stop you writing a sentence. */
   report(settings) {
     const text = this.usageOf(settings, settings.textModel);
     const tts = this.usageOf(settings, settings.ttsModel);
     const shadow = this.usageOf(settings, settings.shadowModel);
+    const grade = this.usageOf(settings, settings.gradeModel);
+    const chat = this.usageOf(settings, settings.chatModel);
     return {
       text,
       tts,
       shadow,
+      grade,
+      chat,
       retryAfter: Math.max(text.retryAfter, tts.retryAfter),
       canGenerate: text.retryAfter <= 0 && tts.retryAfter <= 0,
       cardsLeftToday: cardsLeft(settings, text, tts),
@@ -755,6 +761,39 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     if (why) throw new QuotaError(why, limiter.waitFor(s.shadowModel, l.rpm, l.rpd));
   }
 
+  /* ── any job ───────────────────────────────────────────────────────── */
+
+  /* Refuses before spending, for a call on the model doing `job` — a key of
+     MODEL_ROLES, such as 'gradeModel'. The preflights above are this, one
+     job each; the modes that came after them use this one. */
+  function jobPreflight(job) {
+    const s = getSettings();
+    const model = s[job];
+    const l = modelLimits(s, model);
+    const why = limiter.why(model, l.rpm, l.rpd);
+    if (why) throw new QuotaError(why, limiter.waitFor(model, l.rpm, l.rpd));
+  }
+
+  /* One call on the model doing `job`, with a system instruction and the
+     user's parts, thinking off like every other call here. Returns the
+     reply's text and the model that wrote it. Refuses before spending, and
+     makes one call: every attempt is counted against a small free tier, so
+     a reply that cannot be read is the caller's failure to report, with a
+     Try again the learner presses, never a retry made behind their back. */
+  async function jobCall(job, { system, parts, temperature, maxOutputTokens = 8192 }) {
+    jobPreflight(job);
+    const s = getSettings();
+    const model = s[job];
+    const l = modelLimits(s, model);
+    const request = {
+      contents: [{ parts }],
+      generationConfig: { temperature, maxOutputTokens },
+    };
+    if (system) request.system_instruction = { parts: [{ text: system }] };
+    const data = await callWithoutThinking(model, request, l.rpm, l.rpd);
+    return { text: firstText(data), model };
+  }
+
   /* ── card notes ────────────────────────────────────────────────────── */
 
   /* Refuses before spending, like the other preflights: the notes job has a
@@ -843,7 +882,7 @@ export function createClient({ getSettings, getApiKey, limiter }) {
   return {
     call, testKey, generateCard, preflight, gradeShadowing, shadowPreflight,
     draftShadowRules, reviseShadowRules, rulesPreflight, notesPreflight, writeNotes,
-    readingPreflight, writeReading, speechPreflight, speakReading,
+    readingPreflight, writeReading, speechPreflight, speakReading, jobPreflight, jobCall,
   };
 }
 
@@ -855,8 +894,7 @@ export function createClient({ getSettings, getApiKey, limiter }) {
    so the Feedback language and style setting is never silently unsent. The
    preview goes through here too, so what it shows is what is sent. */
 export function shadowSystem(settings, count, rules = rulesFor(settings, settings.targetLanguage)) {
-  const template = String(settings.prompts.shadowing || '');
-  const full = template.includes('{feedback}') ? template : `${template.trimEnd()}\n\n${FEEDBACK_REQUEST_BLOCK}`;
+  const full = withFeedbackBlock(settings.prompts.shadowing, FEEDBACK_REQUEST_BLOCK);
   return fillTemplate(full, {
     language: settings.targetLanguage,
     count,
@@ -864,6 +902,16 @@ export function shadowSystem(settings, count, rules = rulesFor(settings, setting
     feedback: feedbackRequestText(settings.feedbackRequest),
     sounds: '',
   });
+}
+
+/* A prompt with no {feedback} placeholder, with the block that carries the
+   Feedback language and style setting appended to it: a prompt customised
+   before the setting existed, or one that lost the placeholder in an edit,
+   still sends it. `block` is the grader's by default and the shadowing
+   prompt's for shadowSystem(). */
+export function withFeedbackBlock(template, block = GRADER_FEEDBACK_BLOCK) {
+  const text = String(template || '');
+  return text.includes('{feedback}') ? text : `${text.trimEnd()}\n\n${block}`;
 }
 
 /* Whatever was typed, or English when nothing was: an empty block would

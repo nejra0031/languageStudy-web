@@ -3,11 +3,7 @@
 
 import * as storage from './storage.js';
 import * as store from './store.js';
-import {
-  VOICES, MODEL_ROLES, rolesUsing,
-  DEFAULT_SENTENCE_PROMPT, DEFAULT_SPEECH_PROMPT, DEFAULT_SHADOW_PROMPT, DEFAULT_NOTES_PROMPT,
-  DEFAULT_READING_PROMPT,
-} from './defaults.js';
+import { VOICES, MODEL_ROLES, rolesUsing, DEFAULT_SETTINGS } from './defaults.js';
 import {
   fillTemplate, sentenceVars, notesVars, formatWait, GeminiError, QuotaError, shadowSystem, speechText,
 } from './gemini.js';
@@ -539,16 +535,10 @@ function render() {
     const el = $(id);
     if (document.activeElement !== el) el.value = getPath(s, path);
   }
-  const sp = $('set-prompt-sentence');
-  const pp = $('set-prompt-speech');
-  const hp = $('set-prompt-shadowing');
-  const np = $('set-prompt-notes');
-  const rp = $('set-prompt-reading');
-  if (document.activeElement !== sp) sp.value = s.prompts.sentence;
-  if (document.activeElement !== pp) pp.value = s.prompts.speech;
-  if (document.activeElement !== hp) hp.value = s.prompts.shadowing;
-  if (document.activeElement !== np) np.value = s.prompts.notes;
-  if (document.activeElement !== rp) rp.value = s.prompts.reading;
+  for (const name of PROMPT_VIEWS) {
+    const el = $(`set-prompt-${name}`);
+    if (document.activeElement !== el) el.value = s.prompts[name];
+  }
   renderModels();
   renderLookup();
   renderVoices();
@@ -565,53 +555,20 @@ function render() {
    reads, and what a blur commits, so it must never hold rendered text. */
 const PROMPT_VIEWS = ['sentence', 'speech', 'shadowing', 'notes', 'reading'];
 
+/* Every prompt box works the same way: typing redraws the preview, leaving
+   the box saves it, and Reset to default puts back the default this build
+   ships. Only the preview and the warnings differ from prompt to prompt. */
 function wirePrompts() {
-  const sp = $('set-prompt-sentence');
-  const pp = $('set-prompt-speech');
-  sp.addEventListener('input', renderPreview);
-  pp.addEventListener('input', renderPreview);
-  sp.addEventListener('change', () => store.saveSettings({ prompts: { ...store.state.settings.prompts, sentence: sp.value } }));
-  pp.addEventListener('change', () => store.saveSettings({ prompts: { ...store.state.settings.prompts, speech: pp.value } }));
-
-  $('prompt-sentence-reset').addEventListener('click', () => {
-    sp.value = DEFAULT_SENTENCE_PROMPT;
-    store.saveSettings({ prompts: { ...store.state.settings.prompts, sentence: DEFAULT_SENTENCE_PROMPT } });
-    renderPreview();
-  });
-  $('prompt-speech-reset').addEventListener('click', () => {
-    pp.value = DEFAULT_SPEECH_PROMPT;
-    store.saveSettings({ prompts: { ...store.state.settings.prompts, speech: DEFAULT_SPEECH_PROMPT } });
-    renderPreview();
-  });
-
-  const hp = $('set-prompt-shadowing');
-  hp.addEventListener('input', renderPreview);
-  hp.addEventListener('change', () => store.saveSettings({ prompts: { ...store.state.settings.prompts, shadowing: hp.value } }));
-  $('prompt-shadowing-reset').addEventListener('click', () => {
-    hp.value = DEFAULT_SHADOW_PROMPT;
-    store.saveSettings({ prompts: { ...store.state.settings.prompts, shadowing: DEFAULT_SHADOW_PROMPT } });
-    renderPreview();
-  });
-
-  const np = $('set-prompt-notes');
-  np.addEventListener('input', renderPreview);
-  np.addEventListener('change', () => store.saveSettings({ prompts: { ...store.state.settings.prompts, notes: np.value } }));
-  $('prompt-notes-reset').addEventListener('click', () => {
-    np.value = DEFAULT_NOTES_PROMPT;
-    store.saveSettings({ prompts: { ...store.state.settings.prompts, notes: DEFAULT_NOTES_PROMPT } });
-    renderPreview();
-  });
-
-  const rp = $('set-prompt-reading');
-  rp.addEventListener('input', renderPreview);
-  rp.addEventListener('change', () => store.saveSettings({ prompts: { ...store.state.settings.prompts, reading: rp.value } }));
-  $('prompt-reading-reset').addEventListener('click', () => {
-    rp.value = DEFAULT_READING_PROMPT;
-    store.saveSettings({ prompts: { ...store.state.settings.prompts, reading: DEFAULT_READING_PROMPT } });
-    renderPreview();
-  });
-
   for (const name of PROMPT_VIEWS) {
+    const editor = $(`set-prompt-${name}`);
+    editor.addEventListener('input', renderPreview);
+    editor.addEventListener('change', () => store.saveSettings({ prompts: { ...store.state.settings.prompts, [name]: editor.value } }));
+    $(`prompt-${name}-reset`).addEventListener('click', () => {
+      editor.value = DEFAULT_SETTINGS.prompts[name];
+      store.saveSettings({ prompts: { ...store.state.settings.prompts, [name]: DEFAULT_SETTINGS.prompts[name] } });
+      renderPreview();
+    });
+
     const seg = document.querySelector(`.seg[data-prompt="${name}"]`);
     seg.addEventListener('click', (e) => {
       const btn = e.target.closest('button[data-view]');
@@ -634,44 +591,49 @@ function showPromptView(name, preview) {
   }
 }
 
-function renderPreview() {
-  const draft = draftSettings();
-  const terms = store.state.cards.slice(0, 3).map((c) => ({ front: c.front, back: c.back }));
-  const sample = terms.length ? terms : SAMPLE_TERMS;
-
-  $('prompt-preview-sentence').value = [
+/* What each prompt's Preview shows: the prompt as it will be sent, filled
+   with the draft settings and `sample`, a few of your cards, under a line
+   naming the model it goes to. */
+const PREVIEWS = {
+  sentence: (draft, sample) => [
     `── to ${draft.textModel} ──`,
     fillTemplate(draft.prompts.sentence, sentenceVars(draft, sample)),
-  ].join('\n');
-  $('prompt-preview-speech').value = [
+  ],
+  speech: (draft) => [
     `── to ${draft.ttsModel} ──`,
     speechText(draft, '<the sentence it just wrote>'),
-  ].join('\n');
-  $('prompt-preview-shadowing').value = [
+  ],
+  shadowing: (draft) => [
     `── to ${draft.shadowModel}, as the system instruction ──`,
     shadowSystem(draft, draft.shadowItems),
     '',
     '(then one text part per line, each followed by your recording of it)',
-  ].join('\n');
-  const card = sample[0];
-  $('prompt-preview-notes').value = [
+  ],
+  notes: (draft, sample) => [
     `── to ${draft.notesModel} ──`,
     fillTemplate(draft.prompts.notes, notesVars(draft, {
-      front: card.front,
-      back: card.back,
+      front: sample[0].front,
+      back: sample[0].back,
       context: '<the sentence the word was selected from>',
       learningName: draft.lookupLearning ? nameFor(draft.lookupLearning) : draft.targetLanguage,
       nativeName: nameFor(draft.lookupNative),
     })),
-  ].join('\n');
-  $('prompt-preview-reading').value = [
+  ],
+  reading: (draft, sample) => [
     `── to ${draft.textModel} ──`,
     fillTemplate(draft.prompts.reading, readingVars(draft, sample, draft.readingRequest)),
-  ].join('\n');
+  ],
+};
+
+function renderPreview() {
+  const draft = draftSettings();
+  const terms = store.state.cards.slice(0, 3).map((c) => ({ front: c.front, back: c.back, type: c.type }));
+  const sample = terms.length ? terms : SAMPLE_TERMS;
+  for (const name of PROMPT_VIEWS) $(`prompt-preview-${name}`).value = PREVIEWS[name](draft, sample).join('\n');
 
   /* The warnings sit under their own prompt, outside the preview, so they
      are seen while editing — which is when they can be acted on. */
-  const warnings = { sentence: [], speech: [], shadowing: [], notes: [], reading: [] };
+  const warnings = Object.fromEntries(PROMPT_VIEWS.map((name) => [name, []]));
   if (!draft.prompts.sentence.includes('{terms}')) {
     warnings.sentence.push('The sentence prompt has no {terms} placeholder, so the model is never told which words to use.');
   }
@@ -726,11 +688,8 @@ function draftSettings() {
       max: Number($('set-wmax').value) || s.sentenceWords.max,
     },
     prompts: {
-      sentence: $('set-prompt-sentence').value,
-      speech: $('set-prompt-speech').value,
-      shadowing: $('set-prompt-shadowing').value,
-      notes: $('set-prompt-notes').value,
-      reading: $('set-prompt-reading').value,
+      ...s.prompts,
+      ...Object.fromEntries(PROMPT_VIEWS.map((name) => [name, $(`set-prompt-${name}`).value])),
     },
   };
 }
@@ -744,6 +703,8 @@ const ROLE_FIELD = {
   ttsModel: 'set-ttsmodel',
   shadowModel: 'set-shadowmodel',
   notesModel: 'set-notesmodel',
+  gradeModel: 'set-grademodel',
+  chatModel: 'set-chatmodel',
 };
 
 /* A row typed into but not yet stored. A model with no id is not a model, so

@@ -19,6 +19,15 @@
                                over before a hand-in is not
      voice/<voice>_<hash>.mp3  a word read by an Azure voice, kept so it is
                                fetched once, ever — see azure-tts.js
+     reading/manifest.json     the kept reading texts' index
+     reading/<id>.json|.ogg    one text, and its audio once read aloud
+     writing/manifest.json     the index of everything handed in on Writing
+     writing/<id>.json         one piece: the task, what you wrote, the feedback
+     conversation/manifest.json     the conversations' index
+     conversation/<id>.json         one conversation: its scenario, turns and
+                                    feedback
+     conversation/<id>_<n>.webm     your own voice: the spoken turn at
+                                    position n
 
    Two kinds of directory can hold that layout:
 
@@ -343,7 +352,7 @@ export function ensureSubdirs() {
 
 /* ── the data layout, as a set of paths ──────────────────────────────── */
 
-const DATA_DIRS = ['decks', 'audio', 'shadowing', 'voice', 'reading'];
+const DATA_DIRS = ['decks', 'audio', 'shadowing', 'voice', 'reading', 'writing', 'conversation'];
 
 /* Exactly the files this app owns. Everything else in a folder — a .git, a
    README, a .DS_Store, the ._name AppleDouble files macOS adds when it zips —
@@ -355,9 +364,12 @@ const DATA_DIRS = ['decks', 'audio', 'shadowing', 'voice', 'reading'];
    than assumed, so a backup written on one browser opens on another.
 
    reading/ holds the Reading tab's texts, one JSON file each beside an index,
-   and the audio of any that were read aloud. */
+   and the audio of any that were read aloud. writing/ holds every piece of
+   writing handed in, with its feedback, and conversation/ every
+   conversation, with the recordings of its spoken turns, which carry the
+   same four extensions as a shadowing take for the same reason. */
 
-const DATA_FILE = /^(settings\.json|decks\/[^/.][^/]*\.json|audio\/[^/.][^/]*\.(json|wav|ogg|txt)|shadowing\/[^/.][^/]*\.(json|webm|ogg|mp4|m4a|wav)|voice\/[^/.][^/]*\.mp3|reading\/[^/.][^/]*\.(json|ogg|wav))$/;
+const DATA_FILE = /^(settings\.json|decks\/[^/.][^/]*\.json|audio\/[^/.][^/]*\.(json|wav|ogg|txt)|shadowing\/[^/.][^/]*\.(json|webm|ogg|mp4|m4a|wav)|voice\/[^/.][^/]*\.mp3|reading\/[^/.][^/]*\.(json|ogg|wav)|writing\/[^/.][^/]*\.json|conversation\/[^/.][^/]*\.(json|webm|ogg|mp4|m4a|wav))$/;
 
 /* Maps a path from a zip or a picked folder onto the data layout, or null.
    Leading folders are dropped, because a backup that was unzipped and zipped

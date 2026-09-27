@@ -195,7 +195,13 @@ export function readReading(reply, cards = []) {
 /* r_20260926_0001: the date it was written and a count within the day, the
    way the sentence bank and shadowing sets are named. */
 export function nextReadingId(rows, now = new Date()) {
-  const prefix = `r_${now.toISOString().slice(0, 10).replace(/-/g, '')}_`;
+  return nextDatedId('r', rows, now);
+}
+
+/* The same naming for anything else kept one file a record: w_ for a piece
+   of writing, c_ for a conversation. */
+export function nextDatedId(letter, rows, now = new Date()) {
+  const prefix = `${letter}_${now.toISOString().slice(0, 10).replace(/-/g, '')}_`;
   const taken = new Set((rows || []).map((r) => r.id));
   let n = (rows || []).filter((r) => String(r.id || '').startsWith(prefix)).length + 1;
   while (taken.has(prefix + String(n).padStart(4, '0'))) n++;
