@@ -286,6 +286,8 @@ main { padding: 0 0 96px; }
 }
 .sec-body { padding: 16px; }
 .sec-body > * + * { margin-top: 14px; }
+#voice-device > * + *, #voice-azure > * + * { margin-top: 14px; }
+#voice-device[hidden], #voice-azure[hidden] { display: none; }
 .sec-sub {
   display: flex;
   align-items: baseline;

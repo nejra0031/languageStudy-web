@@ -72,7 +72,11 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
   Anything with `data-open-sec="<section>"`, on any tab, opens that section.
 - `speech.js` is the device's own text-to-speech, not Gemini: free, instant,
   offline. `azure-tts.js` is Azure's neural voices, optional, with the user's
-  own key, called from the page like Gemini. `recorder.js` is the microphone.
+  own key, called from the page like Gemini. Which reads is the
+  `speechSource` switch ('device' or 'azure'); each side keeps its own pick
+  (`speechVoice`, `azureVoice`), `voiceSetting(settings)` is what a caller
+  passes to `speak()`, and `voiceStatus` is the plain function behind the
+  line that says what will actually read and why. `recorder.js` is the microphone.
 - `zip.js` and `bundle.js` are the two backups: a zip laid out like the data
   folder (keeps the audio), and one readable JSON file (decks and settings).
   `backup-due.js` decides when to remind someone using browser storage to

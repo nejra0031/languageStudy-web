@@ -59,8 +59,9 @@ A wrong answer in that language is marked word by word, as in Dictation: which
 words were right, which had the wrong accent, which are not in the answer and
 which are missing.
 
-The word can also be **read aloud** by your device's own voice, free and
-offline; the button beside the speaker picks the voice and the speed, which
+The word can also be **read aloud**, by your device's own voice (free and
+offline) or an Azure voice, as [Settings → Read-aloud voice](#the-read-aloud-voice-and-azure-optional)
+says; the button beside the speaker picks the voice and the speed, which
 helps where the voice is brisk, as Windows voices often are. With that on, a
 word that is the prompt is heard, not shown: in its place is a box to type what
 you hear. *Check* marks your spelling and tones syllable by syllable, a tone
@@ -867,18 +868,35 @@ Chrome and Edge choose a folder first.
 
 Exporting works whatever the browser can or cannot save.
 
-## Azure neural voices (optional)
+## The read-aloud voice, and Azure (optional)
 
-Words are read aloud by your device's own voice unless you give the app an
-Azure Speech key, which adds Microsoft's neural voices — the same
-natural-sounding voices on every device (HoaiMy and NamMinh for Vietnamese).
-They sit in the same voice list, under *Azure neural voices*.
+Words in Typing, and the flashcard lines in Shadowing, are read by the voice
+set in **Settings → Read-aloud voice**. Its **Read with** switch says which
+kind reads, and only that kind's controls are shown:
+
+- **This device**: your operating system's own voices, free, instant and
+  offline. *Device voice* picks one; *Best available* takes the best
+  installed voice for your language.
+- **Azure neural voices**: Microsoft's natural-sounding voices, the same on
+  every device (HoaiMy and NamMinh for Vietnamese), with your own Azure Speech
+  key. *Azure voice* picks one once the key is in; *First voice* takes the
+  first Azure offers for your language.
+
+**Entering a key does not switch anything by itself**: Azure reads only while
+the switch is on Azure. Each side keeps its own choice, so switching back and
+forth loses neither. The line under the section always says what will read
+and, when it is not what you chose, why: no key yet, a key Azure refused, no
+voice for your language, a voice that is not installed here. Its summary line
+names the voice in use. The Typing tab's voice picker lists the voices of
+whichever side is chosen. A setup from before the switch, with an Azure voice
+picked, starts on Azure with that voice.
 
 To make a key: sign in at [portal.azure.com](https://portal.azure.com),
 **Create a resource**, search **Speech**, and create one with the **Free F0**
 pricing tier and a region near you (Southeast Asia, say). Once it is
 deployed, **Keys and Endpoint** shows *KEY 1* and the *Location/Region*;
-paste both into **Settings → Typing**, under *Read-aloud voice*.
+switch **Settings → Read-aloud voice** to *Azure neural voices* and paste both
+there.
 
 The free tier covers 500,000 characters a month. Each word is fetched from
 Azure once, ever: the clip is saved in `voice/` beside the rest of your data,

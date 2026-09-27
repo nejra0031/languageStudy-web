@@ -713,8 +713,15 @@ export const DEFAULT_SETTINGS = {
   typingDirection: 'random',
   /* Read the word being learnt aloud in Typing, with the browser's own voice. */
   typingSpeak: true,
-  /* Name of the browser voice to read with; '' picks the best installed. */
+  /* What reads words aloud in Typing and Shadowing: 'device' (the
+     operating system's voices, free and offline) or 'azure' (Azure neural
+     voices, with the Azure key kept in localStorage). Each keeps its own
+     choice: speechVoice names a device voice ('' is the best installed),
+     azureVoice an Azure voice by its short name ('' is the first for the
+     language). */
+  speechSource: 'device',
   speechVoice: '',
+  azureVoice: '',
   /* Its speed: 1 is the voice's own pace. See speech.js for the range. */
   speechRate: 1,
   /* Where the user's Azure Speech resource lives; the key itself is kept in
@@ -1111,6 +1118,20 @@ export function withDefaults(loaded) {
      not here, so a deck that is temporarily missing is not forgotten. */
   s.practiceDecks = Array.isArray(s.practiceDecks)
     ? [...new Set(s.practiceDecks.map(String).filter(Boolean))] : [];
+  /* Before the switch, one setting held either kind of voice, an Azure one
+     as "azure:<ShortName>", and choosing one was the only way to use Azure.
+     Such a choice becomes the Azure side's, with the switch on Azure; any
+     other is the device side's. After that the prefix never appears in
+     speechVoice again. */
+  const AZURE = 'azure:';
+  if (String(s.speechVoice || '').startsWith(AZURE)) {
+    s.azureVoice = s.speechVoice.slice(AZURE.length);
+    s.speechVoice = '';
+    if (!loaded || !Object.prototype.hasOwnProperty.call(loaded, 'speechSource')) s.speechSource = 'azure';
+  }
+  s.speechSource = s.speechSource === 'azure' ? 'azure' : 'device';
+  s.speechVoice = String(s.speechVoice || '');
+  s.azureVoice = String(s.azureVoice || '');
   s.lookupEnabled = s.lookupEnabled === true;
   for (const key of ['lookupLearning', 'lookupNative', 'lookupDeck']) s[key] = String(s[key] || '').trim();
   if (!s.lookupNative) s.lookupNative = DEFAULT_SETTINGS.lookupNative;

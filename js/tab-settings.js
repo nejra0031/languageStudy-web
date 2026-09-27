@@ -211,6 +211,14 @@ const SCOPE_LABEL = { weak: 'weak cards', developing: 'weak and developing', all
 const ORDER_LABEL = { dictated: 'dictated first', fresh: 'not yet dictated first', random: 'random order' };
 const DIRECTION_LABEL = { 'front-to-back': 'front → back', 'back-to-front': 'back → front', random: 'mixed' };
 
+/* An Azure voice by its display name once the list is in ("NamMinh"),
+   by its short name before; the first voice when none is chosen. */
+function azureLabel(name) {
+  const voices = speech.azureStatus().voices;
+  const hit = name ? voices.find((v) => v.name === name) : voices[0];
+  return hit ? hit.label : name || 'first voice';
+}
+
 function renderSummaries() {
   const s = store.state.settings;
   const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
@@ -219,6 +227,9 @@ function renderSummaries() {
     models: [plural(s.models.length, 'model'), plural(MODEL_ROLES.length, 'job')],
     language: [s.targetLanguage, s.learnerLevel],
     feedback: [String(s.feedbackRequest || '').trim() || 'English'],
+    voice: s.speechSource === 'azure'
+      ? ['Azure', azureLabel(s.azureVoice), `${speech.clampRate(s.speechRate)}×`]
+      : ['this device', s.speechVoice || (speech.voicesFor(speech.languageCode(s.targetLanguage))[0] || {}).name || 'best available', `${speech.clampRate(s.speechRate)}×`],
     typing: [SCOPE_LABEL[s.typingScope], DIRECTION_LABEL[s.typingDirection] || s.typingDirection, s.typingSpeak ? 'read aloud' : 'silent'],
     dictation: [SCOPE_LABEL[s.dictationScope], `${s.sentenceWords.min}–${s.sentenceWords.max} words`, `${s.termsPerSentence} per sentence`, plural(s.voices.length, 'voice'), s.textModel],
     reading: [SCOPE_LABEL[s.readingScope], plural(s.readingTerms, 'card'), `${s.readingPatternShare}% patterns`, s.readingModel],
@@ -1449,9 +1460,14 @@ function renderQuota() {
 /* The browser's own voices, used by the Typing tab. Nothing here touches
    Gemini or the API budget — see speech.js. */
 function wireSpeech() {
-  $('set-speech-voice').addEventListener('change', (e) => {
-    store.saveSettings({ speechVoice: e.target.value });
+  /* The switch, and a voice picker for each side: each side keeps its own
+     choice, so switching back and forth loses neither. */
+  $('set-speech-source').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-source]');
+    if (btn) store.saveSettings({ speechSource: btn.dataset.source });
   });
+  $('set-speech-voice').addEventListener('change', (e) => store.saveSettings({ speechVoice: e.target.value }));
+  $('set-azure-voice').addEventListener('change', (e) => store.saveSettings({ azureVoice: e.target.value }));
   const rate = $('set-speech-rate');
   Object.assign(rate, { min: speech.RATE.min, max: speech.RATE.max, step: speech.RATE.step });
   /* The label follows the thumb; the setting is saved once it is let go. */
@@ -1462,7 +1478,7 @@ function wireSpeech() {
     const card = store.practiceCards().find((c) => c.front) || null;
     const text = card ? card.front.replace(/\([^)]*\)/g, ' ') : 'Xin chào';
     const s = store.state.settings;
-    speech.speak(text, speech.languageCode(s.targetLanguage), { voice: s.speechVoice, rate: s.speechRate });
+    speech.speak(text, speech.languageCode(s.targetLanguage), { voice: speech.voiceSetting(s), rate: s.speechRate });
   });
   store.subscribe('settings', renderSpeech);
   speech.onVoicesChanged(renderSpeech);
@@ -1503,53 +1519,51 @@ function wireAzure() {
 function renderSpeech() {
   const s = store.state.settings;
   const code = speech.languageCode(s.targetLanguage);
-  const list = speech.voicesFor(code);
-  const sel = $('set-speech-voice');
-  const chosen = s.speechVoice || '';
-  const cloud = speech.azureStatus().voices.map((v) => speech.AZURE_PREFIX + v.name);
-  const missing = chosen && !list.some((v) => v.name === chosen) && !cloud.includes(chosen);
-  const any = speech.canSpeak(code);
-  sel.innerHTML = speech.voiceOptions(code, chosen);
-  sel.value = chosen;
-  sel.disabled = !any;
+  const azureSide = s.speechSource === 'azure';
+  for (const b of $('set-speech-source').querySelectorAll('button')) {
+    b.setAttribute('aria-pressed', String(b.dataset.source === s.speechSource));
+  }
+  /* Only the chosen side's controls are shown, so what is on screen is what
+     is in use. */
+  $('voice-device').hidden = azureSide;
+  $('voice-azure').hidden = !azureSide;
+
+  const device = speech.voicesFor(code).map((v) => v.name);
+  fillVoice($('set-speech-voice'), speech.voiceOptions(code, s.speechVoice, 'device'), s.speechVoice);
+  $('set-speech-voice').disabled = !device.length;
+  fillVoice($('set-azure-voice'), speech.voiceOptions(code, s.azureVoice, 'azure'), s.azureVoice);
+
+  const any = speech.canSpeak(code, s.speechSource);
   $('speech-sample').disabled = !any;
   const rate = $('set-speech-rate');
   if (document.activeElement !== rate) rate.value = speech.clampRate(s.speechRate);
   $('set-speech-rate-val').textContent = speech.rateLabel(rate.value);
   rate.disabled = !any;
 
-  const el = $('speech-status');
-  if (!code) {
-    el.textContent = `"${s.targetLanguage}" is not a language name this app knows a code for — try its English name, or a code such as "vi".`;
-    el.className = 'status is-warn';
-  } else if (!list.length && !any) {
-    el.textContent = `No ${s.targetLanguage} voice is installed on this device, so nothing is read aloud.`;
-    el.className = 'status is-warn';
-  } else if (!list.length) {
-    el.textContent = `No ${s.targetLanguage} voice on this device.`;
-    el.className = 'status is-warn';
-  } else if (missing) {
-    el.textContent = chosen.startsWith(speech.AZURE_PREFIX)
-      ? (speech.azureStatus().key
-        ? `${chosen.slice(speech.AZURE_PREFIX.length)} cannot be reached right now: words already saved still play in it, and new ones are read by the device voice.`
-        : `${chosen.slice(speech.AZURE_PREFIX.length)} is an Azure voice and needs your key, so the device voice reads instead.`)
-      : `"${chosen}" is not installed on this device, so ${list[0] ? list[0].name : 'the best available'} is used instead.`;
-    el.className = 'status is-warn';
-  } else {
-    el.textContent = `${list.length} ${s.targetLanguage} voice${list.length === 1 ? '' : 's'} installed.`;
-    el.className = 'status is-ok';
-  }
-
-  /* What Azure is doing, after what the device has. */
   const az = speech.azureStatus();
-  if (az.key && az.problem) {
-    el.textContent += `  ·  ${az.problem}`;
-    el.className = 'status is-warn';
-  } else if (az.key && az.voices.length) {
-    el.textContent += `  ·  Azure: ${az.voices.length} ${s.targetLanguage} voice${az.voices.length === 1 ? '' : 's'} (${az.voices.map((v) => v.label).join(', ')}) · ${az.saved} word${az.saved === 1 ? '' : 's'} saved, played without calling Azure again.`;
-  } else if (az.key && az.code) {
-    el.textContent += `  ·  Azure has no ${s.targetLanguage} voice.`;
+  const { text, level } = speech.voiceStatus({
+    source: s.speechSource,
+    language: s.targetLanguage,
+    code,
+    device,
+    chosenDevice: s.speechVoice,
+    azure: az,
+    chosenAzure: s.azureVoice,
+  });
+  const el = $('speech-status');
+  el.textContent = text;
+  el.className = `status is-${level}`;
+  renderSummaries();
+}
+
+/* A voice picker refilled only when its options change, so one that is
+   open is not rebuilt under the pointer. */
+function fillVoice(sel, html, value) {
+  if (sel.dataset.drawn !== html) {
+    sel.innerHTML = html;
+    sel.dataset.drawn = html;
   }
+  sel.value = value || '';
 }
 
 function escapeAttr(s) {

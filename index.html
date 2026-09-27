@@ -6,7 +6,7 @@
 <title>Language Study</title>
 <meta name="description" content="Flashcards, typing practice and AI dictation for any language. Your own API key, your own files, no accounts and no server.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230f1117'/><rect x='3' y='3' width='10' height='10' fill='%23d4b455'/></svg>">
-<link rel="stylesheet" href="css/app.css?v=2026-09-27.9">
+<link rel="stylesheet" href="css/app.css?v=2026-09-27.11">
 <!-- Cache-busting. GitHub Pages lets a browser keep any file for ten minutes,
      so without this a deploy can leave you with a new index.html and an old
      module, or the reverse, and the page fails to start. Every module is
@@ -18,41 +18,41 @@
 <script type="importmap">
 {
   "imports": {
-    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-27.9",
-    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-27.9",
-    "./js/bundle.js": "./js/bundle.js?v=2026-09-27.9",
-    "./js/conversation.js": "./js/conversation.js?v=2026-09-27.9",
-    "./js/convert-audio.js": "./js/convert-audio.js?v=2026-09-27.9",
-    "./js/deck.js": "./js/deck.js?v=2026-09-27.9",
-    "./js/defaults.js": "./js/defaults.js?v=2026-09-27.9",
-    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-27.9",
-    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-27.9",
-    "./js/gemini.js": "./js/gemini.js?v=2026-09-27.9",
-    "./js/json-reply.js": "./js/json-reply.js?v=2026-09-27.9",
-    "./js/lookup.js": "./js/lookup.js?v=2026-09-27.9",
-    "./js/lookup-popup.js": "./js/lookup-popup.js?v=2026-09-27.9",
-    "./js/opus.js": "./js/opus.js?v=2026-09-27.9",
-    "./js/reading.js": "./js/reading.js?v=2026-09-27.9",
-    "./js/recorder.js": "./js/recorder.js?v=2026-09-27.9",
-    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-27.9",
-    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-27.9",
-    "./js/speech.js": "./js/speech.js?v=2026-09-27.9",
-    "./js/storage.js": "./js/storage.js?v=2026-09-27.9",
-    "./js/store.js": "./js/store.js?v=2026-09-27.9",
-    "./js/tab-conversation.js": "./js/tab-conversation.js?v=2026-09-27.9",
-    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-27.9",
-    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-27.9",
-    "./js/tab-reading.js": "./js/tab-reading.js?v=2026-09-27.9",
-    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-27.9",
-    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-27.9",
-    "./js/tab-translate.js": "./js/tab-translate.js?v=2026-09-27.9",
-    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-27.9",
-    "./js/tab-writing.js": "./js/tab-writing.js?v=2026-09-27.9",
-    "./js/text.js": "./js/text.js?v=2026-09-27.9",
-    "./js/translate.js": "./js/translate.js?v=2026-09-27.9",
-    "./js/translation.js": "./js/translation.js?v=2026-09-27.9",
-    "./js/writing.js": "./js/writing.js?v=2026-09-27.9",
-    "./js/zip.js": "./js/zip.js?v=2026-09-27.9"
+    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-27.11",
+    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-27.11",
+    "./js/bundle.js": "./js/bundle.js?v=2026-09-27.11",
+    "./js/conversation.js": "./js/conversation.js?v=2026-09-27.11",
+    "./js/convert-audio.js": "./js/convert-audio.js?v=2026-09-27.11",
+    "./js/deck.js": "./js/deck.js?v=2026-09-27.11",
+    "./js/defaults.js": "./js/defaults.js?v=2026-09-27.11",
+    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-27.11",
+    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-27.11",
+    "./js/gemini.js": "./js/gemini.js?v=2026-09-27.11",
+    "./js/json-reply.js": "./js/json-reply.js?v=2026-09-27.11",
+    "./js/lookup.js": "./js/lookup.js?v=2026-09-27.11",
+    "./js/lookup-popup.js": "./js/lookup-popup.js?v=2026-09-27.11",
+    "./js/opus.js": "./js/opus.js?v=2026-09-27.11",
+    "./js/reading.js": "./js/reading.js?v=2026-09-27.11",
+    "./js/recorder.js": "./js/recorder.js?v=2026-09-27.11",
+    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-27.11",
+    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-27.11",
+    "./js/speech.js": "./js/speech.js?v=2026-09-27.11",
+    "./js/storage.js": "./js/storage.js?v=2026-09-27.11",
+    "./js/store.js": "./js/store.js?v=2026-09-27.11",
+    "./js/tab-conversation.js": "./js/tab-conversation.js?v=2026-09-27.11",
+    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-27.11",
+    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-27.11",
+    "./js/tab-reading.js": "./js/tab-reading.js?v=2026-09-27.11",
+    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-27.11",
+    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-27.11",
+    "./js/tab-translate.js": "./js/tab-translate.js?v=2026-09-27.11",
+    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-27.11",
+    "./js/tab-writing.js": "./js/tab-writing.js?v=2026-09-27.11",
+    "./js/text.js": "./js/text.js?v=2026-09-27.11",
+    "./js/translate.js": "./js/translate.js?v=2026-09-27.11",
+    "./js/translation.js": "./js/translation.js?v=2026-09-27.11",
+    "./js/writing.js": "./js/writing.js?v=2026-09-27.11",
+    "./js/zip.js": "./js/zip.js?v=2026-09-27.11"
   }
 }
 </script>
@@ -150,7 +150,7 @@
         <button class="btn" id="key-test">Test key</button>
         <span class="note" id="key-test-note">Spends one call on the Dictation model from today's budget.</span>
       </div>
-      <p class="note">The <strong>Azure Speech key</strong>, for Azure voices in Typing, is set under <a href="#sec-typing" data-open-sec="typing">Typing</a>, beside the voice it reads with. It is kept in this browser only too.</p>
+      <p class="note">The <strong>Azure Speech key</strong>, for Azure's read-aloud voices, is set under <a href="#sec-voice" data-open-sec="voice">Read-aloud voice</a>, where it is used. It is kept in this browser only too.</p>
     </div>
   </details>
   <details class="sec" data-acc="models" id="sec-models">
@@ -209,6 +209,50 @@
       </label>
       <p class="note">How every note and every piece of feedback should be written, in your own words: Shadowing's notes, and the feedback in Writing, Translate and Conversation. A language (<em>English</em>), several (<em>English and Vietnamese</em>), or more than that (<em>English, avoid technical terms</em>, <em>Vietnamese, with an English summary at the end</em>). The words you are practising are always quoted as written. Left empty, the notes are in English.</p>
     </div>
+  </details>
+  <details class="sec" data-acc="voice" id="sec-voice">
+    <summary><span class="sec-title">Read-aloud voice</span><span class="sec-sum" id="sum-voice"></span></summary>
+    <div class="sec-body">
+      <p class="note">What reads words aloud in <strong>Typing</strong>, and the flashcard lines in <strong>Shadowing</strong>. Neither choice is Gemini, and neither spends anything from your Gemini budget. Dictation and Reading have Gemini voices of their own, in their sections.</p>
+      <div class="field">
+        <span>Read with</span>
+        <div class="seg" id="set-speech-source" role="group" aria-label="What reads words aloud">
+          <button type="button" data-source="device" aria-pressed="true">This device</button>
+          <button type="button" data-source="azure" aria-pressed="false">Azure neural voices</button>
+        </div>
+      </div>
+
+      <div id="voice-device">
+        <p class="note"><strong>This device</strong>: the voices that come with your operating system. Free, instant and offline. Only voices for your target language are listed. To add one on Windows: Settings → Time &amp; language → Speech → Add voices. On a Mac: System Settings → Accessibility → Spoken Content → System voice → Manage Voices. Reload this page afterwards.</p>
+        <label class="field"><span>Device voice</span>
+          <select id="set-speech-voice"></select>
+        </label>
+      </div>
+
+      <div id="voice-azure" hidden>
+        <p class="note"><strong>Azure neural voices</strong>: Microsoft's natural-sounding voices, the same on every device, read with your own key from an Azure Speech resource. Its free tier covers 500,000 characters a month, and each word is fetched only once: the clip is saved with your data and played from there after that. The key is kept in this browser only, like the Gemini key. The README says how to make one. If Azure cannot be reached, a word is read by your device's voice instead, and the line under this section says why.</p>
+        <div class="row">
+          <label class="field" style="flex:2 1 240px"><span>Azure Speech key</span>
+            <input type="password" id="set-azure-key" placeholder="KEY 1 from Keys and Endpoint" autocomplete="off" spellcheck="false">
+          </label>
+          <label class="field" style="flex:1 1 140px"><span>Region</span>
+            <input type="text" id="set-azure-region" placeholder="southeastasia" autocomplete="off" spellcheck="false">
+          </label>
+          <button class="btn" id="azure-load" style="align-self:flex-end">Load voices</button>
+        </div>
+        <label class="field"><span>Azure voice</span>
+          <select id="set-azure-voice"></select>
+        </label>
+      </div>
+
+      <div class="row">
+        <label class="field" style="flex:1 1 200px"><span>Speed <b id="set-speech-rate-val"></b></span>
+          <input type="range" id="set-speech-rate" class="rate">
+        </label>
+        <button class="btn" id="speech-sample" style="align-self:flex-end">Play sample</button>
+      </div>
+    </div>
+    <div class="status" id="speech-status"></div>
   </details>
   <details class="sec" data-acc="lookup" id="sec-lookup">
     <summary><span class="sec-title">Add from selected text</span><span class="sec-sum" id="lookup-hint"></span></summary>
@@ -276,28 +320,7 @@
       <div class="row">
         <label class="voice" style="flex:1 1 240px"><input type="checkbox" id="set-typing-speak"><span>Read the word aloud</span><em>with the voice below</em></label>
       </div>
-      <h3 class="sec-sub">Read-aloud voice</h3>
-      <p class="note">The voice that reads words aloud in Typing practice. These come with your operating system, cost nothing and work offline — they are nothing to do with Gemini or your API key. Only voices for your target language are listed; to add more on a Mac, go to System Settings → Accessibility → Spoken Content → System voice → Manage Voices, then reload this page.</p>
-      <div class="row">
-        <label class="field" style="flex:1 1 260px"><span>Voice</span>
-          <select id="set-speech-voice"></select>
-        </label>
-        <label class="field" style="flex:1 1 200px"><span>Speed <b id="set-speech-rate-val"></b></span>
-          <input type="range" id="set-speech-rate" class="rate">
-        </label>
-        <button class="btn" id="speech-sample" style="align-self:flex-end">Play sample</button>
-      </div>
-      <p class="note"><strong>Azure neural voices</strong> (optional) are Microsoft's natural-sounding voices, the same on every device, read with your own key from an Azure Speech resource. Its free tier covers 500,000 characters a month, and each word is fetched only once: the clip is saved with your data and played from there after that. Like the Gemini key, the Azure key is kept in this browser only. The README says how to make one.</p>
-      <div class="row">
-        <label class="field" style="flex:2 1 240px"><span>Azure Speech key</span>
-          <input type="password" id="set-azure-key" placeholder="KEY 1 from Keys and Endpoint" autocomplete="off" spellcheck="false">
-        </label>
-        <label class="field" style="flex:1 1 140px"><span>Region</span>
-          <input type="text" id="set-azure-region" placeholder="southeastasia" autocomplete="off" spellcheck="false">
-        </label>
-        <button class="btn" id="azure-load" style="align-self:flex-end">Load voices</button>
-      </div>
-    <div class="status" id="speech-status"></div>
+      <p class="note">The voice that reads the word is set under <a href="#sec-voice" data-open-sec="voice">Read-aloud voice</a>, above: your device's own, or Azure's.</p>
     </div>
   </details>
   <details class="sec" data-acc="dictation" id="sec-dictation">
@@ -768,7 +791,7 @@
             </button>
           </div>
           <div class="speech-panel" id="ty-speech-panel" role="dialog" aria-label="Voice and speed" hidden>
-            <label class="field"><span>Voice</span><select id="ty-voice"></select></label>
+            <label class="field"><span id="ty-voice-label">Voice</span><select id="ty-voice"></select></label>
             <label class="field"><span>Speed <b id="ty-rate-val"></b></span><input type="range" id="ty-rate" class="rate"></label>
             <div class="row">
               <button class="btn btn--sm" id="ty-speech-test">Play sample</button>
@@ -1244,6 +1267,6 @@
 <!-- The Reading tab's word popup: the selection popup's shape, filled by tab-reading.js. -->
 <div class="lookup-pop" id="reading-pop" role="dialog" aria-label="A word from the text" hidden></div>
 
-<script type="module" src="js/app.js?v=2026-09-27.9"></script>
+<script type="module" src="js/app.js?v=2026-09-27.11"></script>
 </body>
 </html>
