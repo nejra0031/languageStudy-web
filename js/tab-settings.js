@@ -11,6 +11,9 @@ import { LANGUAGES, codeFor, nameFor } from './lookup.js';
 import { readingVars } from './reading.js';
 import { briefVars, writingGradeSystem, writingGradeUser } from './writing.js';
 import { translationGradeSystem, translationGradeUser } from './translation.js';
+import {
+  scenarioVars, roleplayReplyRequest, findOutReplyRequest, roleplayGradeRequest, findOutGradeRequest,
+} from './conversation.js';
 import { rulesToText, totalOf, RATINGS } from './shadow-rules.js';
 import { serializeDeck } from './deck.js';
 import { serializeBundle, parseBundle, describeBundle, bundleFilename } from './bundle.js';
@@ -559,7 +562,31 @@ function render() {
    reads, and what a blur commits, so it must never hold rendered text. */
 const PROMPT_VIEWS = [
   'sentence', 'speech', 'shadowing', 'notes', 'reading', 'writingBrief', 'writingGrade', 'translationGrade',
+  'scenario', 'roleplayReply', 'findOutReply', 'conversationGrade', 'findOutGrade',
 ];
+
+/* A conversation to preview the conversation prompts with: two turns of
+   each side, in placeholders, so what the prompt adds is what shows. */
+const SAMPLE_ROLEPLAY = {
+  kind: 'roleplay',
+  scenario: { scenario: '<the scene>', studentRole: '<your role>', llmRole: '<their role>' },
+  turns: [
+    { speaker: 'partner', text: '<their opening line>' },
+    { speaker: 'learner', text: '<your first turn>' },
+    { speaker: 'partner', text: '<their reply>' },
+    { speaker: 'learner', text: '<your second turn>' },
+  ],
+  revealed: [],
+};
+const SAMPLE_FIND_OUT = {
+  ...SAMPLE_ROLEPLAY,
+  kind: 'findout',
+  scenario: {
+    situation: '<the situation>', studentRole: '<your role>', llmRole: '<their role>', goal: '<what you were sent to find out>',
+    facts: [1, 2, 3].map((n) => ({ id: String(n), label: `<fact ${n}>`, detail: `<its answer>` })),
+  },
+  revealed: ['1'],
+};
 
 /* Every prompt box works the same way: typing redraws the preview, leaving
    the box saves it, and Reset to default puts back the default this build
@@ -652,6 +679,26 @@ const PREVIEWS = {
       id: '0', english: '<the English of a banked sentence>', sentence: '<the banked sentence>', cards: sample,
     }], ['<what you wrote>'], draft.targetLanguage),
   ],
+  scenario: (draft, sample) => [
+    `── to ${draft.textModel} ──`,
+    fillTemplate(draft.prompts.scenario, scenarioVars(draft, 'roleplay', sample, draft.conversationRequest)),
+  ],
+  roleplayReply: (draft, sample) => {
+    const r = roleplayReplyRequest(draft, SAMPLE_ROLEPLAY, sample);
+    return [`── to ${draft.chatModel}, as the system instruction ──`, r.system, '', '── then, as the message ──', r.user];
+  },
+  findOutReply: (draft) => {
+    const r = findOutReplyRequest(draft, SAMPLE_FIND_OUT);
+    return [`── to ${draft.chatModel}, as the system instruction ──`, r.system, '', '── then, as the message ──', r.user];
+  },
+  conversationGrade: (draft, sample) => {
+    const r = roleplayGradeRequest(draft, SAMPLE_ROLEPLAY, sample, { closing: true });
+    return [`── to ${draft.gradeModel}, as the system instruction (after your sixth turn) ──`, r.system, '', '── then, as the message ──', r.user];
+  },
+  findOutGrade: (draft, sample) => {
+    const r = findOutGradeRequest(draft, SAMPLE_FIND_OUT, sample);
+    return [`── to ${draft.gradeModel}, as the system instruction ──`, r.system, '', '── then, as the message ──', r.user];
+  },
 };
 
 function renderPreview() {
@@ -704,6 +751,18 @@ function renderPreview() {
   }
   if (!draft.prompts.translationGrade.includes('"id"')) {
     warnings.translationGrade.push('The translation feedback prompt no longer asks for an array keyed by "id". Grades are matched to sentences by id, so without it none can be read.');
+  }
+  if (!draft.prompts.scenario.includes('{kind}')) {
+    warnings.scenario.push('The conversation scene prompt has no {kind} placeholder, so it is never told whether to write a roleplay or a find-out, and a reply of the wrong shape starts nothing.');
+  }
+  if (!draft.prompts.findOutReply.includes('{facts}') || !draft.prompts.findOutReply.includes('"revealed"')) {
+    warnings.findOutReply.push('The find-out reply prompt needs {facts}, or the other person knows nothing, and "revealed" in its JSON, or your checklist never ticks.');
+  }
+  if (!draft.prompts.conversationGrade.includes('{closing}') || !draft.prompts.conversationGrade.includes('"feedback"')) {
+    warnings.conversationGrade.push('The roleplay feedback prompt needs {closing}, or the sixth turn gets no closing line and cannot be read, and "feedback" in its JSON, or no reply can be read.');
+  }
+  if (!draft.prompts.findOutGrade.includes('"conversation"')) {
+    warnings.findOutGrade.push('The find-out feedback prompt no longer asks for "conversation" in its JSON, so no reply can be read.');
   }
   for (const name of PROMPT_VIEWS) {
     const el = $(`prompt-warn-${name}`);

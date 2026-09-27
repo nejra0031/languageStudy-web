@@ -1,7 +1,8 @@
 # Language Study
 
 Flashcards, typing practice, AI dictation, speaking practice, reading texts,
-graded writing and translation for whatever language you are learning. One static page. No account, no server, no database
+graded writing, translation and conversation for whatever language you are
+learning. One static page. No account, no server, no database
 — your cards, your audio and your own recordings stay on your own computer, in
 a folder you choose where the browser allows it, and the only thing that ever
 leaves the machine is a request to Google, signed with your own API key.
@@ -35,8 +36,7 @@ without knowing anything about any of them.
 ## The tabs
 
 The tab strip has two groups: Settings and Flashcards set things up, and
-after a gap come the practice modes. Conversation is greyed out at the end
-of it: it is planned, and clicking it says it is coming soon.
+after a gap come the practice modes.
 
 **Settings** — where your data is saved, your API key, the language, the models, the call
 budget, the prompts, the read-aloud voice, and which Gemini voices may read to you.
@@ -109,6 +109,10 @@ against your cards. See [Writing](#writing).
 **Translate** — six English sentences from the sentence bank to write in the
 language you are learning, in your own words, checked together in one call.
 See [Translate](#translate).
+
+**Conversation** — six turns of your own in a short scene, a roleplay or a
+*find out*, with the other side played by the conversation model and
+feedback at the end. See [Conversation](#conversation).
 
 ## Shadowing
 
@@ -442,6 +446,64 @@ else:
 
 A set is not kept, as a Typing session is not: what stays is the scores.
 
+## Conversation
+
+The Conversation tab is a short conversation in the language you are
+learning: **six turns of your own**, then feedback. There are two kinds.
+
+- **Roleplay**: a scene with two roles, such as returning shoes to a shop or
+  planning a weekend with a friend. The other person plays their part and
+  answers each of your turns. Your sixth turn gets their closing line and the
+  feedback from the same call.
+- **Find out**: the other person knows three or four things you were sent to
+  find out, such as when the rubbish is collected. They answer all six of your
+  turns, but **give a fact only when you ask about it specifically**; a vague
+  "any tips?" gets a friendly answer with nothing in it. A checklist,
+  *What you need to find out*, ticks each fact as they give it away. The
+  answers stay hidden until the end.
+
+**Start** has the text model write the scene, in the language you are
+learning, around five cards from the ticked decks (the Weak / + Developing /
+All filter is the Reading tab's), with the other person's opening line: one
+call. **A situation you would like** is optional (*at the bakery*); left
+empty, the model chooses, and what you type is kept for next time. The note
+under it says what the conversation costs: one call on the text model, five
+replies (a roleplay) or six (a find out) on the **conversation model**, and
+one call on the **feedback model** at the end. If today's budget could not
+finish the conversation, Start is refused before anything is spent, and says
+which model is short.
+
+The scene stays above the chat: the situation, who you are, who you are
+talking to, and in a find out the goal and the checklist. Type your turn and
+press **Send** (or Enter; Shift+Enter is a new line). A turn takes 1,000
+characters at most. **End and get feedback** ends the conversation early,
+once you have had a turn, and costs one feedback call.
+
+**Nothing is lost when a call fails.** Your turn is saved before it is sent,
+and every turn after it, so a reply that fails keeps your turn and **Try
+again** sends the same conversation again. A conversation you leave open,
+with a reload or a closed tab, carries on when you come back to the tab. If
+a find-out's feedback fails, the conversation still ends, with **Ask for
+feedback again**.
+
+The feedback comes in the language and style set under **Feedback language
+and style**:
+
+- **Roleplay**: each of your turns, *You said*, then *More natural* where
+  there is a better way to say it, then a sentence on it. A suggestion that
+  differs only in capitals or punctuation is not shown; one that changes an
+  accent is.
+- **Find out**: whether you had a conversation or fired off a list of
+  questions (did you react to the answers, follow up, use what you heard),
+  how you asked, the one thing to do *next time*, and what you never asked
+  about. The checklist then shows every answer.
+
+Then **your cards**, judged on your own turns only and scored once, when the
+conversation ends with feedback, through the same rules as everywhere else.
+**Start again** sets a new scene. Every conversation is kept under **Past
+conversations**, newest first; an open one says so, and clicking it carries
+on, while an ended one opens as it was. **Delete** asks once more in place.
+
 ## Choosing which decks are in play
 
 The deck menu on the Flashcards page lists every deck you have with a
@@ -642,6 +704,8 @@ reading/<id>.ogg          that text read aloud, if it has been (.wav where the
 writing/manifest.json     the index of everything handed in on Writing
 writing/<id>.json         one piece: the task, the cards, what you wrote,
                           and the feedback
+conversation/manifest.json   the index of conversations
+conversation/<id>.json       one conversation: its scene, turns and feedback
 ```
 
 The shadowing takes are named from the recorder's own container, so they are
@@ -938,6 +1002,23 @@ wrong. The reply has to be a JSON array with one object per `"id"`, so a
 reply that drops or reorders a sentence cannot move a grade onto the wrong
 one; a reply that is not an array is a failure.
 
+The five conversation prompts are sent from the [Conversation](#conversation)
+tab. The **scene prompt** goes to the text model when you press Start. It
+takes `{kind}` (*roleplay* or *find-out*, which picks the section to follow),
+`{request}`, `{terms}` (your cards), `{language}`, `{level}` and
+`{languageNote}`, and the reply is the scene as JSON; it replaces the fixed
+scenes lessons-web's lessons carried. The **roleplay reply** and **find-out
+reply** prompts go to the conversation model for each of the other person's
+lines, as the system instruction, with the conversation so far as the
+message. The find-out one holds the facts and their answers (`{facts}`),
+strict rules about giving one only when it is asked for, and asks for
+`"revealed"`, the facts the line gave away, which is what ticks your
+checklist. The **roleplay feedback** prompt is sent when a roleplay ends:
+`{closing}` asks for the closing line too after your sixth turn, and for none
+after an early end. The **find-out feedback** prompt is sent when a find out
+ends, told what you found out. All five are lessons-web's, with Dutch taken
+out and your cards added.
+
 ## Running it locally
 
 It is plain ES modules with no build step and no dependencies, but modules do
@@ -976,6 +1057,7 @@ js/reading.js         Reading: presets, choosing the cards, reading the marked t
                       naming and indexing kept texts
 js/writing.js         Writing: word bounds, the grading request, reading the feedback
 js/translation.js     Translate: drawing a set from the bank, grading, what moves
+js/conversation.js    Conversation: the scene, every reply and grade, the budget
 js/deck.js            deck format, scoring, card selection
 js/speech.js          the device's own voices, for reading words aloud
 js/recorder.js        the microphone: MediaRecorder, and releasing it again

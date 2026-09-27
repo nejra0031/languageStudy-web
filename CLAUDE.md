@@ -21,10 +21,8 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
 ## How the code is laid out
 
 - `app.js` boots the page and switches tabs. Each `tab-*.js` owns one panel and
-  its DOM, and exports `init()` and optionally `onShow()`. The tab strip is
-  two groups, setup (Settings, Flashcards) and practice; a tab with
-  `data-soon` is a planned mode with no panel, and clicking it only says it
-  is coming soon (see *Planned modes* below).
+  its DOM, and exports `init()` and optionally `onShow()` and `onHide()`. The
+  tab strip is two groups, setup (Settings, Flashcards) and practice.
 - `store.js` is the shared state: settings, every deck, the dictation bank,
   the call budget. Tabs read `store.state` and call the store's save
   functions; **a tab never touches storage directly.** Subscribers are told
@@ -106,6 +104,16 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
   back (`null` if it is not one; an item without a verdict is ungraded), and
   `translationScores`, which decides what moves. The bank is only read.
   `tab-translate.js` is the list and the check; a set is not kept.
+- `conversation.js` is Conversation's pure logic: the budget a conversation
+  needs by model (`callsNeeded`, `budgetProblem`, refused before the scene is
+  written), reading the scene (`readScenario`, null on anything malformed),
+  and every request and reply of both kinds: a roleplay's replies (plain
+  text), its closing call (line and feedback in one) and its early end; a
+  find-out's replies (with `revealed`, run through `normaliseIds`) and its
+  conclusion, where found and missed are worked out in code. Only learner
+  turns are graded. `tab-conversation.js` saves the session after every
+  turn, the learner's turn before the call that answers it, resumes an open
+  one when shown, and scores the cards once, when it ends with feedback.
 - The selection popup (Add from selected text) is not a tab: it opens over
   whichever tab holds the selected text. `lookup.js` is its pure logic
   (which way round, is the word a card already, the sentence around it),
@@ -157,26 +165,20 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
 
 ## Planned modes
 
-One more practice mode is planned: **Conversation** (typed, then spoken
-turns). Its tab is already in the strip, greyed out as coming soon;
-**Writing** and **Translate**, the first two of the three the plan covers,
-are built. The plan is written in full in
-`practice-mode-port.md` at the repo root, a working note kept out of git (see
-`.gitignore`): it adapts lessons-web's modes to decks, settings and the model
-catalogue, phase by phase, with the tests each needs. Its shared
-foundations (phase 0: `json-reply.js`, the Feedback and Conversation jobs,
-the grader's feedback block, `writing/` and `conversation/` in the store),
-Writing (phase 1) and Translate (phase 2) are in; the rest comes later. When a mode is built, follow the
-plan, drop the tab's `data-soon`, give it a panel, and update this file and
-the README in the same commit.
+The last part of the port is still to come: **spoken turns** in
+Conversation, recorded with `recorder.js`, transcribed by the shadowing
+model, with a note on how the roleplay sounded. The plan is written in full
+in `practice-mode-port.md` at the repo root, a working note kept out of git
+(see `.gitignore`); its phases 0 to 3 (the shared foundations, Writing,
+Translate and typed Conversation) are built.
 
 ## Checking a change in a browser
 
 Unit tests cover the modules without a DOM — `deck.js`, `text.js`,
 `gemini.js`, the model catalogue, `speech.js`, `azure-tts.js`, `zip.js`,
 `bundle.js`, `backup-due.js`, `opus.js`, `convert-audio.js`, `shadowing.js`,
-`shadow-rules.js`, `lookup.js`, `reading.js`, `json-reply.js`, `writing.js`
-and `translation.js` — not the tabs. For anything a
+`shadow-rules.js`, `lookup.js`, `reading.js`, `json-reply.js`, `writing.js`,
+`translation.js` and `conversation.js` — not the tabs. For anything a
 user sees, drive the real page. Playwright's WebKit is Safari's engine and works well; some quirks
 cost time the first time:
 

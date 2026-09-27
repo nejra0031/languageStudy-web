@@ -26,6 +26,11 @@ import {
   briefVars, readBrief, writingGradeSystem, writingGradeUser, readWritingGrade,
 } from './writing.js';
 import { translationGradeSystem, translationGradeUser, readTranslationGrade } from './translation.js';
+import {
+  scenarioVars, readScenario, budgetProblem, roleplayReplyRequest, readRoleplayReply,
+  findOutReplyRequest, readFindOutReply, roleplayGradeRequest, readRoleplayGrade,
+  findOutGradeRequest, readFindOutGrade,
+} from './conversation.js';
 
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent';
 const MINUTE = 60;
@@ -850,6 +855,75 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     return { results, model };
   }
 
+  /* ── conversations ─────────────────────────────────────────────────── */
+
+  /* Before the scene is written: the text model must be free now, and every
+     model the conversation will use must have the calls it needs left
+     today, or the scene would be a call spent on a conversation that stops
+     halfway. The refusal names the model and the count. */
+  function conversationPreflight(kind) {
+    jobPreflight('textModel');
+    const why = budgetProblem(getSettings(), kind, (model, rpm, rpd) => limiter.usage(model, rpm, rpd));
+    if (why) throw new QuotaError(why, 0);
+  }
+
+  /* One call on the text model: the scene and the other person's opening
+     line. A reply that cannot be read starts nothing. */
+  async function writeScenario({ kind, cards, request }) {
+    conversationPreflight(kind);
+    const s = getSettings();
+    const { text, model } = await jobCall('textModel', {
+      parts: [{ text: fillTemplate(s.prompts.scenario, scenarioVars(s, kind, cards, request)) }],
+      temperature: 0.7,
+      maxOutputTokens: 4096,
+    });
+    const scenario = readScenario(text, kind);
+    if (!scenario) {
+      throw new GeminiError(`${model} replied with something that could not be read as a scene, so nothing was started. Press Start to try again.`);
+    }
+    return { scenario, model };
+  }
+
+  /* The other person's next line, on the conversation model: plain text in
+     a roleplay, and in a find-out the line with the ids of the facts it
+     gave away. `cards` are the session's cards as the decks have them. */
+  async function partnerReply(session, cards) {
+    const s = getSettings();
+    const findOut = session.kind === 'findout';
+    const { system, user } = findOut ? findOutReplyRequest(s, session) : roleplayReplyRequest(s, session, cards);
+    const { text, model } = await jobCall('chatModel', {
+      system, parts: [{ text: user }], temperature: 0.6, maxOutputTokens: 2048,
+    });
+    const got = findOut
+      ? readFindOutReply(text, session.scenario.facts)
+      : (() => { const line = readRoleplayReply(text, session); return line && { text: line, revealed: [] }; })();
+    if (!got) throw new GeminiError(`${model} did not reply with a line. Your turn is kept, so you can try again.`);
+    return { ...got, model };
+  }
+
+  /* The feedback at the end, on the feedback model. A roleplay's sixth turn
+     asks for the closing line in the same call (`closing`); ending early
+     does not, and is graded at temperature 0, as lessons-web does. */
+  async function concludeConversation(session, cards, { closing = false } = {}) {
+    const s = getSettings();
+    if (session.kind === 'findout') {
+      const { system, user } = findOutGradeRequest(s, session, cards);
+      const { text, model } = await jobCall('gradeModel', {
+        system, parts: [{ text: user }], temperature: 0.4, maxOutputTokens: 8192,
+      });
+      const got = readFindOutGrade(text, session, cards);
+      if (!got) throw new GeminiError(`${model} replied with something that could not be read as feedback.`);
+      return { ...got, model };
+    }
+    const { system, user } = roleplayGradeRequest(s, session, cards, { closing });
+    const { text, model } = await jobCall('gradeModel', {
+      system, parts: [{ text: user }], temperature: closing ? 0.5 : 0, maxOutputTokens: 16384,
+    });
+    const got = readRoleplayGrade(text, session, cards, { closing });
+    if (!got) throw new GeminiError(`${model} replied with something that could not be read as ${closing ? 'a closing line and feedback' : 'feedback'}.`);
+    return { ...got, model };
+  }
+
   /* ── card notes ────────────────────────────────────────────────────── */
 
   /* Refuses before spending, like the other preflights: the notes job has a
@@ -940,6 +1014,7 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     draftShadowRules, reviseShadowRules, rulesPreflight, notesPreflight, writeNotes,
     readingPreflight, writeReading, speechPreflight, speakReading, jobPreflight, jobCall,
     writeWritingBrief, gradeWriting, gradeTranslations,
+    conversationPreflight, writeScenario, partnerReply, concludeConversation,
   };
 }
 
