@@ -37,7 +37,10 @@ let answers = [];
 let results = null;
 let moves = null;
 let saved = null;
-let busy = false;
+/* The set out to be checked, if one is. New set is never blocked by it: the
+   check still scores that set's cards when it comes back, and is shown only
+   if that set is still the one on screen. */
+let checking = null;
 /* The one sentence playing, and its URL when this tab made it. */
 let player = null;
 let playerUrl = null;
@@ -142,7 +145,6 @@ function drawSet() {
 }
 
 function newSet() {
-  if (busy) return;
   drawSet();
   render();
   const first = $('tr-list').querySelector('input[data-i="0"]');
@@ -229,9 +231,10 @@ function renderSummary() {
    set has been checked. */
 function renderCheck() {
   const btn = $('tr-check');
-  if (busy) return;
+  if (checking && checking === items) return;
+  btn.textContent = 'Check answers';
   const g = store.jobUsage('translateModel');
-  btn.disabled = !!results || !answers.some((a) => cleanAnswer(a)) || g.retryAfter > 0 || !storage.getApiKey();
+  btn.disabled = !!checking || !!results || !answers.some((a) => cleanAnswer(a)) || g.retryAfter > 0 || !storage.getApiKey();
   btn.hidden = !!results;
   const wait = $('tr-wait');
   wait.hidden = !(g.retryAfter > 0 && !results && items.length);
@@ -241,10 +244,10 @@ function renderCheck() {
 /* ── checking ────────────────────────────────────────────────────────── */
 
 async function check() {
-  if (busy || results || !items.length) return;
+  if (checking || results || !items.length) return;
   const set = items;
   const typed = answers.map(cleanAnswer);
-  busy = true;
+  checking = set;
   showError('');
   const btn = $('tr-check');
   btn.innerHTML = '<span class="spinner"></span>Checking';
@@ -252,16 +255,18 @@ async function check() {
   for (const input of $('tr-list').querySelectorAll('input')) input.readOnly = true;
   try {
     const { results: got } = await store.client.gradeTranslations(set, typed);
+    /* Scored whether or not a new set has been drawn meanwhile: the
+       answers were given, and the cards should move with them. */
+    const scored = await score(set, got, typed);
     if (items !== set) return;
     results = got;
-    const scored = await score(set, got, typed);
     moves = scored.moves;
     saved = scored.saved;
   } catch (e) {
     console.error(e);
-    showError(`Could not check these just now. Try again in a moment. ${describe(e)}`, true, btn.closest('.row'));
+    if (items === set) showError(`Could not check these just now. Try again in a moment. ${describe(e)}`, true, btn.closest('.row'));
   } finally {
-    busy = false;
+    checking = null;
     btn.textContent = 'Check answers';
     if (items === set) render();
     renderQuota();

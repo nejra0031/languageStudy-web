@@ -113,9 +113,9 @@ language you are learning, in your own words, checked together in one call.
 See [Translate](#translate).
 
 **Conversation** — a few turns of your own (six by default) in a short scene, a roleplay or a
-*find out*, with the other side played by the conversation model and
-feedback at the end; or a **live** conversation, spoken in real time for one
-to three minutes. See [Conversation](#conversation).
+*find out*, with the other side played by an AI model and
+feedback at the end; or a **live** conversation with the model, spoken in
+real time for one to three minutes. See [Conversation](#conversation).
 
 **Errors show where you were waiting.** When something you asked for fails
 — a sentence, a text, a question, a check, a reply, the feedback — the error
@@ -470,24 +470,27 @@ A set is not kept, as a Typing session is not: what stays is the scores.
 The Conversation tab is a short conversation in the language you are
 learning: **six turns of your own** (or as many as **Settings → Conversation
 → Your turns** says, from 2 to 12), then feedback. A conversation keeps the
-number it started with. There are two kinds.
+number it started with. **You are always talking to an AI model**, never to
+a person: a Gemini model plays the other role in the scene, and the chat
+labels its lines with that role (*Shop assistant*, *Neighbour*). There are
+two kinds, and a third, spoken live, below.
 
 - **Roleplay**: a scene with two roles, such as returning shoes to a shop or
-  planning a weekend with a friend. The other person plays their part and
-  answers each of your turns. Your last turn gets their closing line and the
+  planning a weekend with a friend. The model plays the other role and
+  answers each of your turns. Your last turn gets its closing line and the
   feedback from the same call.
-- **Find out**: the other person knows four things you were sent to find out
-  (**Facts in a find out**, 2 to 6), such as when the rubbish is collected.
-  They answer every one of your
-  turns, but **give a fact only when you ask about it specifically**; a vague
+- **Find out**: the model plays someone who knows four things you were sent
+  to find out (**Facts in a find out**, 2 to 6), such as when the rubbish is
+  collected. It answers every one of your
+  turns, but **gives a fact only when you ask about it specifically**; a vague
   "any tips?" gets a friendly answer with nothing in it. A checklist,
-  *What you need to find out*, ticks each fact as they give it away. The
-  answers stay hidden until the end.
+  *What you need to find out*, ticks each fact as the model gives it away.
+  The answers stay hidden until the end.
 
 **Start** has the text model write the scene, in the language you are
 learning, around five cards from the ticked decks (**Cards in a scene**; the
-Weak / + Developing / All filter is Conversation's own), with the other
-person's opening line: one call. Settings also says which kind the tab starts
+Weak / + Developing / All filter is Conversation's own), with the model's
+opening line in its role: one call. Settings also says which kind the tab starts
 on. **A situation you would like** is optional (*at the bakery*); left
 empty, the model chooses, and what you type is kept for next time. The note
 under it says what the conversation costs: one call on the text model, five
@@ -551,14 +554,22 @@ and style**:
 
 Then **your cards**, judged on your own turns only and scored once, when the
 conversation ends with feedback, through the same rules as everywhere else.
-**Start again** sets a new scene. Every conversation is kept under **Past
-conversations**, newest first; an open one says so, and clicking it carries
-on, while an ended one opens as it was. **Delete** asks once more in place.
+**Start** stays at the top of the tab the whole time, so **a new
+conversation can be started at any point**, even with one unfinished on
+screen, and even while a reply or the feedback is still on its way: that
+answer is saved to its own conversation when it comes. Only a live
+conversation under way holds Start back until it is ended. **Start again**,
+under the feedback, takes you back up to it. Every conversation is kept under
+**Past conversations**, newest first; an open one says so, and clicking it
+carries on where it stopped (with **Try again** if a reply or the feedback
+is still owed), while an ended one opens as it was. **Delete** asks once
+more in place.
 
 ### Live conversations
 
-The third kind, **Live**, is a find out spoken in real time: you and the
-other person simply talk, with no button to press between turns, for **1, 2
+The third kind, **Live**, is a find out spoken in real time **with an AI
+model**, Gemini's Live API, which plays the other role out loud: you and the
+model simply talk, with no button to press between turns, for **1, 2
 or 3 minutes** (chosen beside the kinds, and under **Settings → Conversation
 → Live conversation length**). It is Praat, from durkle's lessons suite,
 without the server Praat needed: the page talks to Google's **Live API**
@@ -567,17 +578,17 @@ Gemini.
 
 **Start** writes the scene as for a find out (the situation, the two roles,
 what you were sent to find out, and your cards). **Start talking** then asks
-for the microphone and opens the conversation. The other person speaks
-first; you answer out loud, and they hear you as you speak and answer in
-their own voice, which is drawn from the dictation voices. You can talk over
-them, and they stop. They give each fact only when you ask about it
-specifically, never correct you, and never leave the language. Fifteen
-seconds before the end they are told to round off, and when the time is up
-their last sentence is let finish and the conversation closes. **End now**
-ends it sooner. **Show what's being said** shows the last few lines of the
-running transcript; it is off by default, since reading along is not
-listening. **Use headphones**: the microphone's echo cancellation keeps the
-other person from hearing themselves, but headphones are surer.
+for the microphone and opens the conversation. The model speaks first; you
+answer out loud, and it hears you as you speak and answers with a generated
+voice, drawn from the dictation voices. You can talk over it, and it stops.
+It gives each fact only when you ask about it specifically, never corrects
+you, and never leaves the language. Fifteen seconds before the end it is
+told to round off, and when the time is up its last sentence is let finish
+and the conversation closes. **End now** ends it sooner. **Show what's being
+said** shows the last few lines of the running transcript; it is off by
+default, since reading along is not listening. **Use headphones**: the
+microphone's echo cancellation keeps the model from hearing its own voice
+back, but headphones are surer.
 
 While you talk, your microphone is also recorded, and the recording is kept
 beside the conversation the moment it ends. Then one call on the **live
@@ -1163,7 +1174,7 @@ reply that drops or reorders a sentence cannot move a grade onto the wrong
 one; a reply that is not an array is a failure.
 
 The two **live** prompts belong to [live conversations](#live-conversations).
-The **live partner prompt** goes to the live model once, when the
+The **live conversation prompt** goes to the live model once, when the
 conversation opens, and takes the scene's `{situation}`, `{studentRole}`,
 `{llmRole}` and `{facts}` (with their answers), `{terms}`, `{language}`,
 `{level}` and `{languageNote}`. The page sends `[START]` to open the
@@ -1179,8 +1190,8 @@ takes `{kind}` (*roleplay* or *find-out*, which picks the section to follow),
 `{request}`, `{terms}` (your cards), `{language}`, `{level}` and
 `{languageNote}`, and the reply is the scene as JSON; it replaces the fixed
 scenes lessons-web's lessons carried. The **roleplay reply** and **find-out
-reply** prompts go to the conversation model for each of the other person's
-lines, as the system instruction, with the conversation so far as the
+reply** prompts go to the conversation model for each of its lines in the
+scene, as the system instruction, with the conversation so far as the
 message. The find-out one holds the facts and their answers (`{facts}`),
 strict rules about giving one only when it is asked for, and asks for
 `"revealed"`, the facts the line gave away, which is what ticks your
@@ -1261,10 +1272,10 @@ js/reading.js         Reading: presets, choosing the cards, reading the marked t
 js/writing.js         Writing: word bounds, the grading request, reading the feedback
 js/translation.js     Translate: drawing a set from the bank, grading, what moves
 js/conversation.js    Conversation: the scene, every reply and grade, the budget
-js/live.js            live conversations: the partner, the socket's messages,
+js/live.js            live conversations: the model's instruction, the socket's messages,
                       the running transcript, the grading call and the score
 js/gemini-live.js     the Live API's WebSocket, written without an SDK
-js/live-audio.js      the microphone as 16 kHz PCM, the partner's voice, the recording
+js/live-audio.js      the microphone as 16 kHz PCM, the model's voice, the recording
 js/live-session.js    one live conversation, from Start talking to the recording
 js/deck.js            deck format, scoring, card selection
 js/speech.js          the device's own voices, for reading words aloud

@@ -1028,7 +1028,7 @@ function renderPreview() {
     warnings.scenario.push('The conversation scene prompt has no {kind} placeholder, so it is never told whether to write a roleplay or a find-out, and a reply of the wrong shape starts nothing.');
   }
   if (!draft.prompts.findOutReply.includes('{facts}') || !draft.prompts.findOutReply.includes('"revealed"')) {
-    warnings.findOutReply.push('The find-out reply prompt needs {facts}, or the other person knows nothing, and "revealed" in its JSON, or your checklist never ticks.');
+    warnings.findOutReply.push('The find-out reply prompt needs {facts}, or the model knows nothing to give away, and "revealed" in its JSON, or your checklist never ticks.');
   }
   if (!draft.prompts.conversationGrade.includes('{closing}') || !draft.prompts.conversationGrade.includes('"feedback"')) {
     warnings.conversationGrade.push('The roleplay feedback prompt needs {closing}, or the sixth turn gets no closing line and cannot be read, and "feedback" in its JSON, or no reply can be read.');
@@ -1037,7 +1037,7 @@ function renderPreview() {
     warnings.findOutGrade.push('The find-out feedback prompt no longer asks for "conversation" in its JSON, so no reply can be read.');
   }
   if (!draft.prompts.livePartner.includes('{facts}') || !draft.prompts.livePartner.includes(START_CUE)) {
-    warnings.livePartner.push(`The live partner prompt needs {facts}, or the other person knows nothing to be found out, and ${START_CUE}, or it is never told what the signal that opens the conversation means.`);
+    warnings.livePartner.push(`The live conversation prompt needs {facts}, or the model knows nothing to be found out, and ${START_CUE}, or it is never told what the signal that opens the conversation means.`);
   }
   if (!draft.prompts.liveGrade.includes('"transcript"') || !draft.prompts.liveGrade.includes('"bands"')) {
     warnings.liveGrade.push('The live feedback prompt no longer asks for "transcript" and "bands" in its JSON. A reply without "transcript" cannot be read, and without "bands" there is no score.');

@@ -45,7 +45,12 @@ let task = null;
 let shown = null;
 let moves = null;
 let saved = null;
-let busy = false;
+/* The task whose piece is out to be read, if one is. Only that task's box
+   is locked meanwhile: a new question, topic or summary can be started, or
+   a kept piece opened, and the feedback is still kept and scored when it
+   comes back, and shown if its task is still the one on screen. One
+   hand-in at a time. */
+let grading = null;
 let asking = false;
 /* The row whose Delete has been pressed once, and the timer that stands it
    down again. */
@@ -55,7 +60,7 @@ let disarm = 0;
 export function init() {
   $('wr-kind').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-kind]');
-    if (!btn || busy || asking) return;
+    if (!btn || asking) return;
     kind = btn.dataset.kind;
     setSeg('wr-kind', 'kind', kind);
     renderChooser();
@@ -169,7 +174,7 @@ function renderChooser() {
     if (rows.some((r) => r.id === was)) sel.value = was;
   }
   sel.disabled = !rows.length;
-  $('wr-start-summary').disabled = !rows.length || busy;
+  $('wr-start-summary').disabled = !rows.length;
   $('wr-summary-note').textContent = rows.length
     ? 'The text is shown with the task, and the cards it used are the ones to try to use. No call is spent until you hand in.'
     : 'You have no reading texts yet. Write one on the Reading tab, then come back to summarise it.';
@@ -187,7 +192,7 @@ function drawCards() {
 }
 
 async function askForQuestion() {
-  if (asking || busy) return;
+  if (asking) return;
   const cards = drawCards();
   if (!cards.length) {
     showError(store.practiceCards().length
@@ -216,7 +221,7 @@ async function askForQuestion() {
 /* A topic of your own costs no call. The cards to try to use are drawn all
    the same, so the piece still practises something. */
 function useTopic() {
-  if (asking || busy) return;
+  if (asking) return;
   const topic = $('wr-topic').value.trim();
   if (!topic) {
     showError('Type a topic first, or press Write me a question.', false, $('wr-topic').closest('.row'));
@@ -228,7 +233,7 @@ function useTopic() {
 }
 
 async function startSummary() {
-  if (asking || busy) return;
+  if (asking) return;
   const id = $('wr-reading').value;
   const record = id && await store.loadReading(id);
   if (!record) {
@@ -261,7 +266,22 @@ function summaryTask(record) {
   };
 }
 
+/* Whether the task on screen is the one out to be read: only then is its
+   box locked. */
+function busy() {
+  return !!grading && grading === task;
+}
+
+/* A new task frees the box even while an earlier piece is out: that piece
+   is kept and scored when its feedback comes back. */
+function unlockBox() {
+  $('wr-text').readOnly = false;
+  $('wr-busy').hidden = true;
+  $('wr-hand-in').textContent = 'Hand in';
+}
+
 function setTask(next) {
+  unlockBox();
   task = next;
   shown = null;
   moves = null;
@@ -348,27 +368,31 @@ function renderCount() {
 
 function renderHandIn() {
   const btn = $('wr-hand-in');
-  if (busy) return;
+  if (busy()) return;
   const g = store.jobUsage('writingGradeModel');
   const ok = task && !shown && wordStatus(countWords($('wr-text').value), bounds()).ok;
-  btn.disabled = !ok || g.retryAfter > 0 || !storage.getApiKey();
+  btn.disabled = !ok || !!grading || g.retryAfter > 0 || !storage.getApiKey();
   /* Why a piece that is the right length cannot go in yet is said beside
      the button, not only in a tooltip, which a phone never shows. */
   const wait = $('wr-busy');
-  wait.hidden = !(ok && g.retryAfter > 0);
-  if (!wait.hidden) wait.textContent = `${g.model} is out of budget for now: next call in ${formatWait(g.retryAfter)}.`;
+  wait.hidden = !(ok && (grading || g.retryAfter > 0));
+  if (!wait.hidden) {
+    wait.textContent = grading
+      ? 'Your last piece is still being read. Hand this one in when its feedback is back.'
+      : `${g.model} is out of budget for now: next call in ${formatWait(g.retryAfter)}.`;
+  }
 }
 
 /* ── handing in ──────────────────────────────────────────────────────── */
 
 async function handIn() {
-  if (busy || !task || shown) return;
+  if (grading || !task || shown) return;
   const text = $('wr-text').value.slice(0, MAX_TEXT);
   if (!wordStatus(countWords(text), bounds()).ok) return;
   const s = store.state.settings;
   const at = task;
 
-  busy = true;
+  grading = at;
   showError('');
   const btn = $('wr-hand-in');
   btn.innerHTML = '<span class="spinner"></span>Reading your writing';
@@ -401,23 +425,28 @@ async function handIn() {
     /* "Not an attempt" scores nothing; feedback scores the cards it
        judged right or wrong, and leaves the ones not used alone. */
     const scored = result.valid ? await scoreVerdicts(result.cards, at.cards) : { moves: new Map(), saved: true };
+    /* Kept whether or not another task has been started meanwhile: it is
+       in the list below either way. */
+    const kept = await store.saveWriting(record);
     if (task !== at) return;
     shown = record;
     moves = scored.moves;
     saved = scored.saved;
     renderCard();
-    if (!(await store.saveWriting(record))) {
+    if (!kept) {
       showError(`The feedback is on screen but could not be written to ${storage.label()}. Reconnect the data folder in Settings; it will be lost on reload.`, false, $('wr-count-row'));
     }
     $('wr-result').scrollIntoView({ block: 'start', behavior: 'smooth' });
   } catch (e) {
     console.error(e);
-    showError(describe(e), true, $('wr-count-row'));
+    if (task === at) showError(describe(e), true, $('wr-count-row'));
   } finally {
-    busy = false;
+    grading = null;
     btn.textContent = 'Hand in';
-    $('wr-text').readOnly = false;
-    $('wr-busy').hidden = true;
+    if (task === at) {
+      $('wr-text').readOnly = false;
+      $('wr-busy').hidden = true;
+    }
     renderQuota();
     renderHandIn();
   }
@@ -445,7 +474,7 @@ export async function scoreVerdicts(verdicts, cards) {
 }
 
 function writeAgain() {
-  if (!task || busy) return;
+  if (!task || busy()) return;
   if (task.missingSource) {
     showError('The reading text this piece summarised has since been deleted, so there is nothing to summarise again. Pick another text above.', false, $('wr-again-row'));
     return;
@@ -562,13 +591,13 @@ function renderList() {
 }
 
 async function openWriting(id) {
-  if (busy) return;
   const record = await store.loadWriting(id);
   if (!record) {
     showError(`That piece could not be read from ${storage.label()}. Its file may have been moved or deleted outside the app.`);
     return;
   }
   showError('');
+  unlockBox();
   task = await taskOf(record);
   shown = record;
   moves = null;
@@ -643,7 +672,7 @@ function renderQuota() {
     el.className = 'quota ' + (g.leftDay !== null && g.leftDay <= 2 ? 'is-bad' : 'is-ok');
   }
   if (!asking) {
-    $('wr-ask').disabled = busy || t.retryAfter > 0 || !storage.getApiKey();
+    $('wr-ask').disabled = t.retryAfter > 0 || !storage.getApiKey();
     $('wr-ask').title = t.retryAfter > 0
       ? `${t.model} is out of budget for now: next call in ${formatWait(t.retryAfter)}.`
       : `One call on ${t.model}: text ${t.usedDay}/${t.rpd || '∞'} in 24h`;

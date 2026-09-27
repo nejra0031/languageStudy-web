@@ -137,6 +137,11 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
   judged by the language's listening rules. `tab-conversation.js` saves the session after every
   turn, the learner's turn before the call that answers it, resumes an open
   one when shown, and scores the cards once, when it ends with feedback.
+  Its briefing (Start) is always on screen, above any conversation: a call
+  for one conversation is kept in `out` by its id, not in the tab-wide
+  `working` (which is only 'starting', 'talking' and 'saving'), and lands
+  on its own record whichever conversation is on screen by then; `take()`
+  offers Try again for whatever such a record still owes.
 - A third kind, `'live'`, is durkle's Praat without its server: a find-out
   scene, then a timed spoken conversation over the Live API's WebSocket,
   opened from the page with the user's key. `live.js` is its pure logic
@@ -175,6 +180,16 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
   Fields the app does not know are carried through every save untouched, so
   never drop unknown keys, and never add app-internal state to a card (the
   deck a card belongs to is tracked in memory, not written to it).
+- **A new session can always be started.** The top of every practice tab
+  starts a new one whatever state the current one is in, even with a call
+  out for it: that call's answer is kept and scored on the session it was
+  made for (Shadowing's `grading`, Writing's `grading`, Translate's
+  `checking`, Conversation's `out`) and shown only if that session is still
+  on screen. Only a live conversation under way holds Start back.
+- **Conversation is with an AI model.** Its UI never calls the other side a
+  person or a partner: the model plays a role, named by `llmRole`, and the
+  scene says so. The prompts may speak of "the other person", since that is
+  the fiction the model is asked to play.
 - **Nothing is language-specific.** The target language comes from settings;
   accent handling works for any script through Unicode normalisation. Do not
   add rules that only make sense for one language.

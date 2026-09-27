@@ -55,7 +55,11 @@ const takes = new Map();
    take for as long as the tab lives. */
 const urls = new Set();
 let recordingIndex = null;
-let busy = false;
+/* The set that is out for feedback, if one is. Only that set is locked
+   while it is out (its takes are the ones being listened to); New set and
+   the list of past sets stay open, and the feedback lands on the set it was
+   asked for whichever one is on screen by then. One hand-in at a time. */
+let grading = null;
 let inFlight = false;
 let micDenied = false;
 let player = null;
@@ -131,7 +135,7 @@ export function init() {
 
   $('sh-pick').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-pick]');
-    if (!btn || !session || busy) return;
+    if (!btn || !session || busy()) return;
     chosen.clear();
     if (btn.dataset.pick === 'waiting') chooseWaiting();
     else if (btn.dataset.pick === 'all') {
@@ -255,7 +259,7 @@ function renderPool() {
     `${bank} banked · ${cards} cards`,
     decks.length === 1 ? `deck ${decks[0]}` : `${decks.length} decks ticked`,
   ].join(' · ');
-  $('sh-new').disabled = busy || (bank + cards) === 0;
+  $('sh-new').disabled = (bank + cards) === 0;
 }
 
 function renderQuota() {
@@ -293,14 +297,15 @@ function syncSubmit() {
 
   el.hidden = false;
   pick.hidden = !recorded;
-  for (const b of pick.querySelectorAll('button')) b.disabled = busy;
-  el.disabled = busy || !sending || waiting;
+  for (const b of pick.querySelectorAll('button')) b.disabled = busy();
+  el.disabled = !!grading || !sending || waiting;
   el.textContent = !sending ? 'Hand in'
     : sending === session.items.length ? `Hand in all ${sending}`
       : `Hand in ${sending} line${sending === 1 ? '' : 's'}`;
   /* The quota line beside it already says how long, so the button does not
      need to count down as well. */
-  el.title = waiting ? 'The shadowing budget is spent for the moment.' : '';
+  el.title = grading && !busy() ? 'Another set is out for feedback. Hand this one in when it is back.'
+    : waiting ? 'The shadowing budget is spent for the moment.' : '';
 }
 
 /* The ticked lines that can actually go up: a tick on a line with no take
@@ -341,7 +346,6 @@ function gate() {
 /* ── building a set ──────────────────────────────────────────────────── */
 
 async function newSet() {
-  if (busy) return;
   const src = sources();
   if (!src.cards && !src.bank) {
     showError('Both sources are unticked in Settings, so there is nothing to draw a set from. Tick your flashcards, the sentence bank, or both.');
@@ -390,7 +394,9 @@ async function newSet() {
 }
 
 async function openSession(id, handin = null) {
-  const loaded = await store.loadSession(id);
+  /* The set out for feedback is taken as it is in memory, which is where
+     its feedback will land, not as the copy on disk. */
+  const loaded = grading && grading.id === id ? grading : await store.loadSession(id);
   if (!loaded) { showError('That set could not be read back from the folder.'); return; }
   clearTakes();
   session = loaded;
@@ -406,7 +412,7 @@ async function openSession(id, handin = null) {
 /* ── recording ───────────────────────────────────────────────────────── */
 
 async function toggleRecord(index) {
-  if (busy) return;
+  if (busy()) return;
   if (recordingIndex === index) { await finishRecording(); return; }
   /* Recording another line while one is open replaces nothing and loses
      nothing: the open one is kept first, then the new one starts. */
@@ -481,7 +487,7 @@ async function finishRecording() {
 }
 
 async function micTest() {
-  if (busy || recordingIndex !== null) return;
+  if (recordingIndex !== null) return;
   const btn = $('sh-mic-test');
   const ok = await recorder.start();
   if (!ok) {
@@ -593,7 +599,7 @@ async function playFile(path) {
 /* ── handing it in ───────────────────────────────────────────────────── */
 
 async function submit() {
-  if (busy || !session) return;
+  if (grading || !session) return;
   if (recordingIndex !== null) await finishRecording();
 
   const sending = picked();
@@ -609,18 +615,19 @@ async function submit() {
     return;
   }
 
-  busy = true;
+  /* Everything below works on `set`, never on `session`: a new set can be
+     drawn, or an old one opened, while this one is out. */
+  const set = session;
+  grading = set;
   inFlight = true;
   showError('');
-  session.status = 'grading';
-  await store.saveSession(session);
+  set.status = 'grading';
+  await store.saveSession(set);
   render();
 
   try {
-    await prepareRules();
-    phase = '';
-    renderFeedback();
-
+    /* Read before anything slow, while the takes are certainly in hand:
+       drawing a new set meanwhile lets go of the ones held in memory. */
     const clips = [];
     for (const item of sending) {
       const bytes = await bytesFor(item);
@@ -628,26 +635,31 @@ async function submit() {
     }
     if (!clips.length) throw new Error('None of the recordings you ticked could be read back.');
 
+    await prepareRules(set);
+    phase = '';
+    if (onScreen(set)) renderFeedback();
+
     const graded = await store.client.gradeShadowing({
-      items: session.items,
+      items: set.items,
       clips,
       /* The focus names the words to listen for, so only the lines that are
          actually going up: a word the model will not hear is one it would
          have to invent a verdict on. */
-      focus: focusFor(scope, session.language, sending),
-      itemCount: session.items.length,
+      focus: focusFor(set.scope || scope, set.language, sending),
+      itemCount: set.items.length,
     });
 
     /* Merged, not replaced: notes on lines that were not sent this time stay
-       exactly as they were, ratings and all. Recording is blocked while a
-       call is out, so the takes stamped on the new notes are the ones sent. */
-    session.feedback = mergeGrading(session.feedback, graded, session.items);
-    session.status = sessionStatus(session);
-    session.failed = false;
-    session.error = null;
-    delete session.retry;
-    session.graded_at = new Date().toISOString();
-    chooseWaiting();
+       exactly as they were, ratings and all. Recording this set is blocked
+       while it is out, so the takes stamped on the new notes are the ones
+       sent. */
+    set.feedback = mergeGrading(set.feedback, graded, set.items);
+    set.status = sessionStatus(set);
+    set.failed = false;
+    set.error = null;
+    delete set.retry;
+    set.graded_at = new Date().toISOString();
+    if (onScreen(set)) chooseWaiting();
 
     /* The bank entries this hand-in used have now been read in full, which is
        what stops Dictation offering them as a blind dictation. */
@@ -658,22 +670,34 @@ async function submit() {
     if (used.length) await store.markShadowed(used);
   } catch (e) {
     console.error(e);
-    session.attempts = (session.attempts || 0) + 1;
-    session.error = describe(e);
+    set.attempts = (set.attempts || 0) + 1;
+    set.error = describe(e);
     /* A failed hand-in takes nothing away: notes from earlier hand-ins stay,
        and the set is only "error" when it has no feedback at all. */
-    const status = sessionStatus(session);
-    session.status = status === 'recording' ? 'error' : status;
-    session.failed = true;
-    session.retry = sending.map((i) => i.index);
+    const status = sessionStatus(set);
+    set.status = status === 'recording' ? 'error' : status;
+    set.failed = true;
+    set.retry = sending.map((i) => i.index);
   } finally {
-    busy = false;
+    grading = null;
     inFlight = false;
     phase = '';
-    await store.saveSession(session);
+    await store.saveSession(set);
     render();
     renderQuota();
   }
+}
+
+/* Whether a set is the one on screen. The one out for feedback may have been
+   opened again from the list, as the same object (see openSession). */
+function onScreen(set) {
+  return !!session && session === set;
+}
+
+/* Whether the set on screen is the one out for feedback: only then are its
+   recording and its ticks locked. */
+function busy() {
+  return !!grading && onScreen(grading);
 }
 
 /* ── the listening rules ─────────────────────────────────────────────── */
@@ -682,15 +706,15 @@ async function submit() {
    whose rules are due a revision gets it, so the set is graded by the best
    rules there are. Neither can stop the grading: if either fails, the set is
    graded with whatever there is, and a line under the feedback says so. */
-async function prepareRules() {
+async function prepareRules(set) {
   rulesNote = '';
   const language = store.state.settings.targetLanguage;
   if (store.currentRules()) {
-    await reviseRules({ waiting: true });
+    await reviseRules({ waiting: true, set });
     return;
   }
   phase = `Drafting listening rules for ${language} first. This happens once per language…`;
-  renderFeedback();
+  if (busy()) renderFeedback();
   try {
     await store.ensureRules();
   } catch (e) {
@@ -703,14 +727,14 @@ async function prepareRules() {
    call, no message) when they do not. Running out of text-model budget is
    not worth a message either: the revision is still due, and is tried again
    at the next set. */
-async function reviseRules({ waiting = false } = {}) {
+async function reviseRules({ waiting = false, set = session } = {}) {
   const s = store.state.settings;
   if (waiting && store.shouldReviseRules()) {
     phase = `Revising the ${s.targetLanguage} listening rules from your ratings first…`;
-    renderFeedback();
+    if (busy()) renderFeedback();
   }
   try {
-    const next = await store.reviseRulesIfDue(session);
+    const next = await store.reviseRulesIfDue(set);
     if (next) rulesNews = { entry: next };
   } catch (e) {
     console.error(e);
@@ -867,7 +891,7 @@ function lineRow(item, note) {
      informed choice to ask twice. */
   const status = !has ? '' : !note ? 'not handed in' : current ? 'feedback in' : 'new take';
   const pick = `<label class="sh-pick" title="${has ? 'Include this line in the next hand-in' : 'Record the line first'}">
-      <input type="checkbox" data-pick ${has && chosen.has(item.index) ? 'checked' : ''} ${has && !busy ? '' : 'disabled'}>
+      <input type="checkbox" data-pick ${has && chosen.has(item.index) ? 'checked' : ''} ${has && !busy() ? '' : 'disabled'}>
       <span>${status || 'no take yet'}</span>
     </label>`;
   return `<div class="sh-row${has ? ' is-done' : ''}" data-index="${item.index}">
@@ -916,7 +940,7 @@ function renderFeedback() {
   const el = $('sh-feedback');
   const fb = session.feedback;
 
-  if (session.status === 'grading' && inFlight) {
+  if (busy()) {
     const n = picked().length;
     el.hidden = false;
     el.innerHTML = `<div class="notes-box sh-box">
