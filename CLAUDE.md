@@ -90,6 +90,16 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
   written and deleted through the store; answers are not kept with a text.
   New audio replaces old only after it is written, and deleting the audio
   alone rewrites the text before the file goes.
+- `writing.js` is Writing's pure logic: word bounds (the setting for an
+  opinion piece, two thirds of it scaled by the source for a summary), the
+  grading request and reading the feedback back. The grading prompt is the
+  system instruction and holds nothing per call, so implicit prefix caching
+  applies; the task, level, source, cards and writing are the user message.
+  `readWritingGrade` gives feedback, `{valid:false, reason}` (a verdict that
+  scores nothing) or null (a failure: the writing stays, Try again sends it
+  again). `tab-writing.js` is the task, the box and the feedback; its
+  `scoreVerdicts` and `cardsResultHtml` are shared with the other graded
+  modes. Every hand-in is kept in `writing/`.
 - The selection popup (Add from selected text) is not a tab: it opens over
   whichever tab holds the selected text. `lookup.js` is its pure logic
   (which way round, is the word a card already, the sentence around it),
@@ -141,15 +151,16 @@ node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
 
 ## Planned modes
 
-Three more practice modes are planned: **Writing**, **Translate** and
-**Conversation** (typed, then spoken turns). Their tabs are already in the
-strip, greyed out as coming soon. The plan is written in full in
+Two more practice modes are planned: **Translate** and **Conversation**
+(typed, then spoken turns). Their tabs are already in the strip, greyed out
+as coming soon; **Writing**, the first of the three the plan covers, is
+built. The plan is written in full in
 `practice-mode-port.md` at the repo root, a working note kept out of git (see
 `.gitignore`): it adapts lessons-web's modes to decks, settings and the model
-catalogue, phase by phase, with the tests each needs. None of the modes is coded yet;
-that comes later, except its shared foundations (phase 0): `json-reply.js`,
-the Feedback and Conversation jobs, the grader's feedback block, and
-`writing/` and `conversation/` in the store. When a mode is built, follow the
+catalogue, phase by phase, with the tests each needs. Its shared
+foundations (phase 0: `json-reply.js`, the Feedback and Conversation jobs,
+the grader's feedback block, `writing/` and `conversation/` in the store) and
+Writing (phase 1) are in; the rest comes later. When a mode is built, follow the
 plan, drop the tab's `data-soon`, give it a panel, and update this file and
 the README in the same commit.
 
@@ -158,8 +169,8 @@ the README in the same commit.
 Unit tests cover the modules without a DOM — `deck.js`, `text.js`,
 `gemini.js`, the model catalogue, `speech.js`, `azure-tts.js`, `zip.js`,
 `bundle.js`, `backup-due.js`, `opus.js`, `convert-audio.js`, `shadowing.js`,
-`shadow-rules.js`, `lookup.js`, `reading.js` and `json-reply.js` — not the
-tabs. For anything a
+`shadow-rules.js`, `lookup.js`, `reading.js`, `json-reply.js` and
+`writing.js` — not the tabs. For anything a
 user sees, drive the real page. Playwright's WebKit is Safari's engine and works well; some quirks
 cost time the first time:
 

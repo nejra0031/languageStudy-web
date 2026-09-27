@@ -6,7 +6,7 @@
 <title>Language Study</title>
 <meta name="description" content="Flashcards, typing practice and AI dictation for any language. Your own API key, your own files, no accounts and no server.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230f1117'/><rect x='3' y='3' width='10' height='10' fill='%23d4b455'/></svg>">
-<link rel="stylesheet" href="css/app.css?v=2026-09-27.1">
+<link rel="stylesheet" href="css/app.css?v=2026-09-27.2">
 <!-- Cache-busting. GitHub Pages lets a browser keep any file for ten minutes,
      so without this a deploy can leave you with a new index.html and an old
      module, or the reverse, and the page fails to start. Every module is
@@ -18,35 +18,37 @@
 <script type="importmap">
 {
   "imports": {
-    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-27.1",
-    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-27.1",
-    "./js/bundle.js": "./js/bundle.js?v=2026-09-27.1",
-    "./js/convert-audio.js": "./js/convert-audio.js?v=2026-09-27.1",
-    "./js/deck.js": "./js/deck.js?v=2026-09-27.1",
-    "./js/defaults.js": "./js/defaults.js?v=2026-09-27.1",
-    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-27.1",
-    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-27.1",
-    "./js/gemini.js": "./js/gemini.js?v=2026-09-27.1",
-    "./js/json-reply.js": "./js/json-reply.js?v=2026-09-27.1",
-    "./js/lookup.js": "./js/lookup.js?v=2026-09-27.1",
-    "./js/lookup-popup.js": "./js/lookup-popup.js?v=2026-09-27.1",
-    "./js/opus.js": "./js/opus.js?v=2026-09-27.1",
-    "./js/reading.js": "./js/reading.js?v=2026-09-27.1",
-    "./js/recorder.js": "./js/recorder.js?v=2026-09-27.1",
-    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-27.1",
-    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-27.1",
-    "./js/speech.js": "./js/speech.js?v=2026-09-27.1",
-    "./js/storage.js": "./js/storage.js?v=2026-09-27.1",
-    "./js/store.js": "./js/store.js?v=2026-09-27.1",
-    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-27.1",
-    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-27.1",
-    "./js/tab-reading.js": "./js/tab-reading.js?v=2026-09-27.1",
-    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-27.1",
-    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-27.1",
-    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-27.1",
-    "./js/text.js": "./js/text.js?v=2026-09-27.1",
-    "./js/translate.js": "./js/translate.js?v=2026-09-27.1",
-    "./js/zip.js": "./js/zip.js?v=2026-09-27.1"
+    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-27.2",
+    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-27.2",
+    "./js/bundle.js": "./js/bundle.js?v=2026-09-27.2",
+    "./js/convert-audio.js": "./js/convert-audio.js?v=2026-09-27.2",
+    "./js/deck.js": "./js/deck.js?v=2026-09-27.2",
+    "./js/defaults.js": "./js/defaults.js?v=2026-09-27.2",
+    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-27.2",
+    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-27.2",
+    "./js/gemini.js": "./js/gemini.js?v=2026-09-27.2",
+    "./js/json-reply.js": "./js/json-reply.js?v=2026-09-27.2",
+    "./js/lookup.js": "./js/lookup.js?v=2026-09-27.2",
+    "./js/lookup-popup.js": "./js/lookup-popup.js?v=2026-09-27.2",
+    "./js/opus.js": "./js/opus.js?v=2026-09-27.2",
+    "./js/reading.js": "./js/reading.js?v=2026-09-27.2",
+    "./js/recorder.js": "./js/recorder.js?v=2026-09-27.2",
+    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-27.2",
+    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-27.2",
+    "./js/speech.js": "./js/speech.js?v=2026-09-27.2",
+    "./js/storage.js": "./js/storage.js?v=2026-09-27.2",
+    "./js/store.js": "./js/store.js?v=2026-09-27.2",
+    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-27.2",
+    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-27.2",
+    "./js/tab-reading.js": "./js/tab-reading.js?v=2026-09-27.2",
+    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-27.2",
+    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-27.2",
+    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-27.2",
+    "./js/tab-writing.js": "./js/tab-writing.js?v=2026-09-27.2",
+    "./js/text.js": "./js/text.js?v=2026-09-27.2",
+    "./js/translate.js": "./js/translate.js?v=2026-09-27.2",
+    "./js/writing.js": "./js/writing.js?v=2026-09-27.2",
+    "./js/zip.js": "./js/zip.js?v=2026-09-27.2"
   }
 }
 </script>
@@ -69,7 +71,7 @@
   <button class="tab" role="tab" id="tab-reading" data-tab="reading" aria-selected="false" aria-controls="panel-reading">Reading</button>
   <!-- Planned modes: shown so the shape of the app is visible, but with no
        panel behind them yet. app.js says so when one is clicked. -->
-  <button class="tab tab--soon" role="tab" aria-disabled="true" data-soon="Writing">Writing</button>
+  <button class="tab" role="tab" id="tab-writing" data-tab="writing" aria-selected="false" aria-controls="panel-writing">Writing</button>
   <button class="tab tab--soon" role="tab" aria-disabled="true" data-soon="Translate">Translate</button>
   <button class="tab tab--soon" role="tab" aria-disabled="true" data-soon="Conversation">Conversation</button>
 </nav>
@@ -208,6 +210,11 @@
         <label class="field"><span>Words max</span><input type="number" id="set-wmax" min="3" max="80"></label>
         <label class="field"><span>Terms per sentence</span><input type="number" id="set-terms" min="1" max="6"></label>
       </div>
+      <div class="grid grid--tight">
+        <label class="field"><span>Writing words min</span><input type="number" id="set-writing-min" min="5" max="1000"></label>
+        <label class="field"><span>Writing words max</span><input type="number" id="set-writing-max" min="10" max="1000"></label>
+      </div>
+      <p class="note">The first three are for a dictation sentence. The writing words are how long an opinion piece on the Writing tab should be; a summary asks for about two thirds of that, more for a long text and less for a short one.</p>
       <p class="note">Any language the model writes is fine; type its English name. Answer checking is language-agnostic: it compares accents and diacritics exactly, and aligns words with them stripped, which works the same for Vietnamese tones, Spanish acutes and German umlauts.</p>
     </div>
   </div>
@@ -364,6 +371,36 @@
       <p class="note prompt-warn" id="prompt-warn-reading" hidden></p>
       <p class="note">Sent when you press <em>Write a text</em> on the Reading tab. Placeholders: <code>{request}</code>, what you typed in that tab's request box; <code>{terms}</code>, the cards to use, numbered; <code>{language}</code>, <code>{level}</code> and <code>{languageNote}</code>. The text is read back from the <code>TITLE:</code> and <code>TEXT:</code> lines, and each use of a card from its <code>[[number|words]]</code> mark. Keep the marks: a text without them has nothing to click and is refused.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-reading-reset">Reset to default</button></div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="set-prompt-writingBrief">Writing question prompt — text model</label>
+          <div class="seg" role="group" aria-label="Show the writing question prompt as" data-prompt="writingBrief">
+            <button type="button" data-view="edit" aria-pressed="true">Edit</button>
+            <button type="button" data-view="preview" aria-pressed="false">Preview</button>
+          </div>
+        </div>
+        <textarea id="set-prompt-writingBrief" rows="12" spellcheck="false"></textarea>
+        <textarea id="prompt-preview-writingBrief" class="prompt-preview" rows="12" readonly spellcheck="false" aria-label="Writing question prompt, as it will be sent" hidden></textarea>
+      </div>
+      <p class="note prompt-warn" id="prompt-warn-writingBrief" hidden></p>
+      <p class="note">Sent when you press <em>Write me a question</em> on the Writing tab. Placeholders: <code>{terms}</code>, the cards to try to use, numbered; <code>{language}</code>, <code>{level}</code> and <code>{languageNote}</code>. The question is read from the <code>QUESTION:</code> line, or from the first line when there is none.</p>
+      <div class="row"><button class="btn btn--sm" id="prompt-writingBrief-reset">Reset to default</button></div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="set-prompt-writingGrade">Writing feedback prompt — feedback model, as the system instruction</label>
+          <div class="seg" role="group" aria-label="Show the writing feedback prompt as" data-prompt="writingGrade">
+            <button type="button" data-view="edit" aria-pressed="true">Edit</button>
+            <button type="button" data-view="preview" aria-pressed="false">Preview</button>
+          </div>
+        </div>
+        <textarea id="set-prompt-writingGrade" rows="18" spellcheck="false"></textarea>
+        <textarea id="prompt-preview-writingGrade" class="prompt-preview" rows="18" readonly spellcheck="false" aria-label="Writing feedback prompt, as it will be sent" hidden></textarea>
+      </div>
+      <p class="note prompt-warn" id="prompt-warn-writingGrade" hidden></p>
+      <p class="note">Sent when you press <em>Hand in</em> on the Writing tab, as the system instruction. Placeholders: <code>{language}</code>, <code>{languageNote}</code> and <code>{feedback}</code>, the Feedback language and style setting, added at the end when the prompt has none. Nothing in it changes from one hand-in to the next, so the model can reuse it: the task, your level, a summary's source text, your cards and your writing go in a message of their own after it, in tagged blocks. The reply has to be the JSON object it describes: <code>"valid"</code>, the sections, and <code>"cards"</code>, which is how your cards are scored. A reply that cannot be read is a failure, and nothing is kept or scored.</p>
+      <div class="row"><button class="btn btn--sm" id="prompt-writingGrade-reset">Reset to default</button></div>
     </div>
   </div>
 
@@ -738,6 +775,95 @@
 </div>
 </section>
 
+<!-- ── WRITING ───────────────────────────────────────────────── -->
+<section class="panel" id="panel-writing" role="tabpanel" aria-labelledby="tab-writing" hidden>
+<div class="wrap">
+
+  <div class="block">
+    <div class="block-head">
+      <h2>Writing</h2>
+      <span class="hint" id="wr-pool"></span>
+    </div>
+    <div class="block-body">
+      <p class="note">A short piece of your own writing, read by the feedback model: whether it does what the task asked, your grammar and spelling, ways to say the same thing a level up, and <strong>how you used your cards</strong>, which are scored right or wrong as in every other mode. Write a <strong>summary</strong> of one of your Reading texts, or an <strong>opinion</strong> on a question written around your weakest cards, or on a topic of your own.</p>
+      <div id="wr-gate"></div>
+
+      <div id="wr-stage" hidden>
+        <div class="row">
+          <div class="seg" id="wr-kind" role="group" aria-label="What to write">
+            <button data-kind="opinion" aria-pressed="true">Opinion</button>
+            <button data-kind="summary" aria-pressed="false">Summary</button>
+          </div>
+          <span class="spacer"></span>
+          <span class="quota" id="wr-quota"></span>
+        </div>
+
+        <div id="wr-opinion">
+          <div class="row">
+            <div class="seg" id="wr-scope" role="group" aria-label="Which cards to draw on">
+              <button data-scope="weak" aria-pressed="false">Weak</button>
+              <button data-scope="developing" aria-pressed="false">+ Developing</button>
+              <button data-scope="all" aria-pressed="true">All</button>
+            </div>
+            <button class="btn btn--primary" id="wr-ask">Write me a question</button>
+          </div>
+          <div class="row wr-topic-row">
+            <label class="field"><span>Or a topic of your own</span>
+              <input type="text" id="wr-topic" maxlength="300" spellcheck="false" placeholder="Should children learn two languages at school?">
+            </label>
+            <button class="btn" id="wr-use-topic">Use my topic</button>
+          </div>
+          <p class="note">A question costs one call on the text model. A topic of your own costs nothing. Either way, a few cards from the ticked decks are drawn for you to try to use, weighted towards your weakest. The filter is the Reading tab's.</p>
+        </div>
+
+        <div id="wr-summary" hidden>
+          <div class="row wr-topic-row">
+            <label class="field"><span>Text to summarise</span><select id="wr-reading"></select></label>
+            <button class="btn btn--primary" id="wr-start-summary">Summarise this text</button>
+          </div>
+          <p class="note" id="wr-summary-note"></p>
+        </div>
+      </div>
+
+      <div id="wr-error"></div>
+
+      <div class="card" id="wr-card" hidden>
+        <div class="card-meta" id="wr-meta"></div>
+        <div class="card-body">
+          <div class="prompt-label">The task</div>
+          <div class="wr-brief" id="wr-brief"></div>
+          <details class="wr-source" id="wr-source" hidden>
+            <summary>Show the text</summary>
+            <div class="wr-source-text" id="wr-source-text"></div>
+          </details>
+          <div class="term-chips wr-try" id="wr-try"></div>
+          <p class="note" id="wr-bounds"></p>
+          <textarea id="wr-text" class="wr-text" rows="10" maxlength="5000" spellcheck="false" aria-label="Your writing"></textarea>
+          <div class="wr-written" id="wr-written" hidden></div>
+          <div class="row" id="wr-count-row">
+            <span class="wr-count" id="wr-count" aria-live="polite"></span>
+            <span class="spacer"></span>
+            <span class="note" id="wr-busy" hidden></span>
+            <button class="btn btn--primary" id="wr-hand-in" disabled>Hand in</button>
+          </div>
+          <div id="wr-result"></div>
+          <div class="row" id="wr-again-row" hidden>
+            <button class="btn" id="wr-again">Write again</button>
+            <span class="note">A new piece on the same task. This one stays in the list below.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-head"><h2>Your writing</h2><span class="hint" id="wr-list-hint"></span></div>
+    <div class="block-body" id="wr-list"></div>
+  </div>
+
+</div>
+</section>
+
 </main>
 
 <!-- The selection popup: filled and placed by lookup-popup.js, under whatever was selected. -->
@@ -745,6 +871,6 @@
 <!-- The Reading tab's word popup: the selection popup's shape, filled by tab-reading.js. -->
 <div class="lookup-pop" id="reading-pop" role="dialog" aria-label="A word from the text" hidden></div>
 
-<script type="module" src="js/app.js?v=2026-09-27.1"></script>
+<script type="module" src="js/app.js?v=2026-09-27.2"></script>
 </body>
 </html>

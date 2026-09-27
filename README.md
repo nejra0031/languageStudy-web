@@ -1,7 +1,7 @@
 # Language Study
 
-Flashcards, typing practice, AI dictation, speaking practice and reading texts
-for whatever language you are learning. One static page. No account, no server, no database
+Flashcards, typing practice, AI dictation, speaking practice, reading texts
+and graded writing for whatever language you are learning. One static page. No account, no server, no database
 — your cards, your audio and your own recordings stay on your own computer, in
 a folder you choose where the browser allows it, and the only thing that ever
 leaves the machine is a request to Google, signed with your own API key.
@@ -32,12 +32,12 @@ exactly, and aligns words with them stripped, so a missed mark shows up as
 rule covers Vietnamese tones, Spanish acutes, Czech carons and German umlauts
 without knowing anything about any of them.
 
-## The six tabs
+## The tabs
 
 The tab strip has two groups: Settings and Flashcards set things up, and
-after a gap come the practice modes. Writing, Translate and Conversation are
-greyed out at the end of it: they are planned, and clicking one says it is
-coming soon.
+after a gap come the practice modes. Translate and Conversation are greyed
+out at the end of it: they are planned, and clicking one says it is coming
+soon.
 
 **Settings** — where your data is saved, your API key, the language, the models, the call
 budget, the prompts, the read-aloud voice, and which Gemini voices may read to you.
@@ -102,6 +102,10 @@ each line and one on the set as a whole. See below.
 whatever you ask for. Your words and grammar patterns are coloured where they
 appear; click one, say whether you understood it, and only then see its
 meaning. See [Reading](#reading).
+
+**Writing** — a short piece of your own, a summary of one of your Reading
+texts or your opinion on a question, read by the feedback model and scored
+against your cards. See [Writing](#writing).
 
 ## Shadowing
 
@@ -339,6 +343,64 @@ Texts you already have stay readable, and their audio playable, without an API
 key; only writing a new text or reading one aloud needs one. With nothing being
 saved, texts and audio last until the page is reloaded.
 
+## Writing
+
+The Writing tab has you write a short piece in the language you are
+learning and gives it back with feedback, the way a teacher marks a written
+exercise. There are two kinds of task, and both come from what you already
+have:
+
+- **Opinion**: *Write me a question* has the text model write one question,
+  in the language you are learning, around five cards drawn from the ticked
+  decks, weighted towards your weakest. That is one call on the text model.
+  Or type **a topic of your own** and press *Use my topic*, which costs
+  nothing; five cards are drawn for it all the same. The **Weak / +
+  Developing / All** filter is the one the Reading tab uses.
+- **Summary**: pick one of your [kept Reading texts](#kept-texts-and-reading-them-aloud)
+  and summarise it. *Show the text* opens it under the task while you write,
+  and the cards that text used are the ones to try to use.
+
+The cards are listed under the task as **Try to use**. The task says how many
+words it wants: an opinion piece is **Settings → Language → Writing words**,
+60 to 120 by default; a summary asks for about two thirds of that, scaled by
+the length of the text (a long article allows more, a short story less, at
+most 30% either way) and rounded to fives. The counter under the box turns
+red once you are short or over, and **Hand in** is live only inside the
+range. The box takes 5,000 characters at most.
+
+**Hand in** sends the task, your level, the text of a summary, your cards and
+your writing to the **feedback model**: one call. The feedback comes back in
+this order, with no mark out of a hundred anywhere:
+
+- **This reads at …**: the level your text reads at, on the CEFR scale,
+  judged from the text rather than from the level in Settings.
+- a sentence on your language and a sentence on how well you did the task;
+- **What the task asked for**: each thing the task required, ✓ or ✗, and
+  what was missing. A question that asks for a view and a reason has two
+  points, and a view with no reason misses one;
+- **Grammar and spelling**: each real mistake, the rule it broke, and your
+  own phrase corrected. A mistake in using one of your grammar patterns says
+  which (*One of your patterns: …*);
+- **Ways to say it a level up**: *Word choice* and *Style* suggestions, one
+  level above where the text is, each with its reason;
+- **Your cards**: each one right, wrong or not used, with a note. Right and
+  wrong are scored through the same rules as everywhere else and written back
+  to each card's own deck; a card you did not use is left alone.
+
+A text that is not an attempt at the task at all, such as a question to the
+model or a text in another language, is **not counted**: you are told why,
+and nothing is scored. A reply that cannot be read is a failure, not a grade:
+your writing stays in the box, nothing is kept or scored, and **Try again**
+sends it again. Nothing is retried on its own, since every attempt is a call.
+
+**Write again** starts a new piece on the same task. **Every piece you hand
+in is kept**, with its feedback, and **Your writing**, under the form, lists
+them newest first. Click one to read it again as it was, or to write again on
+its task; **Delete** asks once more in place. The feedback model is its own
+job in Settings, so a grading budget that runs out does not stop you writing
+sentences, and while it is spent the note beside *Hand in* says how long
+until the next call.
+
 ## Choosing which decks are in play
 
 The deck menu on the Flashcards page lists every deck you have with a
@@ -536,6 +598,9 @@ reading/manifest.json     the index of kept reading texts, and which have audio
 reading/<id>.json         one text: its words, which cards it used, the request
 reading/<id>.ogg          that text read aloud, if it has been (.wav where the
                           browser cannot encode Opus)
+writing/manifest.json     the index of everything handed in on Writing
+writing/<id>.json         one piece: the task, the cards, what you wrote,
+                          and the feedback
 ```
 
 The shadowing takes are named from the recorder's own container, so they are
@@ -737,7 +802,7 @@ key is worse than no card at all.
 
 ### Prompts
 
-All five prompts sent to the API are yours to edit, in **Settings → Prompts**.
+All the prompts sent to the API are yours to edit, in **Settings → Prompts**.
 The switch beside each one turns its box from **Edit** to **Preview**: exactly
 what will be sent, filled in with your settings and three of your cards, and
 kept up to date as you type. The preview cannot be edited; switch back to make
@@ -804,6 +869,24 @@ from its `TITLE:` and `TEXT:` lines, and each use of a card from its
 conjugated verb is still its card. Keep the marks: a text without any is
 refused.
 
+The writing question prompt is sent when you press **Write me a question** on
+the [Writing](#writing) tab. It takes `{terms}` (the cards to try to use,
+numbered), `{language}`, `{level}` and `{languageNote}`, and the question is
+read from its `QUESTION:` line.
+
+The writing feedback prompt is sent as the system instruction when you
+**Hand in**. It takes `{language}`, `{languageNote}` and `{feedback}`, and
+nothing that changes from one piece to the next, so Gemini can reuse it
+between calls; the task, your level, a summary's source, your numbered cards
+and your writing follow in a message of their own, in tagged blocks. It is
+lessons-web's writing grader with the parts about one language, one course
+and a score taken out, and every step of it is worth reading before
+rewriting: the check that the text is an attempt at all, the task broken into
+the points it requires, a level-up suggestion kept apart from a real mistake,
+and your writing treated as data, never as instructions. The reply has to be
+the JSON object it describes; `"cards"` is how your cards are scored. The
+Feedback language and style setting applies here as it does to Shadowing.
+
 ## Running it locally
 
 It is plain ES modules with no build step and no dependencies, but modules do
@@ -840,6 +923,7 @@ js/translate.js       the one Google Translate request
 js/lookup-popup.js    the form that opens under selected text, on every tab
 js/reading.js         Reading: presets, choosing the cards, reading the marked text,
                       naming and indexing kept texts
+js/writing.js         Writing: word bounds, the grading request, reading the feedback
 js/deck.js            deck format, scoring, card selection
 js/speech.js          the device's own voices, for reading words aloud
 js/recorder.js        the microphone: MediaRecorder, and releasing it again

@@ -1,0 +1,649 @@
+/* Writing: a piece of your own writing, graded, with your cards scored.
+
+   Two kinds of task, both built from what you already have. A summary of
+   one of your kept Reading texts, with the cards that text used as the ones
+   to try to use; or an opinion piece on a question the text model writes
+   around a few of your weakest cards, or on a topic you type yourself,
+   which costs nothing. Either way the task says how many words it wants,
+   and Hand in is live only inside that range.
+
+   Handing in is one call on the feedback model. It comes back as feedback
+   in sections, or as "this is not an attempt at the task", which is a
+   verdict and scores nothing, or as something that cannot be read, which is
+   a failure: the writing stays in the box and Try again sends it again.
+   Nothing is retried behind your back, since every attempt is a call.
+
+   Every piece handed in is kept, with its feedback, and listed under the
+   form. Opening one shows it as it was; Write again starts a new piece on
+   the same task. The logic that has no DOM is writing.js. */
+
+import * as store from './store.js';
+import * as storage from './storage.js';
+import { isPattern, inScope, recordResult, SCORE_LABEL } from './deck.js';
+import { pickReadingCards, speakableText, nextDatedId } from './reading.js';
+import {
+  WRITING_TERMS, MAX_TEXT, countWords, wordBounds, wordStatus, writingTitle,
+} from './writing.js';
+import { escapeHtml, scoreMark } from './text.js';
+import { formatWait } from './gemini.js';
+import { describe } from './tab-settings.js';
+import { languageCode } from './speech.js';
+
+const $ = (id) => document.getElementById(id);
+
+let kind = 'opinion';
+let scope = 'all';
+/* The task being written to: {kind, brief, readingId, readingTitle,
+   sourceText, sourceWords, cards}. `cards` are copies of what each card said
+   when the task was set, {front, back, type, deck}; the card itself is
+   looked up again when it is scored, since the deck may have changed. */
+let task = null;
+/* A kept piece on screen, read-only, and what scoring it did to each card,
+   by the card's place in task.cards. The moves are there only right after a
+   hand-in: a piece reopened from the list shows its verdicts, not moves. */
+let shown = null;
+let moves = null;
+let saved = null;
+let busy = false;
+let asking = false;
+/* The row whose Delete has been pressed once, and the timer that stands it
+   down again. */
+let armed = null;
+let disarm = 0;
+
+export function init() {
+  $('wr-kind').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-kind]');
+    if (!btn || busy || asking) return;
+    kind = btn.dataset.kind;
+    setSeg('wr-kind', 'kind', kind);
+    renderChooser();
+  });
+  $('wr-scope').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-scope]');
+    if (!btn) return;
+    scope = btn.dataset.scope;
+    setSeg('wr-scope', 'scope', scope);
+    store.saveSettings({ readingScope: scope });
+    renderPool();
+  });
+  $('wr-ask').addEventListener('click', askForQuestion);
+  $('wr-use-topic').addEventListener('click', useTopic);
+  $('wr-topic').addEventListener('keydown', (e) => { if (e.key === 'Enter') useTopic(); });
+  $('wr-start-summary').addEventListener('click', startSummary);
+  $('wr-text').addEventListener('input', renderCount);
+  $('wr-hand-in').addEventListener('click', handIn);
+  $('wr-again').addEventListener('click', writeAgain);
+  $('wr-error').addEventListener('click', (e) => { if (e.target.closest('[data-act="retry"]')) handIn(); });
+  $('wr-list').addEventListener('click', (e) => {
+    const row = e.target.closest('[data-writing]');
+    if (!row) return;
+    const id = row.dataset.writing;
+    if (e.target.closest('[data-act="delete"]')) remove(id);
+    else if (e.target.closest('[data-act="open"]')) openWriting(id);
+  });
+
+  scope = store.state.settings.readingScope || 'all';
+  setSeg('wr-scope', 'scope', scope);
+  setSeg('wr-kind', 'kind', kind);
+
+  store.subscribe('deck', renderPool);
+  store.subscribe('reading', renderChooser);
+  store.subscribe('writing', renderList);
+  store.subscribe('folder', () => { gate(); renderPool(); forgetIfGone(); });
+  store.subscribe('settings', (st) => {
+    scope = st.settings.readingScope || 'all';
+    setSeg('wr-scope', 'scope', scope);
+    if (task && !shown) renderBounds();
+  });
+  store.subscribe('quota', renderQuota);
+  setInterval(renderQuota, 1000);
+  gate();
+  renderChooser();
+  renderList();
+}
+
+export function onShow() {
+  gate();
+  renderPool();
+  renderChooser();
+  renderList();
+}
+
+function isActive() {
+  return !$('panel-writing').hidden;
+}
+
+function setSeg(id, key, value) {
+  for (const b of $(id).querySelectorAll('button')) {
+    b.setAttribute('aria-pressed', String(b.dataset[key] === value));
+  }
+}
+
+/* ── gating ──────────────────────────────────────────────────────────── */
+
+function gate() {
+  const el = $('wr-gate');
+  if (!storage.getApiKey()) {
+    el.innerHTML = `<div class="gate">
+      <h3>Add a Gemini API key first</h3>
+      <p>Feedback on your writing comes from the Gemini API, using your own key and one call from the feedback model's budget. Paste a key into the Settings tab. What you have already handed in stays readable without one.</p>
+      </div>`;
+    $('wr-stage').hidden = true;
+    return;
+  }
+  el.innerHTML = !store.state.persistent
+    ? '<div class="banner is-warn">Nothing is being saved — you can write and get feedback, but your writing and what it did to your cards are gone on reload. See Settings for what this browser can keep.</div>'
+    : '';
+  $('wr-stage').hidden = false;
+  renderQuota();
+}
+
+/* ── choosing a task ─────────────────────────────────────────────────── */
+
+function pool() {
+  return store.practiceCards().filter((c) => inScope(c, scope));
+}
+
+function renderPool() {
+  const cards = pool();
+  const decks = store.practiceDecks();
+  $('wr-pool').textContent = [
+    `${cards.length} cards in scope`,
+    decks.length === 1 ? `deck ${decks[0]}` : `${decks.length} decks ticked`,
+  ].join(' · ');
+}
+
+function renderChooser() {
+  $('wr-opinion').hidden = kind !== 'opinion';
+  $('wr-summary').hidden = kind !== 'summary';
+  const rows = store.state.readings || [];
+  const sel = $('wr-reading');
+  const html = rows.map((r) => `<option value="${escapeHtml(r.id)}">${escapeHtml(r.title || r.id)} · ${escapeHtml(r.created)}</option>`).join('');
+  if (sel.dataset.drawn !== html) {
+    const was = sel.value;
+    sel.innerHTML = html;
+    sel.dataset.drawn = html;
+    if (rows.some((r) => r.id === was)) sel.value = was;
+  }
+  sel.disabled = !rows.length;
+  $('wr-start-summary').disabled = !rows.length || busy;
+  $('wr-summary-note').textContent = rows.length
+    ? 'The text is shown with the task, and the cards it used are the ones to try to use. No call is spent until you hand in.'
+    : 'You have no reading texts yet. Write one on the Reading tab, then come back to summarise it.';
+}
+
+/* Cards copied as they are now, with the deck each came from. */
+function copyCard(card, deck) {
+  const out = { front: card.front, back: card.back || '', deck: deck || store.deckOf(card) };
+  if (isPattern(card)) out.type = 'pattern';
+  return out;
+}
+
+function drawCards() {
+  return pickReadingCards(pool(), WRITING_TERMS).map((c) => copyCard(c));
+}
+
+async function askForQuestion() {
+  if (asking || busy) return;
+  const cards = drawCards();
+  if (!cards.length) {
+    showError(store.practiceCards().length
+      ? 'No cards in this scope. Widen the filter, or tick another deck in the Flashcards tab.'
+      : 'Add some cards in the Flashcards tab first, or tick a deck that has some.');
+    return;
+  }
+  asking = true;
+  showError('');
+  const btn = $('wr-ask');
+  btn.innerHTML = '<span class="spinner"></span>Writing a question';
+  btn.disabled = true;
+  try {
+    const { brief } = await store.client.writeWritingBrief(cards);
+    setTask({ kind: 'opinion', brief, cards });
+  } catch (e) {
+    console.error(e);
+    showError(describe(e));
+  } finally {
+    asking = false;
+    btn.textContent = 'Write me a question';
+    renderQuota();
+  }
+}
+
+/* A topic of your own costs no call. The cards to try to use are drawn all
+   the same, so the piece still practises something. */
+function useTopic() {
+  if (asking || busy) return;
+  const topic = $('wr-topic').value.trim();
+  if (!topic) {
+    showError('Type a topic first, or press Write me a question.');
+    $('wr-topic').focus();
+    return;
+  }
+  showError('');
+  setTask({ kind: 'opinion', brief: topic.slice(0, 300), cards: drawCards() });
+}
+
+async function startSummary() {
+  if (asking || busy) return;
+  const id = $('wr-reading').value;
+  const record = id && await store.loadReading(id);
+  if (!record) {
+    showError(`That text could not be read from ${storage.label()}. Its file may have been moved or deleted outside the app.`);
+    return;
+  }
+  showError('');
+  setTask(summaryTask(record));
+}
+
+/* The cards a text used, as they were when it was written. */
+function summaryTask(record) {
+  const cards = (record.used || [])
+    .map((i) => record.items[i])
+    .filter(Boolean)
+    .map((it) => {
+      const out = { front: it.front, back: it.back || '', deck: it.deck || '' };
+      if (it.pattern) out.type = 'pattern';
+      return out;
+    });
+  const sourceText = speakableText(record);
+  return {
+    kind: 'summary',
+    brief: '',
+    readingId: record.id,
+    readingTitle: record.title || record.id,
+    sourceText,
+    sourceWords: countWords(sourceText),
+    cards,
+  };
+}
+
+function setTask(next) {
+  task = next;
+  shown = null;
+  moves = null;
+  saved = null;
+  $('wr-text').value = '';
+  renderCard();
+  $('wr-card').scrollIntoView({ block: 'start', behavior: 'smooth' });
+  $('wr-text').focus({ preventScroll: true });
+}
+
+/* ── the task and the writing ────────────────────────────────────────── */
+
+function bounds() {
+  return wordBounds(store.state.settings, task.kind, task.sourceWords || 0);
+}
+
+function renderCard() {
+  const card = $('wr-card');
+  if (!task) { card.hidden = true; return; }
+  card.hidden = false;
+  const lang = languageCode(store.state.settings.targetLanguage);
+  const record = shown;
+
+  $('wr-meta').innerHTML = [
+    task.kind === 'summary' ? 'Summary' : 'Opinion',
+    record ? escapeHtml(record.created) : 'not handed in yet',
+    record && record.model ? escapeHtml(record.model) : '',
+  ].filter(Boolean).map((x) => `<span>${x}</span>`).join('');
+
+  const brief = $('wr-brief');
+  if (task.kind === 'summary') {
+    brief.textContent = `Summarise “${task.readingTitle}” in your own words.`;
+    brief.removeAttribute('lang');
+  } else {
+    brief.textContent = task.brief;
+    brief.lang = lang;
+  }
+  $('wr-source').hidden = task.kind !== 'summary';
+  $('wr-source-text').textContent = task.sourceText || '';
+  $('wr-source-text').lang = lang;
+
+  $('wr-try').innerHTML = task.cards.length
+    ? `<span class="note">Try to use:</span>${task.cards.map((c) => `<span class="chip" lang="${escapeHtml(lang)}"${c.back ? ` title="${escapeHtml(c.back)}"` : ''}>${escapeHtml(c.front)}</span>`).join('')}`
+    : '';
+
+  const editing = !record;
+  $('wr-text').hidden = !editing;
+  $('wr-text').lang = lang;
+  $('wr-count-row').hidden = !editing;
+  $('wr-written').hidden = editing;
+  $('wr-written').lang = lang;
+  if (record) $('wr-written').textContent = record.text;
+  $('wr-again-row').hidden = editing;
+  $('wr-result').innerHTML = record ? resultHtml(record) : '';
+  renderBounds();
+}
+
+function renderBounds() {
+  if (!task) return;
+  const b = bounds();
+  $('wr-bounds').textContent = `Write between ${b.min} and ${b.max} words.`;
+  renderCount();
+}
+
+function renderCount() {
+  if (!task || shown) return;
+  const n = countWords($('wr-text').value);
+  const st = wordStatus(n, bounds());
+  const el = $('wr-count');
+  let text = `${n} word${n === 1 ? '' : 's'}`;
+  if (st.short) text += ` · ${st.short} more to go`;
+  if (st.over) text += ` · ${st.over} over the limit`;
+  el.textContent = text;
+  el.className = 'wr-count' + (!st.empty && !st.ok ? ' is-bad' : st.ok ? ' is-ok' : '');
+  renderHandIn();
+}
+
+function renderHandIn() {
+  const btn = $('wr-hand-in');
+  if (busy) return;
+  const g = store.quotaReport().grade;
+  const ok = task && !shown && wordStatus(countWords($('wr-text').value), bounds()).ok;
+  btn.disabled = !ok || g.retryAfter > 0 || !storage.getApiKey();
+  /* Why a piece that is the right length cannot go in yet is said beside
+     the button, not only in a tooltip, which a phone never shows. */
+  const wait = $('wr-busy');
+  wait.hidden = !(ok && g.retryAfter > 0);
+  if (!wait.hidden) wait.textContent = `${g.model} is out of budget for now: next call in ${formatWait(g.retryAfter)}.`;
+}
+
+/* ── handing in ──────────────────────────────────────────────────────── */
+
+async function handIn() {
+  if (busy || !task || shown) return;
+  const text = $('wr-text').value.slice(0, MAX_TEXT);
+  if (!wordStatus(countWords(text), bounds()).ok) return;
+  const s = store.state.settings;
+  const at = task;
+
+  busy = true;
+  showError('');
+  const btn = $('wr-hand-in');
+  btn.innerHTML = '<span class="spinner"></span>Reading your writing';
+  btn.disabled = true;
+  $('wr-text').readOnly = true;
+  $('wr-busy').hidden = false;
+  $('wr-busy').textContent = `${s.gradeModel} is reading it. This can take half a minute.`;
+
+  try {
+    const { result, model } = await store.client.gradeWriting({
+      kind: at.kind, brief: at.brief, sourceText: at.sourceText, cards: at.cards, text,
+    });
+    const record = {
+      id: nextDatedId('w', store.state.writings),
+      created: new Date().toISOString().slice(0, 10),
+      kind: at.kind,
+      brief: at.brief,
+      cards: at.cards.map((c) => ({ front: c.front, deck: c.deck })),
+      text,
+      result,
+      model,
+      language: s.targetLanguage,
+      level: s.learnerLevel,
+    };
+    if (at.kind === 'summary') {
+      record.readingId = at.readingId;
+      record.readingTitle = at.readingTitle;
+    }
+    record.title = writingTitle(record);
+    /* "Not an attempt" scores nothing; feedback scores the cards it
+       judged right or wrong, and leaves the ones not used alone. */
+    const scored = result.valid ? await scoreVerdicts(result.cards, at.cards) : { moves: new Map(), saved: true };
+    if (task !== at) return;
+    shown = record;
+    moves = scored.moves;
+    saved = scored.saved;
+    renderCard();
+    if (!(await store.saveWriting(record))) {
+      showError(`The feedback is on screen but could not be written to ${storage.label()}. Reconnect the data folder in Settings; it will be lost on reload.`);
+    }
+    $('wr-result').scrollIntoView({ block: 'start', behavior: 'smooth' });
+  } catch (e) {
+    console.error(e);
+    showError(describe(e), true);
+  } finally {
+    busy = false;
+    btn.textContent = 'Hand in';
+    $('wr-text').readOnly = false;
+    $('wr-busy').hidden = true;
+    renderQuota();
+    renderHandIn();
+  }
+}
+
+/* Each verdict of right or wrong is recorded on the card it names, through
+   recordResult like any other answer; 'absent' is left unscored. Nothing
+   is typed letter by letter, so the accent flag is left alone. A card the
+   deck no longer has is skipped. Returns what each card moved by, keyed by
+   its place in `cards`, and whether the decks were written. Conversation
+   scores its cards through this too. */
+export async function scoreVerdicts(verdicts, cards) {
+  const out = new Map();
+  const touched = [];
+  for (const v of verdicts || []) {
+    if (v.verdict !== 'right' && v.verdict !== 'wrong') continue;
+    const c = cards[v.index];
+    const found = c && store.findCard(c.front, c.deck);
+    if (!found) continue;
+    out.set(v.index, recordResult(found.card, v.verdict === 'right', { typedFront: false }));
+    touched.push(found.card);
+  }
+  const ok = touched.length ? await store.saveCardDecks(...touched) : true;
+  return { moves: out, saved: ok };
+}
+
+function writeAgain() {
+  if (!task || busy) return;
+  if (task.missingSource) {
+    showError('The reading text this piece summarised has since been deleted, so there is nothing to summarise again. Pick another text above.');
+    return;
+  }
+  showError('');
+  shown = null;
+  moves = null;
+  saved = null;
+  $('wr-text').value = '';
+  renderCard();
+  $('wr-text').focus();
+}
+
+/* ── the feedback ────────────────────────────────────────────────────── */
+
+function resultHtml(record) {
+  const r = record.result;
+  const lang = escapeHtml(languageCode(record.language || store.state.settings.targetLanguage));
+  if (!r.valid) {
+    return `<div class="banner is-warn wr-fb"><strong>This was not counted as an attempt at the task.</strong> ${escapeHtml(r.reason)} Nothing was scored.</div>`;
+  }
+  const parts = [];
+  if (r.detectedLevel) parts.push(`<p class="wr-level">This reads at <b>${escapeHtml(r.detectedLevel)}</b></p>`);
+  if (r.languageNote) parts.push(`<p>${escapeHtml(r.languageNote)}</p>`);
+  if (r.contentNote) parts.push(`<p>${escapeHtml(r.contentNote)}</p>`);
+
+  if (r.taskPoints.length) {
+    parts.push('<h4>What the task asked for</h4>');
+    parts.push(`<ul class="wr-points">${r.taskPoints.map((p) => `<li class="${p.met ? 'is-ok' : 'is-bad'}">
+      <span class="wr-mark" aria-label="${p.met ? 'Done' : 'Missed'}">${p.met ? '✓' : '✗'}</span>
+      <span>${escapeHtml(p.point)}${!p.met && p.note ? `<span class="wr-sub">${escapeHtml(p.note)}</span>` : ''}</span>
+    </li>`).join('')}</ul>`);
+  }
+
+  parts.push('<h4>Grammar and spelling</h4>');
+  parts.push(r.grammarMistakes.length
+    ? `<ul class="wr-list">${r.grammarMistakes.map((g) => {
+      const card = g.cardNumber ? record.cards[g.cardNumber - 1] : null;
+      return `<li>${escapeHtml(g.description)}${g.correction ? ` → <b lang="${lang}">${escapeHtml(g.correction)}</b>` : ''}
+        ${card ? `<span class="wr-sub">One of your patterns: <span lang="${lang}">${escapeHtml(card.front)}</span></span>` : ''}</li>`;
+    }).join('')}</ul>`
+    : '<p class="note">No mistakes found.</p>');
+
+  if (r.vocabStyle.length) {
+    parts.push('<h4>Ways to say it a level up</h4>');
+    parts.push(`<ul class="wr-list">${r.vocabStyle.map((v) => `<li>
+      <span class="wr-tag">${v.category === 'STYLE' ? 'Style' : 'Word choice'}</span>
+      <span lang="${lang}">“${escapeHtml(v.original)}”</span> → <b lang="${lang}">${v.suggestions.map(escapeHtml).join(' / ')}</b>
+      ${v.reason ? `<span class="wr-sub">${escapeHtml(v.reason)}</span>` : ''}
+    </li>`).join('')}</ul>`);
+  }
+
+  if (record.cards.length) {
+    parts.push('<h4>Your cards</h4>');
+    parts.push(cardsResultHtml(record.cards, r.cards, moves, saved, lang));
+  }
+  return `<div class="wr-fb">${parts.join('')}</div>`;
+}
+
+const VERDICT_LABEL = { right: 'Right', wrong: 'Wrong', absent: 'Not used' };
+
+/* One line per card: its verdict, the grader's note, and, right after a
+   hand-in, what the score did. A card the grader said nothing about is
+   listed as not judged, and scored nothing. Conversation draws its cards
+   through this too. `cards` are {front, deck}; `verdicts` come from
+   cardVerdicts(); `moved` is a Map from a card's place to its move, or null
+   for a piece reopened from the list; `ok` is whether the decks were
+   written. */
+export function cardsResultHtml(cards, verdicts, moved, ok, lang = '') {
+  const byIndex = new Map((verdicts || []).map((v) => [v.index, v]));
+  const rows = cards.map((c, i) => {
+    const v = byIndex.get(i);
+    const verdict = v ? v.verdict : null;
+    const cls = verdict === 'right' ? 'chip--ok' : verdict === 'wrong' ? 'chip--bad' : '';
+    const m = moved && moved.get(i);
+    const move = m && m.before !== m.after
+      ? ` · ${scoreMark(m.before)} → ${scoreMark(m.after, SCORE_LABEL[m.after].toLowerCase())}` : '';
+    const gone = !store.findCard(c.front, c.deck) ? ' · no longer in its deck, so nothing was scored' : '';
+    return `<li>
+      <span class="chip ${cls}" lang="${escapeHtml(lang)}">${escapeHtml(c.front)}</span>
+      <span class="wr-verdict">${verdict ? VERDICT_LABEL[verdict] : 'Not judged'}${move}${gone}</span>
+      ${v && v.note ? `<span class="wr-sub" lang="">${escapeHtml(v.note)}</span>` : ''}
+    </li>`;
+  });
+  let tail = '';
+  if (ok === false) tail = '<p class="note is-bad">Your decks could not be written. Reconnect the data folder in Settings.</p>';
+  else if (moved && !store.state.persistent) tail = '<p class="note">Not saved: nothing is being saved in this browser.</p>';
+  return `<ul class="wr-cards">${rows.join('')}</ul>${tail}`;
+}
+
+/* ── the list of pieces ──────────────────────────────────────────────── */
+
+function renderList() {
+  const rows = store.state.writings || [];
+  $('wr-list-hint').textContent = rows.length ? `${rows.length} piece${rows.length === 1 ? '' : 's'}` : 'nothing yet';
+  $('wr-list').innerHTML = rows.length
+    ? rows.map((r) => `<div class="sh-hist rd-row${shown && shown.id === r.id ? ' is-open' : ''}" data-writing="${escapeHtml(r.id)}">
+        <button class="sh-hist-open" data-act="open">
+          <span class="sh-hist-id rd-row-title">${escapeHtml(r.title || r.id)}</span>
+          <span class="sh-hist-sub">${[
+            r.created, r.kind === 'summary' ? 'summary' : 'opinion', r.decks && r.decks.length ? r.decks.join(', ') : '', r.language,
+          ].filter(Boolean).map(escapeHtml).join(' · ')}</span>
+        </button>
+        <button class="btn btn--sm btn--danger" data-act="delete" title="Delete this piece and its feedback">${armed === r.id ? 'Really delete?' : 'Delete'}</button>
+      </div>`).join('')
+    : '<p class="note">Everything you hand in is kept here with its feedback. Click one to read it again, or to write another piece on the same task.</p>';
+}
+
+async function openWriting(id) {
+  if (busy) return;
+  const record = await store.loadWriting(id);
+  if (!record) {
+    showError(`That piece could not be read from ${storage.label()}. Its file may have been moved or deleted outside the app.`);
+    return;
+  }
+  showError('');
+  task = await taskOf(record);
+  shown = record;
+  moves = null;
+  saved = null;
+  renderCard();
+  renderList();
+  $('wr-card').scrollIntoView({ block: 'start', behavior: 'smooth' });
+}
+
+/* The task a kept piece was written to, rebuilt so Write again can set it
+   again: the cards as the decks have them now, and a summary's source read
+   from its text, which may have been deleted since. */
+async function taskOf(record) {
+  const cards = (record.cards || []).map((c) => {
+    const found = store.findCard(c.front, c.deck);
+    return found ? copyCard(found.card, found.deck) : { front: c.front, back: '', deck: c.deck };
+  });
+  if (record.kind !== 'summary') return { kind: 'opinion', brief: record.brief, cards };
+  const reading = record.readingId ? await store.loadReading(record.readingId) : null;
+  const sourceText = reading ? speakableText(reading) : '';
+  return {
+    kind: 'summary',
+    brief: '',
+    readingId: record.readingId,
+    readingTitle: record.readingTitle || '',
+    sourceText,
+    sourceWords: countWords(sourceText),
+    cards,
+    missingSource: !reading,
+  };
+}
+
+async function remove(id) {
+  clearTimeout(disarm);
+  if (armed !== id) {
+    armed = id;
+    renderList();
+    disarm = setTimeout(() => { armed = null; renderList(); }, 4000);
+    return;
+  }
+  armed = null;
+  if (shown && shown.id === id) clear();
+  await store.deleteWriting(id);
+}
+
+function forgetIfGone() {
+  if (shown && !store.state.writings.some((r) => r.id === shown.id)) clear();
+}
+
+function clear() {
+  task = null;
+  shown = null;
+  moves = null;
+  saved = null;
+  renderCard();
+  renderList();
+}
+
+/* ── the budget readout ──────────────────────────────────────────────── */
+
+function renderQuota() {
+  if (!isActive()) return;
+  const q = store.quotaReport();
+  const g = q.grade;
+  const t = q.text;
+  const el = $('wr-quota');
+  const usage = `feedback ${g.usedDay}/${g.rpd || '∞'} in 24h`;
+  if (g.retryAfter > 0) {
+    el.textContent = `feedback waits ${formatWait(g.retryAfter)} · ${usage}`;
+    el.className = 'quota is-bad';
+  } else {
+    el.textContent = (g.leftDay === null ? 'unlimited' : `${g.leftDay} feedback call${g.leftDay === 1 ? '' : 's'} left`) + ' · ' + usage;
+    el.className = 'quota ' + (g.leftDay !== null && g.leftDay <= 2 ? 'is-bad' : 'is-ok');
+  }
+  if (!asking) {
+    $('wr-ask').disabled = busy || t.retryAfter > 0 || !storage.getApiKey();
+    $('wr-ask').title = t.retryAfter > 0
+      ? `${t.model} is out of budget for now: next call in ${formatWait(t.retryAfter)}.`
+      : `One call on ${t.model}: text ${t.usedDay}/${t.rpd || '∞'} in 24h`;
+  }
+  $('wr-hand-in').title = `One call on ${g.model}`;
+  renderHandIn();
+}
+
+/* ── small helpers ───────────────────────────────────────────────────── */
+
+/* A failed hand-in offers Try again beside the error; the writing is still
+   in the box. */
+function showError(text, retry = false) {
+  const el = $('wr-error');
+  el.innerHTML = text
+    ? `<div class="banner is-bad">${escapeHtml(text)}${retry ? ' <button class="btn btn--sm" data-act="retry">Try again</button>' : ''}</div>`
+    : '';
+}

@@ -8,6 +8,7 @@ import * as typing from './tab-typing.js';
 import * as dictation from './tab-dictation.js';
 import * as shadowing from './tab-shadowing.js';
 import * as reading from './tab-reading.js';
+import * as writing from './tab-writing.js';
 import * as lookup from './lookup-popup.js';
 
 const TABS = {
@@ -17,6 +18,7 @@ const TABS = {
   dictation: { module: dictation },
   shadowing: { module: shadowing },
   reading: { module: reading },
+  writing: { module: writing },
 };
 
 function show(name) {

@@ -22,6 +22,9 @@ import {
 } from './shadow-rules.js';
 import { encodeOggOpus, OPUS_MIME } from './opus.js';
 import { readingVars, readReading } from './reading.js';
+import {
+  briefVars, readBrief, writingGradeSystem, writingGradeUser, readWritingGrade,
+} from './writing.js';
 
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent';
 const MINUTE = 60;
@@ -794,6 +797,40 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     return { text: firstText(data), model };
   }
 
+  /* ── writing ───────────────────────────────────────────────────────── */
+
+  /* The question an opinion piece answers: a writing job, so one call on
+     the text model. */
+  async function writeWritingBrief(cards) {
+    const s = getSettings();
+    const { text, model } = await jobCall('textModel', {
+      parts: [{ text: fillTemplate(s.prompts.writingBrief, briefVars(s, cards)) }],
+      temperature: 0.9,
+      maxOutputTokens: 2048,
+    });
+    const brief = readBrief(text);
+    if (!brief) throw new GeminiError(`${model} wrote no question. Try again, or type a topic of your own.`);
+    return { brief, model };
+  }
+
+  /* One call on the feedback model. `task` is {kind, brief, sourceText,
+     cards, text}; the level and the language come from the settings. A
+     reply that cannot be read throws, and nothing is kept or scored. */
+  async function gradeWriting(task) {
+    const s = getSettings();
+    const { text, model } = await jobCall('gradeModel', {
+      system: writingGradeSystem(s),
+      parts: [{ text: writingGradeUser({ ...task, level: s.learnerLevel, language: s.targetLanguage }) }],
+      temperature: 0.3,
+      maxOutputTokens: 16384,
+    });
+    const result = readWritingGrade(text, task.cards || []);
+    if (!result) {
+      throw new GeminiError(`${model} replied with something that could not be read as feedback. Nothing was kept or scored, and your writing is still here, so you can try again.`);
+    }
+    return { result, model };
+  }
+
   /* ── card notes ────────────────────────────────────────────────────── */
 
   /* Refuses before spending, like the other preflights: the notes job has a
@@ -883,6 +920,7 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     call, testKey, generateCard, preflight, gradeShadowing, shadowPreflight,
     draftShadowRules, reviseShadowRules, rulesPreflight, notesPreflight, writeNotes,
     readingPreflight, writeReading, speechPreflight, speakReading, jobPreflight, jobCall,
+    writeWritingBrief, gradeWriting,
   };
 }
 

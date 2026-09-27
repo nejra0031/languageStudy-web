@@ -9,6 +9,7 @@ import {
 } from './gemini.js';
 import { LANGUAGES, codeFor, nameFor } from './lookup.js';
 import { readingVars } from './reading.js';
+import { briefVars, writingGradeSystem, writingGradeUser } from './writing.js';
 import { rulesToText, totalOf, RATINGS } from './shadow-rules.js';
 import { serializeDeck } from './deck.js';
 import { serializeBundle, parseBundle, describeBundle, bundleFilename } from './bundle.js';
@@ -504,6 +505,8 @@ const FIELDS = [
   ['set-wmin', 'sentenceWords.min', 'int'],
   ['set-wmax', 'sentenceWords.max', 'int'],
   ['set-terms', 'termsPerSentence', 'int'],
+  ['set-writing-min', 'writingWords.min', 'int'],
+  ['set-writing-max', 'writingWords.max', 'int'],
 ];
 
 function wireFields() {
@@ -553,7 +556,7 @@ function render() {
    second, read-only textarea that takes the editor's place rather than the
    editor's own text being swapped out: the editor is what draftSettings()
    reads, and what a blur commits, so it must never hold rendered text. */
-const PROMPT_VIEWS = ['sentence', 'speech', 'shadowing', 'notes', 'reading'];
+const PROMPT_VIEWS = ['sentence', 'speech', 'shadowing', 'notes', 'reading', 'writingBrief', 'writingGrade'];
 
 /* Every prompt box works the same way: typing redraws the preview, leaving
    the box saves it, and Reset to default puts back the default this build
@@ -623,6 +626,20 @@ const PREVIEWS = {
     `── to ${draft.textModel} ──`,
     fillTemplate(draft.prompts.reading, readingVars(draft, sample, draft.readingRequest)),
   ],
+  writingBrief: (draft, sample) => [
+    `── to ${draft.textModel} ──`,
+    fillTemplate(draft.prompts.writingBrief, briefVars(draft, sample)),
+  ],
+  writingGrade: (draft, sample) => [
+    `── to ${draft.gradeModel}, as the system instruction ──`,
+    writingGradeSystem(draft),
+    '',
+    '── then, as the message ──',
+    writingGradeUser({
+      kind: 'opinion', brief: '<the question, or your topic>', level: draft.learnerLevel,
+      language: draft.targetLanguage, cards: sample, text: '<what you wrote>',
+    }),
+  ],
 };
 
 function renderPreview() {
@@ -664,6 +681,14 @@ function renderPreview() {
      a text with none is refused. */
   if (!draft.prompts.reading.includes('[[')) {
     warnings.reading.push('The reading prompt no longer asks for [[number|words]] marks. A text with none has nothing to click and is refused.');
+  }
+  if (!draft.prompts.writingBrief.includes('{terms}')) {
+    warnings.writingBrief.push('The writing question prompt has no {terms} placeholder, so the question is not written around your cards.');
+  }
+  /* Like the shadowing shape: the reply is read by these keys, and one
+     without them is a failure every time. */
+  if (!draft.prompts.writingGrade.includes('"valid"') || !draft.prompts.writingGrade.includes('"cards"')) {
+    warnings.writingGrade.push('The writing feedback prompt no longer asks for "valid" and "cards" in its JSON. A reply without "valid" cannot be read, and without "cards" none of your cards are scored.');
   }
   for (const name of PROMPT_VIEWS) {
     const el = $(`prompt-warn-${name}`);
