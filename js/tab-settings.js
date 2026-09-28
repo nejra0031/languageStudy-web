@@ -3,16 +3,18 @@
 
 import * as storage from './storage.js';
 import * as store from './store.js';
-import {
-  VOICES, MODEL_ROLES, rolesUsing,
-  DEFAULT_SENTENCE_PROMPT, DEFAULT_SPEECH_PROMPT, DEFAULT_SHADOW_PROMPT, DEFAULT_NOTES_PROMPT,
-  DEFAULT_READING_PROMPT,
-} from './defaults.js';
+import { VOICES, MODEL_ROLES, rolesUsing, DEFAULT_SETTINGS } from './defaults.js';
 import {
   fillTemplate, sentenceVars, notesVars, formatWait, GeminiError, QuotaError, shadowSystem, speechText,
 } from './gemini.js';
 import { LANGUAGES, codeFor, nameFor } from './lookup.js';
 import { readingVars } from './reading.js';
+import { briefVars, writingGradeSystem, writingGradeUser } from './writing.js';
+import { translationGradeSystem, translationGradeUser } from './translation.js';
+import {
+  scenarioVars, roleplayReplyRequest, findOutReplyRequest, roleplayGradeRequest, findOutGradeRequest,
+  transcribeRequest,
+} from './conversation.js';
 import { rulesToText, totalOf, RATINGS } from './shadow-rules.js';
 import { serializeDeck } from './deck.js';
 import { serializeBundle, parseBundle, describeBundle, bundleFilename } from './bundle.js';
@@ -508,6 +510,8 @@ const FIELDS = [
   ['set-wmin', 'sentenceWords.min', 'int'],
   ['set-wmax', 'sentenceWords.max', 'int'],
   ['set-terms', 'termsPerSentence', 'int'],
+  ['set-writing-min', 'writingWords.min', 'int'],
+  ['set-writing-max', 'writingWords.max', 'int'],
 ];
 
 function wireFields() {
@@ -539,16 +543,10 @@ function render() {
     const el = $(id);
     if (document.activeElement !== el) el.value = getPath(s, path);
   }
-  const sp = $('set-prompt-sentence');
-  const pp = $('set-prompt-speech');
-  const hp = $('set-prompt-shadowing');
-  const np = $('set-prompt-notes');
-  const rp = $('set-prompt-reading');
-  if (document.activeElement !== sp) sp.value = s.prompts.sentence;
-  if (document.activeElement !== pp) pp.value = s.prompts.speech;
-  if (document.activeElement !== hp) hp.value = s.prompts.shadowing;
-  if (document.activeElement !== np) np.value = s.prompts.notes;
-  if (document.activeElement !== rp) rp.value = s.prompts.reading;
+  for (const name of PROMPT_VIEWS) {
+    const el = $(`set-prompt-${name}`);
+    if (document.activeElement !== el) el.value = s.prompts[name];
+  }
   renderModels();
   renderLookup();
   renderVoices();
@@ -563,55 +561,48 @@ function render() {
    second, read-only textarea that takes the editor's place rather than the
    editor's own text being swapped out: the editor is what draftSettings()
    reads, and what a blur commits, so it must never hold rendered text. */
-const PROMPT_VIEWS = ['sentence', 'speech', 'shadowing', 'notes', 'reading'];
+const PROMPT_VIEWS = [
+  'sentence', 'speech', 'shadowing', 'notes', 'reading', 'writingBrief', 'writingGrade', 'translationGrade',
+  'scenario', 'roleplayReply', 'findOutReply', 'conversationGrade', 'findOutGrade', 'transcribe',
+];
 
+/* A conversation to preview the conversation prompts with: two turns of
+   each side, in placeholders, so what the prompt adds is what shows. */
+const SAMPLE_ROLEPLAY = {
+  kind: 'roleplay',
+  scenario: { scenario: '<the scene>', studentRole: '<your role>', llmRole: '<their role>' },
+  turns: [
+    { speaker: 'partner', text: '<their opening line>' },
+    { speaker: 'learner', text: '<your first turn>' },
+    { speaker: 'partner', text: '<their reply>' },
+    { speaker: 'learner', text: '<your second turn>' },
+  ],
+  revealed: [],
+};
+const SAMPLE_FIND_OUT = {
+  ...SAMPLE_ROLEPLAY,
+  kind: 'findout',
+  scenario: {
+    situation: '<the situation>', studentRole: '<your role>', llmRole: '<their role>', goal: '<what you were sent to find out>',
+    facts: [1, 2, 3].map((n) => ({ id: String(n), label: `<fact ${n}>`, detail: `<its answer>` })),
+  },
+  revealed: ['1'],
+};
+
+/* Every prompt box works the same way: typing redraws the preview, leaving
+   the box saves it, and Reset to default puts back the default this build
+   ships. Only the preview and the warnings differ from prompt to prompt. */
 function wirePrompts() {
-  const sp = $('set-prompt-sentence');
-  const pp = $('set-prompt-speech');
-  sp.addEventListener('input', renderPreview);
-  pp.addEventListener('input', renderPreview);
-  sp.addEventListener('change', () => store.saveSettings({ prompts: { ...store.state.settings.prompts, sentence: sp.value } }));
-  pp.addEventListener('change', () => store.saveSettings({ prompts: { ...store.state.settings.prompts, speech: pp.value } }));
-
-  $('prompt-sentence-reset').addEventListener('click', () => {
-    sp.value = DEFAULT_SENTENCE_PROMPT;
-    store.saveSettings({ prompts: { ...store.state.settings.prompts, sentence: DEFAULT_SENTENCE_PROMPT } });
-    renderPreview();
-  });
-  $('prompt-speech-reset').addEventListener('click', () => {
-    pp.value = DEFAULT_SPEECH_PROMPT;
-    store.saveSettings({ prompts: { ...store.state.settings.prompts, speech: DEFAULT_SPEECH_PROMPT } });
-    renderPreview();
-  });
-
-  const hp = $('set-prompt-shadowing');
-  hp.addEventListener('input', renderPreview);
-  hp.addEventListener('change', () => store.saveSettings({ prompts: { ...store.state.settings.prompts, shadowing: hp.value } }));
-  $('prompt-shadowing-reset').addEventListener('click', () => {
-    hp.value = DEFAULT_SHADOW_PROMPT;
-    store.saveSettings({ prompts: { ...store.state.settings.prompts, shadowing: DEFAULT_SHADOW_PROMPT } });
-    renderPreview();
-  });
-
-  const np = $('set-prompt-notes');
-  np.addEventListener('input', renderPreview);
-  np.addEventListener('change', () => store.saveSettings({ prompts: { ...store.state.settings.prompts, notes: np.value } }));
-  $('prompt-notes-reset').addEventListener('click', () => {
-    np.value = DEFAULT_NOTES_PROMPT;
-    store.saveSettings({ prompts: { ...store.state.settings.prompts, notes: DEFAULT_NOTES_PROMPT } });
-    renderPreview();
-  });
-
-  const rp = $('set-prompt-reading');
-  rp.addEventListener('input', renderPreview);
-  rp.addEventListener('change', () => store.saveSettings({ prompts: { ...store.state.settings.prompts, reading: rp.value } }));
-  $('prompt-reading-reset').addEventListener('click', () => {
-    rp.value = DEFAULT_READING_PROMPT;
-    store.saveSettings({ prompts: { ...store.state.settings.prompts, reading: DEFAULT_READING_PROMPT } });
-    renderPreview();
-  });
-
   for (const name of PROMPT_VIEWS) {
+    const editor = $(`set-prompt-${name}`);
+    editor.addEventListener('input', renderPreview);
+    editor.addEventListener('change', () => store.saveSettings({ prompts: { ...store.state.settings.prompts, [name]: editor.value } }));
+    $(`prompt-${name}-reset`).addEventListener('click', () => {
+      editor.value = DEFAULT_SETTINGS.prompts[name];
+      store.saveSettings({ prompts: { ...store.state.settings.prompts, [name]: DEFAULT_SETTINGS.prompts[name] } });
+      renderPreview();
+    });
+
     const seg = document.querySelector(`.seg[data-prompt="${name}"]`);
     seg.addEventListener('click', (e) => {
       const btn = e.target.closest('button[data-view]');
@@ -634,44 +625,96 @@ function showPromptView(name, preview) {
   }
 }
 
-function renderPreview() {
-  const draft = draftSettings();
-  const terms = store.state.cards.slice(0, 3).map((c) => ({ front: c.front, back: c.back }));
-  const sample = terms.length ? terms : SAMPLE_TERMS;
-
-  $('prompt-preview-sentence').value = [
+/* What each prompt's Preview shows: the prompt as it will be sent, filled
+   with the draft settings and `sample`, a few of your cards, under a line
+   naming the model it goes to. */
+const PREVIEWS = {
+  sentence: (draft, sample) => [
     `── to ${draft.textModel} ──`,
     fillTemplate(draft.prompts.sentence, sentenceVars(draft, sample)),
-  ].join('\n');
-  $('prompt-preview-speech').value = [
+  ],
+  speech: (draft) => [
     `── to ${draft.ttsModel} ──`,
     speechText(draft, '<the sentence it just wrote>'),
-  ].join('\n');
-  $('prompt-preview-shadowing').value = [
+  ],
+  shadowing: (draft) => [
     `── to ${draft.shadowModel}, as the system instruction ──`,
     shadowSystem(draft, draft.shadowItems),
     '',
     '(then one text part per line, each followed by your recording of it)',
-  ].join('\n');
-  const card = sample[0];
-  $('prompt-preview-notes').value = [
+  ],
+  notes: (draft, sample) => [
     `── to ${draft.notesModel} ──`,
     fillTemplate(draft.prompts.notes, notesVars(draft, {
-      front: card.front,
-      back: card.back,
+      front: sample[0].front,
+      back: sample[0].back,
       context: '<the sentence the word was selected from>',
       learningName: draft.lookupLearning ? nameFor(draft.lookupLearning) : draft.targetLanguage,
       nativeName: nameFor(draft.lookupNative),
     })),
-  ].join('\n');
-  $('prompt-preview-reading').value = [
+  ],
+  reading: (draft, sample) => [
     `── to ${draft.textModel} ──`,
     fillTemplate(draft.prompts.reading, readingVars(draft, sample, draft.readingRequest)),
-  ].join('\n');
+  ],
+  writingBrief: (draft, sample) => [
+    `── to ${draft.textModel} ──`,
+    fillTemplate(draft.prompts.writingBrief, briefVars(draft, sample)),
+  ],
+  writingGrade: (draft, sample) => [
+    `── to ${draft.gradeModel}, as the system instruction ──`,
+    writingGradeSystem(draft),
+    '',
+    '── then, as the message ──',
+    writingGradeUser({
+      kind: 'opinion', brief: '<the question, or your topic>', level: draft.learnerLevel,
+      language: draft.targetLanguage, cards: sample, text: '<what you wrote>',
+    }),
+  ],
+  translationGrade: (draft, sample) => [
+    `── to ${draft.gradeModel}, as the system instruction ──`,
+    translationGradeSystem(draft),
+    '',
+    '── then, as the message, one block per sentence in the set ──',
+    translationGradeUser([{
+      id: '0', english: '<the English of a banked sentence>', sentence: '<the banked sentence>', cards: sample,
+    }], ['<what you wrote>'], draft.targetLanguage),
+  ],
+  scenario: (draft, sample) => [
+    `── to ${draft.textModel} ──`,
+    fillTemplate(draft.prompts.scenario, scenarioVars(draft, 'roleplay', sample, draft.conversationRequest)),
+  ],
+  roleplayReply: (draft, sample) => {
+    const r = roleplayReplyRequest(draft, SAMPLE_ROLEPLAY, sample);
+    return [`── to ${draft.chatModel}, as the system instruction ──`, r.system, '', '── then, as the message ──', r.user];
+  },
+  findOutReply: (draft) => {
+    const r = findOutReplyRequest(draft, SAMPLE_FIND_OUT);
+    return [`── to ${draft.chatModel}, as the system instruction ──`, r.system, '', '── then, as the message ──', r.user];
+  },
+  conversationGrade: (draft, sample) => {
+    const r = roleplayGradeRequest(draft, SAMPLE_ROLEPLAY, sample, { closing: true });
+    return [`── to ${draft.gradeModel}, as the system instruction (after your sixth turn) ──`, r.system, '', '── then, as the message ──', r.user];
+  },
+  transcribe: (draft) => {
+    const r = transcribeRequest(draft, SAMPLE_ROLEPLAY, { mime: 'audio/webm', base64: '…' });
+    return [`── to ${draft.shadowModel}, as the system instruction ──`, r.system, '', '── then, as the message ──', r.parts[0].text, '(then your recording)'];
+  },
+  findOutGrade: (draft, sample) => {
+    const r = findOutGradeRequest(draft, SAMPLE_FIND_OUT, sample);
+    return [`── to ${draft.gradeModel}, as the system instruction ──`, r.system, '', '── then, as the message ──', r.user];
+  },
+};
+
+function renderPreview() {
+  const draft = draftSettings();
+  const terms = store.state.cards.slice(0, 3).map((c) => ({ front: c.front, back: c.back, type: c.type }));
+  const sample = terms.length ? terms : SAMPLE_TERMS;
+  for (const name of PROMPT_VIEWS) $(`prompt-preview-${name}`).value = PREVIEWS[name](draft, sample).join('\n');
 
   /* The warnings sit under their own prompt, outside the preview, so they
      are seen while editing — which is when they can be acted on. */
-  const warnings = { sentence: [], speech: [], shadowing: [], notes: [], reading: [] };
+  const warnings = Object.fromEntries(PROMPT_VIEWS.map((name) => [name, []]));
   if (!draft.prompts.sentence.includes('{terms}')) {
     warnings.sentence.push('The sentence prompt has no {terms} placeholder, so the model is never told which words to use.');
   }
@@ -703,6 +746,32 @@ function renderPreview() {
   if (!draft.prompts.reading.includes('[[')) {
     warnings.reading.push('The reading prompt no longer asks for [[number|words]] marks. A text with none has nothing to click and is refused.');
   }
+  if (!draft.prompts.writingBrief.includes('{terms}')) {
+    warnings.writingBrief.push('The writing question prompt has no {terms} placeholder, so the question is not written around your cards.');
+  }
+  /* Like the shadowing shape: the reply is read by these keys, and one
+     without them is a failure every time. */
+  if (!draft.prompts.writingGrade.includes('"valid"') || !draft.prompts.writingGrade.includes('"cards"')) {
+    warnings.writingGrade.push('The writing feedback prompt no longer asks for "valid" and "cards" in its JSON. A reply without "valid" cannot be read, and without "cards" none of your cards are scored.');
+  }
+  if (!draft.prompts.translationGrade.includes('"id"')) {
+    warnings.translationGrade.push('The translation feedback prompt no longer asks for an array keyed by "id". Grades are matched to sentences by id, so without it none can be read.');
+  }
+  if (!draft.prompts.scenario.includes('{kind}')) {
+    warnings.scenario.push('The conversation scene prompt has no {kind} placeholder, so it is never told whether to write a roleplay or a find-out, and a reply of the wrong shape starts nothing.');
+  }
+  if (!draft.prompts.findOutReply.includes('{facts}') || !draft.prompts.findOutReply.includes('"revealed"')) {
+    warnings.findOutReply.push('The find-out reply prompt needs {facts}, or the other person knows nothing, and "revealed" in its JSON, or your checklist never ticks.');
+  }
+  if (!draft.prompts.conversationGrade.includes('{closing}') || !draft.prompts.conversationGrade.includes('"feedback"')) {
+    warnings.conversationGrade.push('The roleplay feedback prompt needs {closing}, or the sixth turn gets no closing line and cannot be read, and "feedback" in its JSON, or no reply can be read.');
+  }
+  if (!draft.prompts.findOutGrade.includes('"conversation"')) {
+    warnings.findOutGrade.push('The find-out feedback prompt no longer asks for "conversation" in its JSON, so no reply can be read.');
+  }
+  if (!draft.prompts.transcribe.includes('"transcript"')) {
+    warnings.transcribe.push('The transcription prompt no longer asks for {"transcript": …}, so no spoken turn can be read.');
+  }
   for (const name of PROMPT_VIEWS) {
     const el = $(`prompt-warn-${name}`);
     el.textContent = warnings[name].join(' ');
@@ -726,11 +795,8 @@ function draftSettings() {
       max: Number($('set-wmax').value) || s.sentenceWords.max,
     },
     prompts: {
-      sentence: $('set-prompt-sentence').value,
-      speech: $('set-prompt-speech').value,
-      shadowing: $('set-prompt-shadowing').value,
-      notes: $('set-prompt-notes').value,
-      reading: $('set-prompt-reading').value,
+      ...s.prompts,
+      ...Object.fromEntries(PROMPT_VIEWS.map((name) => [name, $(`set-prompt-${name}`).value])),
     },
   };
 }
@@ -744,6 +810,8 @@ const ROLE_FIELD = {
   ttsModel: 'set-ttsmodel',
   shadowModel: 'set-shadowmodel',
   notesModel: 'set-notesmodel',
+  gradeModel: 'set-grademodel',
+  chatModel: 'set-chatmodel',
 };
 
 /* A row typed into but not yet stored. A model with no id is not a model, so

@@ -8,6 +8,9 @@ import * as typing from './tab-typing.js';
 import * as dictation from './tab-dictation.js';
 import * as shadowing from './tab-shadowing.js';
 import * as reading from './tab-reading.js';
+import * as writing from './tab-writing.js';
+import * as translate from './tab-translate.js';
+import * as conversation from './tab-conversation.js';
 import * as lookup from './lookup-popup.js';
 
 const TABS = {
@@ -17,6 +20,9 @@ const TABS = {
   dictation: { module: dictation },
   shadowing: { module: shadowing },
   reading: { module: reading },
+  writing: { module: writing },
+  translate: { module: translate },
+  conversation: { module: conversation },
 };
 
 function show(name) {
@@ -39,8 +45,7 @@ function wireTabs() {
   document.querySelector('.tabs').addEventListener('click', (e) => {
     const btn = e.target.closest('.tab');
     if (!btn) return;
-    if (btn.dataset.soon) comingSoon(btn);
-    else show(btn.dataset.tab);
+    show(btn.dataset.tab);
   });
 
   /* Arrow keys walk the tab strip, as a tablist should. */
@@ -52,29 +57,6 @@ function wireTabs() {
     show(next);
     document.getElementById('tab-' + next).focus();
   });
-}
-
-/* A planned mode's tab has no panel, so clicking it leaves the current tab
-   where it is and says why under the button for a moment. One note, reused,
-   so clicking several in a row never stacks them up. */
-let soonTimer = 0;
-function comingSoon(btn) {
-  let note = document.getElementById('soon-note');
-  if (!note) {
-    note = document.createElement('div');
-    note.id = 'soon-note';
-    note.className = 'soon-note';
-    note.setAttribute('role', 'status');
-    document.body.append(note);
-  }
-  note.textContent = `${btn.dataset.soon} is coming soon. Check back later.`;
-  note.hidden = false;
-  const r = btn.getBoundingClientRect();
-  const left = Math.min(r.left, window.innerWidth - note.offsetWidth - 8);
-  note.style.left = `${Math.max(8, left)}px`;
-  note.style.top = `${r.bottom + 6}px`;
-  clearTimeout(soonTimer);
-  soonTimer = setTimeout(() => { note.hidden = true; }, 2500);
 }
 
 function wireTheme() {

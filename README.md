@@ -1,7 +1,8 @@
 # Language Study
 
-Flashcards, typing practice, AI dictation, speaking practice and reading texts
-for whatever language you are learning. One static page. No account, no server, no database
+Flashcards, typing practice, AI dictation, speaking practice, reading texts,
+graded writing, translation and conversation for whatever language you are
+learning. One static page. No account, no server, no database
 — your cards, your audio and your own recordings stay on your own computer, in
 a folder you choose where the browser allows it, and the only thing that ever
 leaves the machine is a request to Google, signed with your own API key.
@@ -32,12 +33,10 @@ exactly, and aligns words with them stripped, so a missed mark shows up as
 rule covers Vietnamese tones, Spanish acutes, Czech carons and German umlauts
 without knowing anything about any of them.
 
-## The six tabs
+## The tabs
 
 The tab strip has two groups: Settings and Flashcards set things up, and
-after a gap come the practice modes. Writing, Translate and Conversation are
-greyed out at the end of it: they are planned, and clicking one says it is
-coming soon.
+after a gap come the practice modes.
 
 **Settings** — where your data is saved, your API key, the language, the models, the call
 budget, the prompts, the read-aloud voice, and which Gemini voices may read to you.
@@ -102,6 +101,18 @@ each line and one on the set as a whole. See below.
 whatever you ask for. Your words and grammar patterns are coloured where they
 appear; click one, say whether you understood it, and only then see its
 meaning. See [Reading](#reading).
+
+**Writing** — a short piece of your own, a summary of one of your Reading
+texts or your opinion on a question, read by the feedback model and scored
+against your cards. See [Writing](#writing).
+
+**Translate** — six English sentences from the sentence bank to write in the
+language you are learning, in your own words, checked together in one call.
+See [Translate](#translate).
+
+**Conversation** — six turns of your own in a short scene, a roleplay or a
+*find out*, with the other side played by the conversation model and
+feedback at the end. See [Conversation](#conversation).
 
 ## Shadowing
 
@@ -339,6 +350,184 @@ Texts you already have stay readable, and their audio playable, without an API
 key; only writing a new text or reading one aloud needs one. With nothing being
 saved, texts and audio last until the page is reloaded.
 
+## Writing
+
+The Writing tab has you write a short piece in the language you are
+learning and gives it back with feedback, the way a teacher marks a written
+exercise. There are two kinds of task, and both come from what you already
+have:
+
+- **Opinion**: *Write me a question* has the text model write one question,
+  in the language you are learning, around five cards drawn from the ticked
+  decks, weighted towards your weakest. That is one call on the text model.
+  Or type **a topic of your own** and press *Use my topic*, which costs
+  nothing; five cards are drawn for it all the same. The **Weak / +
+  Developing / All** filter is the one the Reading tab uses.
+- **Summary**: pick one of your [kept Reading texts](#kept-texts-and-reading-them-aloud)
+  and summarise it. *Show the text* opens it under the task while you write,
+  and the cards that text used are the ones to try to use.
+
+The cards are listed under the task as **Try to use**. The task says how many
+words it wants: an opinion piece is **Settings → Language → Writing words**,
+60 to 120 by default; a summary asks for about two thirds of that, scaled by
+the length of the text (a long article allows more, a short story less, at
+most 30% either way) and rounded to fives. The counter under the box turns
+red once you are short or over, and **Hand in** is live only inside the
+range. The box takes 5,000 characters at most.
+
+**Hand in** sends the task, your level, the text of a summary, your cards and
+your writing to the **feedback model**: one call. The feedback comes back in
+this order, with no mark out of a hundred anywhere:
+
+- **This reads at …**: the level your text reads at, on the CEFR scale,
+  judged from the text rather than from the level in Settings.
+- a sentence on your language and a sentence on how well you did the task;
+- **What the task asked for**: each thing the task required, ✓ or ✗, and
+  what was missing. A question that asks for a view and a reason has two
+  points, and a view with no reason misses one;
+- **Grammar and spelling**: each real mistake, the rule it broke, and your
+  own phrase corrected. A mistake in using one of your grammar patterns says
+  which (*One of your patterns: …*);
+- **Ways to say it a level up**: *Word choice* and *Style* suggestions, one
+  level above where the text is, each with its reason;
+- **Your cards**: each one right, wrong or not used, with a note. Right and
+  wrong are scored through the same rules as everywhere else and written back
+  to each card's own deck; a card you did not use is left alone.
+
+A text that is not an attempt at the task at all, such as a question to the
+model or a text in another language, is **not counted**: you are told why,
+and nothing is scored. A reply that cannot be read is a failure, not a grade:
+your writing stays in the box, nothing is kept or scored, and **Try again**
+sends it again. Nothing is retried on its own, since every attempt is a call.
+
+**Write again** starts a new piece on the same task. **Every piece you hand
+in is kept**, with its feedback, and **Your writing**, under the form, lists
+them newest first. Click one to read it again as it was, or to write again on
+its task; **Delete** asks once more in place. The feedback model is its own
+job in Settings, so a grading budget that runs out does not stop you writing
+sentences, and while it is spent the note beside *Hand in* says how long
+until the next call.
+
+## Translate
+
+The Translate tab gives you six English sentences to write in the language you
+are learning. **Any natural, correct way of saying the same thing is right**:
+the feedback model judges meaning and grammar, not whether you matched one
+particular answer word for word, which is what a string comparison would have
+to do.
+
+The sentences are the **sentence bank** Dictation fills, for the decks ticked
+in the Flashcards tab: a banked sentence's English is the prompt, the sentence
+itself is one right answer, and its target words are the cards it practises.
+So a set costs nothing to make, and the bank is only read, never written. Like
+Shadowing, a set prefers sentences you have already typed as a dictation,
+since checking a set shows every sentence in full. When fewer than six are in
+scope, the tab says so and gives you the set it has; it never writes new
+sentences, which only Dictation's **New sentence** does. **New set** draws
+another.
+
+Type each answer in its box (Enter moves to the next; on the last it
+checks). **Check answers** is live once anything is typed, and sends the whole
+set, blanks included, in **one call** on the feedback model. Afterwards the
+answers lock, and each row says **Correct**, or shows *One correct answer* with
+the banked sentence, and a sentence on why. ▶ plays the sentence's banked
+recording. A row the model did not grade says *This one could not be
+checked*. If the check fails, nothing is scored, your answers stay editable,
+and **Try again** sends them again.
+
+The cards under each row move with it, through the same rules as everywhere
+else:
+
+- a **correct** answer scores all of its target words right;
+- an **incorrect** one scores wrong only the words the model says you got
+  wrong, and leaves the rest alone;
+- a **blank** scores all of its words wrong, as *Show answer* does in Typing;
+- one that **could not be checked** scores nothing.
+
+A set is not kept, as a Typing session is not: what stays is the scores.
+
+## Conversation
+
+The Conversation tab is a short conversation in the language you are
+learning: **six turns of your own**, then feedback. There are two kinds.
+
+- **Roleplay**: a scene with two roles, such as returning shoes to a shop or
+  planning a weekend with a friend. The other person plays their part and
+  answers each of your turns. Your sixth turn gets their closing line and the
+  feedback from the same call.
+- **Find out**: the other person knows three or four things you were sent to
+  find out, such as when the rubbish is collected. They answer all six of your
+  turns, but **give a fact only when you ask about it specifically**; a vague
+  "any tips?" gets a friendly answer with nothing in it. A checklist,
+  *What you need to find out*, ticks each fact as they give it away. The
+  answers stay hidden until the end.
+
+**Start** has the text model write the scene, in the language you are
+learning, around five cards from the ticked decks (the Weak / + Developing /
+All filter is the Reading tab's), with the other person's opening line: one
+call. **A situation you would like** is optional (*at the bakery*); left
+empty, the model chooses, and what you type is kept for next time. The note
+under it says what the conversation costs: one call on the text model, five
+replies (a roleplay) or six (a find out) on the **conversation model**, and
+one call on the **feedback model** at the end. If today's budget could not
+finish the conversation, Start is refused before anything is spent, and says
+which model is short.
+
+The scene stays above the chat: the situation, who you are, who you are
+talking to, and in a find out the goal and the checklist. Type your turn and
+press **Send** (or Enter; Shift+Enter is a new line). A turn takes 1,000
+characters at most. **End and get feedback** ends the conversation early,
+once you have had a turn, and costs one feedback call.
+
+### Speaking your turns
+
+Any turn can be spoken instead. **Speak** starts the microphone and **Stop
+recording** ends the take, which is saved at once. Play it back, then **Send
+recording**, or **Record again** to replace it. Sending has the shadowing
+model **write down what you said, as you said it**: your mistakes are kept,
+since they are what the feedback is about. That is one call on the shadowing
+model per spoken turn. If nothing could be heard, the turn is not spent and
+the take is dropped, so record it again. If the call fails, the recording is
+kept and **Try again** sends it again. A spoken turn shows ▶ in the chat to
+hear it again.
+
+A **roleplay** you spoke some of gets one more thing in its feedback, **How
+you sounded**: a few sentences on how your turns sounded, judged by the
+[listening rules](#listening-rules-and-how-they-learn) Shadowing uses for your
+language. The closing call then carries your recordings, oldest first, up to
+12 MB, and goes to the shadowing model rather than the feedback model, since
+it listens. A conversation typed throughout is graded as before, with no such
+note. The note cannot be rated, so it does not change the listening rules.
+
+Where the browser cannot record, or the microphone is blocked, the typed box
+is all there is, and the tab says why. Recordings are kept beside the
+conversation and go when it is deleted.
+
+**Nothing is lost when a call fails.** Your turn is saved before it is sent,
+and every turn after it, so a reply that fails keeps your turn and **Try
+again** sends the same conversation again. A conversation you leave open,
+with a reload or a closed tab, carries on when you come back to the tab. If
+a find-out's feedback fails, the conversation still ends, with **Ask for
+feedback again**.
+
+The feedback comes in the language and style set under **Feedback language
+and style**:
+
+- **Roleplay**: each of your turns, *You said*, then *More natural* where
+  there is a better way to say it, then a sentence on it. A suggestion that
+  differs only in capitals or punctuation is not shown; one that changes an
+  accent is.
+- **Find out**: whether you had a conversation or fired off a list of
+  questions (did you react to the answers, follow up, use what you heard),
+  how you asked, the one thing to do *next time*, and what you never asked
+  about. The checklist then shows every answer.
+
+Then **your cards**, judged on your own turns only and scored once, when the
+conversation ends with feedback, through the same rules as everywhere else.
+**Start again** sets a new scene. Every conversation is kept under **Past
+conversations**, newest first; an open one says so, and clicking it carries
+on, while an ended one opens as it was. **Delete** asks once more in place.
+
 ## Choosing which decks are in play
 
 The deck menu on the Flashcards page lists every deck you have with a
@@ -536,6 +725,13 @@ reading/manifest.json     the index of kept reading texts, and which have audio
 reading/<id>.json         one text: its words, which cards it used, the request
 reading/<id>.ogg          that text read aloud, if it has been (.wav where the
                           browser cannot encode Opus)
+writing/manifest.json     the index of everything handed in on Writing
+writing/<id>.json         one piece: the task, the cards, what you wrote,
+                          and the feedback
+conversation/manifest.json   the index of conversations
+conversation/<id>.json       one conversation: its scene, turns and feedback
+conversation/<id>_<n>.webm   your own voice: the spoken turn at position n
+                             (.ogg on Firefox, .mp4 on Safari)
 ```
 
 The shadowing takes are named from the recorder's own container, so they are
@@ -679,7 +875,8 @@ the device voice reads instead and Settings says why.
 
 ## The API key
 
-Dictation calls `generativelanguage.googleapis.com` directly from the page. Get
+Dictation, Shadowing, Reading, Writing, Translate and Conversation call
+`generativelanguage.googleapis.com` directly from the page. Get
 a free key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
 and paste it into Settings.
 
@@ -696,11 +893,18 @@ never see, you need a server, and this project deliberately does not have one.
 
 **Settings → Models** is a list: every Gemini model you use, entered once, each
 with its own calls-per-minute and calls-per-day. **Settings → What each model
-does** then hands out the four jobs — writing the sentence (and the
+does** then hands out the six jobs — writing the sentence (and the
 Reading tab's texts), speaking it,
-listening to your shadowing, and writing a card's notes when you ask for them
-in the [selection form](#adding-a-card-from-selected-text) — from that list. A
-settings file from before the notes job existed gives it the text model.
+listening to your shadowing (and to your spoken conversation turns), writing a card's notes when you ask for them
+in the [selection form](#adding-a-card-from-selected-text), giving
+**feedback** on writing, translations and conversations, and playing the other
+side of a **conversation** — from that list. A settings file from before the
+notes, feedback or conversation job existed gives it the text model.
+
+The conversation job suits a flash-lite model with a bigger daily allowance
+than the flash models have: one conversation spends five or six of its calls,
+each a reply of a line or two, and feedback on the whole of it comes from the
+feedback model at the end.
 
 The limits belong to the model, not to the job, because that is how Google
 counts them. So `gemini-3.6-flash` is typed once even when it both writes
@@ -730,7 +934,7 @@ key is worse than no card at all.
 
 ### Prompts
 
-All five prompts sent to the API are yours to edit, in **Settings → Prompts**.
+All the prompts sent to the API are yours to edit, in **Settings → Prompts**.
 The switch beside each one turns its box from **Edit** to **Preview**: exactly
 what will be sent, filled in with your settings and three of your cards, and
 kept up to date as you type. The preview cannot be edited; switch back to make
@@ -797,6 +1001,59 @@ from its `TITLE:` and `TEXT:` lines, and each use of a card from its
 conjugated verb is still its card. Keep the marks: a text without any is
 refused.
 
+The writing question prompt is sent when you press **Write me a question** on
+the [Writing](#writing) tab. It takes `{terms}` (the cards to try to use,
+numbered), `{language}`, `{level}` and `{languageNote}`, and the question is
+read from its `QUESTION:` line.
+
+The writing feedback prompt is sent as the system instruction when you
+**Hand in**. It takes `{language}`, `{languageNote}` and `{feedback}`, and
+nothing that changes from one piece to the next, so Gemini can reuse it
+between calls; the task, your level, a summary's source, your numbered cards
+and your writing follow in a message of their own, in tagged blocks. It is
+lessons-web's writing grader with the parts about one language, one course
+and a score taken out, and every step of it is worth reading before
+rewriting: the check that the text is an attempt at all, the task broken into
+the points it requires, a level-up suggestion kept apart from a real mistake,
+and your writing treated as data, never as instructions. The reply has to be
+the JSON object it describes; `"cards"` is how your cards are scored. The
+Feedback language and style setting applies here as it does to Shadowing.
+
+The translation feedback prompt is sent as the system instruction when you
+**Check answers** on the [Translate](#translate) tab. It takes `{language}`
+and `{feedback}`; the items follow in a message of their own, each with its
+id, its English, the banked sentence as one reference answer, what you wrote,
+and its target words, numbered. It is lessons-web's translation grader, with
+one addition: for a wrong answer, `"cards"` names the target words you got
+wrong. The reply has to be a JSON array with one object per `"id"`, so a
+reply that drops or reorders a sentence cannot move a grade onto the wrong
+one; a reply that is not an array is a failure.
+
+The five conversation prompts are sent from the [Conversation](#conversation)
+tab. The **scene prompt** goes to the text model when you press Start. It
+takes `{kind}` (*roleplay* or *find-out*, which picks the section to follow),
+`{request}`, `{terms}` (your cards), `{language}`, `{level}` and
+`{languageNote}`, and the reply is the scene as JSON; it replaces the fixed
+scenes lessons-web's lessons carried. The **roleplay reply** and **find-out
+reply** prompts go to the conversation model for each of the other person's
+lines, as the system instruction, with the conversation so far as the
+message. The find-out one holds the facts and their answers (`{facts}`),
+strict rules about giving one only when it is asked for, and asks for
+`"revealed"`, the facts the line gave away, which is what ticks your
+checklist. The **roleplay feedback** prompt is sent when a roleplay ends:
+`{closing}` asks for the closing line too after your sixth turn, and for none
+after an early end. The **find-out feedback** prompt is sent when a find out
+ends, told what you found out. All five are lessons-web's, with Dutch taken
+out and your cards added.
+
+The **transcription prompt** is sent to the shadowing model with each spoken
+turn, and takes `{language}`. It asks for exactly what you said, mistakes
+included, as `{"transcript": "…"}`; an empty transcript means nothing was
+heard. When a roleplay with spoken turns ends, its feedback prompt is sent
+with a **delivery addendum** added by the app, not editable here: it asks for
+`"deliveryNote"` and lists your language's listening rules, as the shadowing
+prompt's `{rules}` does.
+
 ## Running it locally
 
 It is plain ES modules with no build step and no dependencies, but modules do
@@ -833,12 +1090,16 @@ js/translate.js       the one Google Translate request
 js/lookup-popup.js    the form that opens under selected text, on every tab
 js/reading.js         Reading: presets, choosing the cards, reading the marked text,
                       naming and indexing kept texts
+js/writing.js         Writing: word bounds, the grading request, reading the feedback
+js/translation.js     Translate: drawing a set from the bank, grading, what moves
+js/conversation.js    Conversation: the scene, every reply and grade, the budget
 js/deck.js            deck format, scoring, card selection
 js/speech.js          the device's own voices, for reading words aloud
 js/recorder.js        the microphone: MediaRecorder, and releasing it again
 js/shadowing.js       building a set, laying out the grading call, reading it back
 js/shadow-rules.js    shadowing's listening rules: seeding, rating, revising, undo
 js/gemini.js          API calls, call budget, WAV wrapping
+js/json-reply.js      reading a grader's JSON reply, and its verdicts on your cards
 js/opus.js            dictation audio as Ogg Opus, through the browser's encoder
 js/convert-audio.js   turning a bank's older WAV sentences into Ogg, in place
 js/bundle.js          the export/import file format

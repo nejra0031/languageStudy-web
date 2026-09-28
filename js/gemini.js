@@ -13,13 +13,24 @@
 
 import { words, contains } from './text.js';
 import { isPattern } from './deck.js';
-import { VOICE_NAMES, modelLimits, FEEDBACK_REQUEST_BLOCK } from './defaults.js';
+import {
+  VOICE_NAMES, modelLimits, FEEDBACK_REQUEST_BLOCK, GRADER_FEEDBACK_BLOCK,
+} from './defaults.js';
 import { buildGradingParts, readGrading, attachableClips } from './shadowing.js';
 import {
   rulesFor, formatRulesBlock, buildSeedPrompt, buildRevisionPrompt, readRules,
 } from './shadow-rules.js';
 import { encodeOggOpus, OPUS_MIME } from './opus.js';
 import { readingVars, readReading } from './reading.js';
+import {
+  briefVars, readBrief, writingGradeSystem, writingGradeUser, readWritingGrade,
+} from './writing.js';
+import { translationGradeSystem, translationGradeUser, readTranslationGrade } from './translation.js';
+import {
+  scenarioVars, readScenario, budgetProblem, roleplayReplyRequest, readRoleplayReply,
+  findOutReplyRequest, readFindOutReply, roleplayGradeRequest, readRoleplayGrade,
+  findOutGradeRequest, readFindOutGrade, transcribeRequest, readTranscript, withDelivery,
+} from './conversation.js';
 
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent';
 const MINUTE = 60;
@@ -287,18 +298,22 @@ export class RateLimiter {
   }
 
   /* canGenerate, retryAfter and cardsLeftToday are all about making one
-     dictation card, which takes a text call and a speech call. Shadowing is
-     reported alongside but deliberately left out of them: it spends neither of
-     those models, and a shadowing budget that had run down must not stop you
-     writing a sentence. */
+     dictation card, which takes a text call and a speech call. Shadowing,
+     feedback and conversation are reported alongside but deliberately left
+     out of them: they spend neither of those models, and a grading budget
+     that had run down must not stop you writing a sentence. */
   report(settings) {
     const text = this.usageOf(settings, settings.textModel);
     const tts = this.usageOf(settings, settings.ttsModel);
     const shadow = this.usageOf(settings, settings.shadowModel);
+    const grade = this.usageOf(settings, settings.gradeModel);
+    const chat = this.usageOf(settings, settings.chatModel);
     return {
       text,
       tts,
       shadow,
+      grade,
+      chat,
       retryAfter: Math.max(text.retryAfter, tts.retryAfter),
       canGenerate: text.retryAfter <= 0 && tts.retryAfter <= 0,
       cardsLeftToday: cardsLeft(settings, text, tts),
@@ -755,6 +770,177 @@ export function createClient({ getSettings, getApiKey, limiter }) {
     if (why) throw new QuotaError(why, limiter.waitFor(s.shadowModel, l.rpm, l.rpd));
   }
 
+  /* ── any job ───────────────────────────────────────────────────────── */
+
+  /* Refuses before spending, for a call on the model doing `job` — a key of
+     MODEL_ROLES, such as 'gradeModel'. The preflights above are this, one
+     job each; the modes that came after them use this one. */
+  function jobPreflight(job) {
+    const s = getSettings();
+    const model = s[job];
+    const l = modelLimits(s, model);
+    const why = limiter.why(model, l.rpm, l.rpd);
+    if (why) throw new QuotaError(why, limiter.waitFor(model, l.rpm, l.rpd));
+  }
+
+  /* One call on the model doing `job`, with a system instruction and the
+     user's parts, thinking off like every other call here. Returns the
+     reply's text and the model that wrote it. Refuses before spending, and
+     makes one call: every attempt is counted against a small free tier, so
+     a reply that cannot be read is the caller's failure to report, with a
+     Try again the learner presses, never a retry made behind their back. */
+  async function jobCall(job, { system, parts, temperature, maxOutputTokens = 8192 }) {
+    jobPreflight(job);
+    const s = getSettings();
+    const model = s[job];
+    const l = modelLimits(s, model);
+    const request = {
+      contents: [{ parts }],
+      generationConfig: { temperature, maxOutputTokens },
+    };
+    if (system) request.system_instruction = { parts: [{ text: system }] };
+    const data = await callWithoutThinking(model, request, l.rpm, l.rpd);
+    return { text: firstText(data), model };
+  }
+
+  /* ── writing ───────────────────────────────────────────────────────── */
+
+  /* The question an opinion piece answers: a writing job, so one call on
+     the text model. */
+  async function writeWritingBrief(cards) {
+    const s = getSettings();
+    const { text, model } = await jobCall('textModel', {
+      parts: [{ text: fillTemplate(s.prompts.writingBrief, briefVars(s, cards)) }],
+      temperature: 0.9,
+      maxOutputTokens: 2048,
+    });
+    const brief = readBrief(text);
+    if (!brief) throw new GeminiError(`${model} wrote no question. Try again, or type a topic of your own.`);
+    return { brief, model };
+  }
+
+  /* One call on the feedback model. `task` is {kind, brief, sourceText,
+     cards, text}; the level and the language come from the settings. A
+     reply that cannot be read throws, and nothing is kept or scored. */
+  async function gradeWriting(task) {
+    const s = getSettings();
+    const { text, model } = await jobCall('gradeModel', {
+      system: writingGradeSystem(s),
+      parts: [{ text: writingGradeUser({ ...task, level: s.learnerLevel, language: s.targetLanguage }) }],
+      temperature: 0.3,
+      maxOutputTokens: 16384,
+    });
+    const result = readWritingGrade(text, task.cards || []);
+    if (!result) {
+      throw new GeminiError(`${model} replied with something that could not be read as feedback. Nothing was kept or scored, and your writing is still here, so you can try again.`);
+    }
+    return { result, model };
+  }
+
+  /* ── translations ──────────────────────────────────────────────────── */
+
+  /* One call on the feedback model for the whole set, blanks included.
+     Returns one result per item, or throws, and then nothing is scored and
+     the answers stay as they were typed. */
+  async function gradeTranslations(items, answers) {
+    const s = getSettings();
+    const { text, model } = await jobCall('gradeModel', {
+      system: translationGradeSystem(s),
+      parts: [{ text: translationGradeUser(items, answers, s.targetLanguage) }],
+      temperature: 0,
+      maxOutputTokens: 8192,
+    });
+    const results = readTranslationGrade(text, items);
+    if (!results) throw new GeminiError(`${model} replied with something that could not be read as grades.`);
+    return { results, model };
+  }
+
+  /* ── conversations ─────────────────────────────────────────────────── */
+
+  /* Before the scene is written: the text model must be free now, and every
+     model the conversation will use must have the calls it needs left
+     today, or the scene would be a call spent on a conversation that stops
+     halfway. The refusal names the model and the count. */
+  function conversationPreflight(kind) {
+    jobPreflight('textModel');
+    const why = budgetProblem(getSettings(), kind, (model, rpm, rpd) => limiter.usage(model, rpm, rpd));
+    if (why) throw new QuotaError(why, 0);
+  }
+
+  /* One call on the text model: the scene and the other person's opening
+     line. A reply that cannot be read starts nothing. */
+  async function writeScenario({ kind, cards, request }) {
+    conversationPreflight(kind);
+    const s = getSettings();
+    const { text, model } = await jobCall('textModel', {
+      parts: [{ text: fillTemplate(s.prompts.scenario, scenarioVars(s, kind, cards, request)) }],
+      temperature: 0.7,
+      maxOutputTokens: 4096,
+    });
+    const scenario = readScenario(text, kind);
+    if (!scenario) {
+      throw new GeminiError(`${model} replied with something that could not be read as a scene, so nothing was started. Press Start to try again.`);
+    }
+    return { scenario, model };
+  }
+
+  /* The other person's next line, on the conversation model: plain text in
+     a roleplay, and in a find-out the line with the ids of the facts it
+     gave away. `cards` are the session's cards as the decks have them. */
+  async function partnerReply(session, cards) {
+    const s = getSettings();
+    const findOut = session.kind === 'findout';
+    const { system, user } = findOut ? findOutReplyRequest(s, session) : roleplayReplyRequest(s, session, cards);
+    const { text, model } = await jobCall('chatModel', {
+      system, parts: [{ text: user }], temperature: 0.6, maxOutputTokens: 2048,
+    });
+    const got = findOut
+      ? readFindOutReply(text, session.scenario.facts)
+      : (() => { const line = readRoleplayReply(text, session); return line && { text: line, revealed: [] }; })();
+    if (!got) throw new GeminiError(`${model} did not reply with a line. Your turn is kept, so you can try again.`);
+    return { ...got, model };
+  }
+
+  /* A spoken turn, written down as it was said: one call on the shadowing
+     model, since listening is that job. '' is "nothing was heard", which
+     is not a failure; a reply with no transcript at all is. */
+  async function transcribeTurn(session, clip) {
+    const s = getSettings();
+    const { system, parts } = transcribeRequest(s, session, clip);
+    const { text, model } = await jobCall('shadowModel', {
+      system, parts, temperature: 0, maxOutputTokens: 2048,
+    });
+    const transcript = readTranscript(text);
+    if (transcript === null) throw new GeminiError(`${model} did not return a transcript. Your recording is kept, so you can send it again.`);
+    return { transcript, model };
+  }
+
+  /* The feedback at the end, on the feedback model. A roleplay's sixth turn
+     asks for the closing line in the same call (`closing`); ending early
+     does not, and is graded at temperature 0, as lessons-web does. A
+     roleplay with recordings (`clips`, {turnIndex, mime, bytes}) sends them
+     too and asks how it sounded, and then the call goes to the shadowing
+     model instead, since it listens. */
+  async function concludeConversation(session, cards, { closing = false, clips = [] } = {}) {
+    const s = getSettings();
+    if (session.kind === 'findout') {
+      const { system, user } = findOutGradeRequest(s, session, cards);
+      const { text, model } = await jobCall('gradeModel', {
+        system, parts: [{ text: user }], temperature: 0.4, maxOutputTokens: 8192,
+      });
+      const got = readFindOutGrade(text, session, cards);
+      if (!got) throw new GeminiError(`${model} replied with something that could not be read as feedback.`);
+      return { ...got, model };
+    }
+    const request = withDelivery(s, roleplayGradeRequest(s, session, cards, { closing }), clips);
+    const { text, model } = await jobCall(request.attached ? 'shadowModel' : 'gradeModel', {
+      system: request.system, parts: request.parts, temperature: closing ? 0.5 : 0, maxOutputTokens: 16384,
+    });
+    const got = readRoleplayGrade(text, session, cards, { closing });
+    if (!got) throw new GeminiError(`${model} replied with something that could not be read as ${closing ? 'a closing line and feedback' : 'feedback'}.`);
+    return { ...got, model };
+  }
+
   /* ── card notes ────────────────────────────────────────────────────── */
 
   /* Refuses before spending, like the other preflights: the notes job has a
@@ -843,7 +1029,9 @@ export function createClient({ getSettings, getApiKey, limiter }) {
   return {
     call, testKey, generateCard, preflight, gradeShadowing, shadowPreflight,
     draftShadowRules, reviseShadowRules, rulesPreflight, notesPreflight, writeNotes,
-    readingPreflight, writeReading, speechPreflight, speakReading,
+    readingPreflight, writeReading, speechPreflight, speakReading, jobPreflight, jobCall,
+    writeWritingBrief, gradeWriting, gradeTranslations,
+    conversationPreflight, writeScenario, partnerReply, concludeConversation, transcribeTurn,
   };
 }
 
@@ -855,8 +1043,7 @@ export function createClient({ getSettings, getApiKey, limiter }) {
    so the Feedback language and style setting is never silently unsent. The
    preview goes through here too, so what it shows is what is sent. */
 export function shadowSystem(settings, count, rules = rulesFor(settings, settings.targetLanguage)) {
-  const template = String(settings.prompts.shadowing || '');
-  const full = template.includes('{feedback}') ? template : `${template.trimEnd()}\n\n${FEEDBACK_REQUEST_BLOCK}`;
+  const full = withFeedbackBlock(settings.prompts.shadowing, FEEDBACK_REQUEST_BLOCK);
   return fillTemplate(full, {
     language: settings.targetLanguage,
     count,
@@ -864,6 +1051,16 @@ export function shadowSystem(settings, count, rules = rulesFor(settings, setting
     feedback: feedbackRequestText(settings.feedbackRequest),
     sounds: '',
   });
+}
+
+/* A prompt with no {feedback} placeholder, with the block that carries the
+   Feedback language and style setting appended to it: a prompt customised
+   before the setting existed, or one that lost the placeholder in an edit,
+   still sends it. `block` is the grader's by default and the shadowing
+   prompt's for shadowSystem(). */
+export function withFeedbackBlock(template, block = GRADER_FEEDBACK_BLOCK) {
+  const text = String(template || '');
+  return text.includes('{feedback}') ? text : `${text.trimEnd()}\n\n${block}`;
 }
 
 /* Whatever was typed, or English when nothing was: an empty block would

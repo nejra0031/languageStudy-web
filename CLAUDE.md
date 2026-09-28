@@ -25,16 +25,17 @@ job passed. Contributors' branches take a prefix, `<username>/<topic>`.
 ## How the code is laid out
 
 - `app.js` boots the page and switches tabs. Each `tab-*.js` owns one panel and
-  its DOM, and exports `init()` and optionally `onShow()`. The tab strip is
-  two groups, setup (Settings, Flashcards) and practice; a tab with
-  `data-soon` is a planned mode with no panel, and clicking it only says it
-  is coming soon (see *Planned modes* below).
+  its DOM, and exports `init()` and optionally `onShow()` and `onHide()`. The
+  tab strip is two groups, setup (Settings, Flashcards) and practice.
 - `store.js` is the shared state: settings, every deck, the dictation bank,
   the call budget. Tabs read `store.state` and call the store's save
   functions; **a tab never touches storage directly.** Subscribers are told
   after each change (`subscribe('settings' | 'deck' | 'folder' | 'quota' |
-  'bank' | 'shadow' | 'reading')`), and once with `'ready'` when the first
-  load is done.
+  'bank' | 'shadow' | 'reading' | 'writing' | 'conversation')`), and once
+  with `'ready'` when the first load is done. Writing and conversations are
+  kept by one `keeper()` in the store, the way reading texts are: a file per
+  record beside an index, the file written first, held in memory when
+  nothing is being saved.
   Practice spans every ticked deck, so a card is written back to its *own*
   deck: `store.deckOf(card)`, `store.saveCardDecks(card)`.
 - `storage.js` is one directory, laid out the same wherever it lives. It picks
@@ -55,7 +56,11 @@ job passed. Contributors' branches take a prefix, `<username>/<topic>`.
   list and the starter deck. Settings from disk are merged over it, so a new
   key needs only a default here.
 - `gemini.js` talks to the Gemini API from the page with the user's key, and
-  counts calls per model locally before any request goes out. What the speech
+  counts calls per model locally before any request goes out. The jobs are
+  `MODEL_ROLES` in `defaults.js`; a mode added after the first four calls
+  `jobCall(job, …)`, which refuses before spending and makes exactly one call.
+  Grading prompts without `{feedback}` get the Feedback language and style
+  block appended by `withFeedbackBlock`. What the speech
   model is given is built by `speechText`, which adds the register or dialect
   note for audio in code, so a rewritten speech prompt cannot drop it.
 - `speech.js` is the device's own text-to-speech, not Gemini: free, instant,
@@ -68,6 +73,13 @@ job passed. Contributors' branches take a prefix, `<username>/<topic>`.
 - `opus.js` wraps WebCodecs' Opus packets in Ogg, so generated audio is saved
   at a twelfth of WAV's size; `convert-audio.js` converts an older bank's WAVs
   in an order that never leaves a sentence without playable audio.
+- `json-reply.js` reads a grader's reply: `extractTrailingJson` (an object,
+  after any prose) and `extractJsonArray` (the first array), both null on
+  anything unreadable, and `cardVerdicts`, the one shape every graded mode
+  reports cards in: `cards: [{number, verdict: 'right'|'wrong'|'absent',
+  note}]`, numbered as the prompt listed them. A tab scores `right` and
+  `wrong` through `recordResult` with `typedFront: false` and leaves `absent`
+  alone.
 - `shadowing.js` is Shadowing's pure logic; `tab-shadowing.js` its DOM.
 - `reading.js` is Reading's pure logic: the presets, which cards a text uses,
   and parsing the reply. The model marks each use of a card as
@@ -80,6 +92,37 @@ job passed. Contributors' branches take a prefix, `<username>/<topic>`.
   written and deleted through the store; answers are not kept with a text.
   New audio replaces old only after it is written, and deleting the audio
   alone rewrites the text before the file goes.
+- `writing.js` is Writing's pure logic: word bounds (the setting for an
+  opinion piece, two thirds of it scaled by the source for a summary), the
+  grading request and reading the feedback back. The grading prompt is the
+  system instruction and holds nothing per call, so implicit prefix caching
+  applies; the task, level, source, cards and writing are the user message.
+  `readWritingGrade` gives feedback, `{valid:false, reason}` (a verdict that
+  scores nothing) or null (a failure: the writing stays, Try again sends it
+  again). `tab-writing.js` is the task, the box and the feedback; its
+  `scoreVerdicts` and `cardsResultHtml` are shared with the other graded
+  modes. Every hand-in is kept in `writing/`.
+- `translation.js` is Translate's pure logic: a set of six drawn from the
+  bank in Shadowing's order (a checked set shows every sentence), the
+  request (every item, blanks included, keyed by id), reading the array
+  back (`null` if it is not one; an item without a verdict is ungraded), and
+  `translationScores`, which decides what moves. The bank is only read.
+  `tab-translate.js` is the list and the check; a set is not kept.
+- `conversation.js` is Conversation's pure logic: the budget a conversation
+  needs by model (`callsNeeded`, `budgetProblem`, refused before the scene is
+  written), reading the scene (`readScenario`, null on anything malformed),
+  and every request and reply of both kinds: a roleplay's replies (plain
+  text), its closing call (line and feedback in one) and its early end; a
+  find-out's replies (with `revealed`, run through `normaliseIds`) and its
+  conclusion, where found and missed are worked out in code. Only learner
+  turns are graded. A spoken turn is recorded with `recorder.js`, written to
+  `conversation/<id>_<position>.<ext>` as soon as it stops, transcribed by
+  the shadowing model (`transcribeRequest`; an empty transcript spends no
+  turn), and a roleplay with recordings is graded by the shadowing model
+  with `withDelivery`, which attaches the clips and asks for a delivery note
+  judged by the language's listening rules. `tab-conversation.js` saves the session after every
+  turn, the learner's turn before the call that answers it, resumes an open
+  one when shown, and scores the cards once, when it ends with feedback.
 - The selection popup (Add from selected text) is not a tab: it opens over
   whichever tab holds the selected text. `lookup.js` is its pure logic
   (which way round, is the word a card already, the sentence around it),
@@ -129,24 +172,28 @@ job passed. Contributors' branches take a prefix, `<username>/<topic>`.
   is right, what it deliberately does not do, and anything found on the way.
   One logical change per commit.
 
-## Planned modes
+## Where the graded modes came from
 
-Three more practice modes are planned: **Writing**, **Translate** and
-**Conversation** (typed, then spoken turns). Their tabs are already in the
-strip, greyed out as coming soon. The plan is written in full in
-`practice-mode-port.md` at the repo root, a working note kept out of git (see
-`.gitignore`): it adapts lessons-web's modes to decks, settings and the model
-catalogue, phase by phase, with the tests each needs. None of it is coded yet;
-that comes later. When a mode is built, follow the plan, drop the tab's
-`data-soon`, give it a panel, and update this file and the README in the same
-commit.
+Writing, Translate and Conversation are ported from lessons-web (the
+`praat-site` branch of the durkle repo), following a plan kept out of git as
+`practice-mode-port.md`. Their prompts are lessons-web's with the Dutch, the
+CEFR tables, scores and lesson content taken out, and each prompt's comment
+in `defaults.js` says what was changed and why. Left out on purpose: Praat
+(the live voice conversation, which would need a WebSocket client written
+from scratch), reading the partner's lines aloud, a microphone check screen,
+numeric scores and any per-language cleanup. A new graded mode should follow
+the same shape: prompts in `defaults.js` with a box in Settings, pure request
+building and reply reading in a module of its own, `jobCall` on one job's
+model, card verdicts through `cardVerdicts`, and one call per press with a
+Try again, never an automatic retry.
 
 ## Checking a change in a browser
 
 Unit tests cover the modules without a DOM — `deck.js`, `text.js`,
 `gemini.js`, the model catalogue, `speech.js`, `azure-tts.js`, `zip.js`,
 `bundle.js`, `backup-due.js`, `opus.js`, `convert-audio.js`, `shadowing.js`,
-`shadow-rules.js`, `lookup.js` and `reading.js` — not the tabs. For anything a
+`shadow-rules.js`, `lookup.js`, `reading.js`, `json-reply.js`, `writing.js`,
+`translation.js` and `conversation.js` — not the tabs. For anything a
 user sees, drive the real page. Playwright's WebKit is Safari's engine and works well; some quirks
 cost time the first time:
 
@@ -162,6 +209,15 @@ cost time the first time:
   app's. Check those steps in Chromium instead
   (`chromium.launchPersistentContext(dir, { channel: 'chromium' })`), whose
   OPFS works; real Safari runs a different WebKit.
+- Chromium records from a fake microphone when launched with
+  `--use-fake-ui-for-media-stream --use-fake-device-for-media-stream`, which
+  is enough to drive Shadowing and spoken Conversation turns. To see the
+  refused-microphone path, replace `navigator.mediaDevices.getUserMedia` in
+  an init script with one that rejects.
+- Stub `generativelanguage.googleapis.com` with `context.route` to check the
+  graded modes without a key; tell the calls apart by their system
+  instruction. A `waitForFunction` given an async function passes at once
+  (the promise is truthy), so poll `store.state.ready` with `evaluate`.
 - Headless browsers have no speech voices. Stub `window.speechSynthesis` and
   `SpeechSynthesisUtterance` with an init script to see what would be said.
 - The repo has no package.json, so Node detects the modules as ESM. Running

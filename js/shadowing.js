@@ -19,6 +19,7 @@
      the caller stores nothing. */
 
 import { pickWeighted } from './deck.js';
+import { extractTrailingJson } from './json-reply.js';
 
 /* ── ids and filenames ───────────────────────────────────────────────── */
 
@@ -222,21 +223,10 @@ const MAX_COMMENT = 600;
 const MAX_OVERALL = 1200;
 const MAX_FOCUS = 900;
 
-/* Walk backwards to the last balanced top-level object, so a model that
-   prefaces its JSON with a sentence of prose still parses. */
-export function extractTrailingJson(raw) {
-  if (typeof raw !== 'string') return null;
-  const end = raw.lastIndexOf('}');
-  if (end === -1) return null;
-  let depth = 0;
-  for (let i = end; i >= 0; i--) {
-    if (raw[i] === '}') depth++;
-    else if (raw[i] === '{' && --depth === 0) {
-      try { return JSON.parse(raw.slice(i, end + 1)); } catch (e) { return null; }
-    }
-  }
-  return null;
-}
+/* The JSON reader lives in json-reply.js now, beside the other graders'
+   readers, and is re-exported here so everything that already imports it
+   from this module keeps working. */
+export { extractTrailingJson };
 
 const trimmed = (v, max) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : '');
 

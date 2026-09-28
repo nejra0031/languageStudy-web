@@ -55,6 +55,10 @@ export const state = {
   /* The Reading tab's kept texts, newest first — one index row each. The
      texts and their audio are in their own files beside it. */
   readings: [],
+  /* Every piece of writing handed in, and every conversation, newest first —
+     one index row each, the records themselves in their own files. */
+  writings: [],
+  conversations: [],
   /* True once a store is connected: until then everything is in memory and
      is lost on reload, which the UI has to keep saying out loud. */
   persistent: false,
@@ -76,6 +80,8 @@ const subs = {
   bank: new Set(),
   shadow: new Set(),
   reading: new Set(),
+  writing: new Set(),
+  conversation: new Set(),
   ready: new Set(),
 };
 
@@ -417,6 +423,18 @@ export function bankInScope(entry) {
   return (entry.terms || []).some((t) => known.has(t));
 }
 
+/* A banked sentence's audio as a URL to play, and whether the caller owns
+   it: a sentence made without a store is held in memory as a URL the entry
+   keeps, and one on disk is read into a fresh URL the caller revokes once
+   it has played. Null when the file cannot be read. */
+export async function bankAudioUrl(entry) {
+  if (!entry) return null;
+  if (entry.blobUrl) return { url: entry.blobUrl, owned: false };
+  if (!entry.file) return null;
+  const url = await storage.readBlobUrl(entry.file);
+  return url ? { url, owned: true } : null;
+}
+
 /* Both tabs count on the same entry. `times_practiced` is dictations typed,
    `times_shadowed` is sets it was read aloud in — kept apart because they
    answer different questions, and because each tab prefers what the other has
@@ -613,6 +631,121 @@ export async function deleteReading(id) {
   state.readings = state.readings.filter((r) => r.id !== id);
   await saveReadingIndex();
 }
+
+/* ── writing and conversations ───────────────────────────────────────── */
+
+/* Kept the way a reading text is: one JSON file a record beside an index of
+   rows, the file written first and the index after it, so a failure between
+   the two leaves a file the index has not heard of rather than a row
+   pointing at nothing. Without a store, records are held here for the
+   session and are gone on reload, as the tabs say.
+
+   The two differ only in their directory, their index in `state` and the
+   topic they announce on, so one keeper serves both. A conversation's
+   recordings sit beside it as <id>_<turn>.<ext>, and go when it goes. */
+function keeper({ dir, key, topic }) {
+  const held = new Map();
+  const heldBlobs = new Map();
+  const index = `${dir}/manifest.json`;
+  const path = (id) => `${dir}/${id}.json`;
+
+  async function saveIndex() {
+    if (state.persistent) await storage.writeJson(index, state[key]);
+    emit(topic);
+  }
+
+  return {
+    path,
+    async save(record) {
+      let ok = true;
+      if (state.persistent) ok = await storage.writeJson(path(record.id), record);
+      else held.set(record.id, record);
+      const row = recordRow(record);
+      const at = state[key].findIndex((r) => r.id === record.id);
+      if (at === -1) state[key].unshift(row);
+      else state[key][at] = row;
+      await saveIndex();
+      return ok;
+    },
+    async load(id) {
+      if (!state.persistent) return held.get(id) || null;
+      return storage.readJson(path(id));
+    },
+    /* The record and everything else carrying its id, a recording whose
+       record never got written included, so deleting from a list leaves
+       nothing behind in the folder. */
+    async remove(id) {
+      held.delete(id);
+      for (const name of [...heldBlobs.keys()]) {
+        if (name.startsWith(`${dir}/${id}_`)) heldBlobs.delete(name);
+      }
+      if (state.persistent) {
+        for (const name of await storage.listIn(dir)) {
+          if (name.startsWith(`${id}.`) || name.startsWith(`${id}_`)) await storage.remove(`${dir}/${name}`);
+        }
+      }
+      state[key] = state[key].filter((r) => r.id !== id);
+      await saveIndex();
+    },
+    async writeBlob(name, blob) {
+      if (!state.persistent) { heldBlobs.set(name, blob); return true; }
+      return storage.writeBlob(name, blob);
+    },
+    async readBlob(name) {
+      if (!state.persistent) return heldBlobs.get(name) || null;
+      return storage.readBlob(name);
+    },
+    async removeBlob(name) {
+      heldBlobs.delete(name);
+      if (state.persistent) await storage.remove(name);
+    },
+    async adopt() {
+      held.clear();
+      heldBlobs.clear();
+      const rows = await storage.readJson(index);
+      state[key] = Array.isArray(rows) ? rows : [];
+    },
+    forget() {
+      held.clear();
+      heldBlobs.clear();
+      state[key] = [];
+    },
+  };
+}
+
+/* What a list needs to draw a record without opening its file. `title` is
+   whatever the tab put on the record to name it by; `ended` is there only
+   for a record that can be left open, as a conversation can. */
+function recordRow(record) {
+  const row = {
+    id: record.id,
+    created: record.created || '',
+    kind: record.kind || '',
+    title: String(record.title || '').slice(0, 160),
+    language: record.language || '',
+    decks: [...new Set((record.cards || []).map((c) => c && c.deck).filter(Boolean))],
+  };
+  if (Object.prototype.hasOwnProperty.call(record, 'ended')) row.ended = !!record.ended;
+  return row;
+}
+
+const writings = keeper({ dir: 'writing', key: 'writings', topic: 'writing' });
+const conversations = keeper({ dir: 'conversation', key: 'conversations', topic: 'conversation' });
+
+export const saveWriting = (record) => writings.save(record);
+export const loadWriting = (id) => writings.load(id);
+export const deleteWriting = (id) => writings.remove(id);
+
+/* A spoken turn's recording, written the moment it is made, and read back
+   to play or to send; deleting the conversation takes it too. Removing one
+   is for a take recorded over, or one in which nothing was heard. */
+export const writeConversationClip = (path, blob) => conversations.writeBlob(path, blob);
+export const readConversationClip = (path) => conversations.readBlob(path);
+export const removeConversationClip = (path) => conversations.removeBlob(path);
+
+export const saveConversation = (record) => conversations.save(record);
+export const loadConversation = (id) => conversations.load(id);
+export const deleteConversation = (id) => conversations.remove(id);
 
 /* ── the listening rules ─────────────────────────────────────────────── */
 
@@ -838,6 +971,8 @@ export async function adoptFolder() {
   if (!Array.isArray(state.readings)) state.readings = [];
   heldReadings.clear();
   heldReadingAudio.clear();
+  await writings.adopt();
+  await conversations.adopt();
 
   let names = await storage.listDecks();
   if (!names.length) {
@@ -863,6 +998,8 @@ export async function adoptFolder() {
   emit('bank');
   emit('shadow');
   emit('reading');
+  emit('writing');
+  emit('conversation');
 }
 
 export function releaseFolder() {
@@ -871,6 +1008,8 @@ export function releaseFolder() {
   state.manifest = [];
   state.shadowSessions = [];
   state.readings = [];
+  writings.forget();
+  conversations.forget();
   state.deckNames = [state.deckName];
   /* Only the open deck is still in memory, so it is the only thing practice
      can honestly be said to draw from. */
@@ -881,6 +1020,8 @@ export function releaseFolder() {
   emit('bank');
   emit('shadow');
   emit('reading');
+  emit('writing');
+  emit('conversation');
 }
 
 /* Boot with whatever can be had without a store, so the page is usable the
@@ -896,6 +1037,8 @@ export function bootLocal() {
   state.manifest = [];
   state.shadowSessions = [];
   state.readings = [];
+  writings.forget();
+  conversations.forget();
   emit('settings');
   emit('deck');
   emit('quota');
