@@ -1,21 +1,24 @@
 # CLAUDE.md
 
-Guidance for working on this repository. The README is the user-facing
-documentation and describes every feature; read it first. This file covers
-what the README does not: how the code is put together, the rules it keeps,
-and how to check a change.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+The README is the user-facing documentation and describes every feature;
+read it first. This file covers what the README does not: how the code is put
+together, the rules it keeps, and how to check a change.
 
 ## What this is
 
-A static page — flashcards, typing, dictation, shadowing and reading for any
-language — served as-is from GitHub Pages. No build step, no dependencies, no
-server, no package.json. Plain ES modules in `js/`, one stylesheet, one `index.html`.
-Keep it that way: a change that needs a bundler, an npm package or a backend
-is the wrong change.
+A static page — flashcards, typing, dictation, shadowing, reading, writing,
+translation and conversation for any language — served as-is from GitHub
+Pages. No build step, no dependencies, no server, no package.json. Plain ES
+modules in `js/`, one stylesheet, one `index.html`. Keep it that way: a change
+that needs a bundler, an npm package or a backend is the wrong change.
 
 ```sh
-python3 -m http.server 8000        # preview; modules do not load from file://
-node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
+python3 -m http.server 8000                    # preview; modules do not load from file://
+node --test "test/*.test.mjs"                  # every unit test, Node's built-in runner
+node --test test/deck.test.mjs                 # one file
+node --test --test-name-pattern="accent" "test/*.test.mjs"   # tests whose name matches
 ```
 
 GitHub Actions runs the same tests on every push and pull request

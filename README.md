@@ -8,7 +8,6 @@ a folder you choose where the browser allows it, and the only thing that ever
 leaves the machine is a request to Google, signed with your own API key.
 
 **[Open the app →](https://nejra0031.github.io/languageStudy-web/)**
-*(live once GitHub Pages is enabled: Settings → Pages → deploy from `main`, root)*
 
 ---
 
@@ -1263,6 +1262,7 @@ tests fail if either is forgotten.
 ```
 index.html            the page
 css/app.css           one stylesheet
+js/app.js             boots the page, switches tabs, starts the selection popup
 js/text.js            comparison, diacritics, word diff
 js/lookup.js          selection → card: direction, matching, the sentence around it
 js/translate.js       the one Google Translate request
@@ -1279,6 +1279,7 @@ js/live-audio.js      the microphone as 16 kHz PCM, the model's voice, the recor
 js/live-session.js    one live conversation, from Start talking to the recording
 js/deck.js            deck format, scoring, card selection
 js/speech.js          the device's own voices, for reading words aloud
+js/azure-tts.js       Azure's neural voices, optional, with your own key
 js/recorder.js        the microphone: MediaRecorder, and releasing it again
 js/shadowing.js       building a set, laying out the grading call, reading it back
 js/shadow-rules.js    shadowing's listening rules: seeding, rating, revising, undo
@@ -1288,6 +1289,7 @@ js/error-spot.js      where a tab's error goes: in place of what you were waitin
 js/opus.js            dictation audio as Ogg Opus, through the browser's encoder
 js/convert-audio.js   turning a bank's older WAV sentences into Ogg, in place
 js/bundle.js          the export/import file format
+js/backup-due.js      when to remind someone on browser storage to take a backup
 js/zip.js             just enough zip to write and read a backup
 js/storage.js         the store: layout, files, and which backend is live
 js/fs-folder.js       backend — a folder the user picked (Chromium)
