@@ -4,7 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The README is the user-facing documentation and describes every feature;
 read it first. This file covers what the README does not: how the code is put
-together, the rules it keeps, and how to check a change.
+together, the rules it keeps, how a change reaches `main`, and how to check a
+change.
 
 ## What this is
 
@@ -21,9 +22,35 @@ node --test test/deck.test.mjs                 # one file
 node --test --test-name-pattern="accent" "test/*.test.mjs"   # tests whose name matches
 ```
 
-GitHub Actions runs the same tests on every push and pull request
-(`.github/workflows/test.yml`), and `main` accepts only commits whose `test`
-job passed. Contributors' branches take a prefix, `<username>/<topic>`.
+## Branches, pull requests and merging
+
+`main` is what GitHub Pages serves, so nothing reaches it except through a
+pull request whose tests passed. Two rulesets on GitHub enforce this, for the
+owner as much as for anyone:
+
+- **Branches are named `<username>/<topic>`**, e.g. `nejra0031/writing-hints`.
+  GitHub refuses to create a branch without a `something/` prefix; only
+  `main` is exempt.
+- **`main` takes no direct pushes.** A pull request can be merged only once
+  the `test` job (`.github/workflows/test.yml`, run on every push and pull
+  request) has passed on its latest commit, *and* the branch is up to date
+  with `main`. If it is behind, use Update branch on the PR (or merge `main`
+  into the branch and push), and the tests run again.
+
+Merging is by **merge commit only**; squash and rebase merging are switched
+off. Each commit on a branch is one logical change with its own message (see
+*Conventions*), and a merge commit keeps them all on `main` as written. It is
+also what makes stacked pull requests work: a PR whose base is another PR's
+branch keeps its commits identical when the lower one merges, GitHub deletes
+the merged branch automatically and retargets the next PR to `main`, and
+Update branch brings it up to date without rewriting anything. So bring
+branches up to date by merging, not rebasing, and there is never a reason to
+force-push a shared branch.
+
+Two things GitHub does that are easy to trip over: renaming a PR's head
+branch closes the PR (its head cannot be changed, only a new PR opened), and
+a push that breaks the branch-name rule is rejected with `GH013` and leaves
+no trace on GitHub.
 
 ## How the code is laid out
 
