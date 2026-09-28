@@ -17,6 +17,9 @@ import {
   scenarioVars, roleplayReplyRequest, findOutReplyRequest, roleplayGradeRequest, findOutGradeRequest,
   transcribeRequest,
 } from './conversation.js';
+import {
+  partnerInstruction, liveGradeRequest, START_CUE, TIME_CUE, WRAP_UP_SECONDS,
+} from './live.js';
 import { rulesToText, totalOf, RATINGS } from './shadow-rules.js';
 import { serializeDeck } from './deck.js';
 import { serializeBundle, parseBundle, describeBundle, bundleFilename } from './bundle.js';
@@ -124,7 +127,7 @@ function wireSections() {
 }
 
 /* The sections, not the Prompts panels inside them: expanding everything
-   should not unroll fourteen prompts. */
+   should not unroll sixteen prompts. */
 function setAll(open) {
   clearSearch();
   for (const d of sections()) {
@@ -235,7 +238,7 @@ function renderSummaries() {
     reading: [SCOPE_LABEL[s.readingScope], plural(s.readingTerms, 'card'), `${s.readingPatternShare}% patterns`, s.readingModel],
     writing: [SCOPE_LABEL[s.writingScope], `${s.writingWords.min}–${s.writingWords.max} words`, plural(s.writingTerms, 'card'), s.writingGradeModel],
     translate: [plural(s.translateItems, 'sentence'), ORDER_LABEL[s.translateOrder], s.translateModel],
-    conversation: [plural(s.conversationTurns, 'turn'), plural(s.conversationTerms, 'card'), plural(s.conversationFacts, 'fact'), `replies ${s.chatModel}`],
+    conversation: [plural(s.conversationTurns, 'turn'), plural(s.conversationTerms, 'card'), plural(s.conversationFacts, 'fact'), `replies ${s.chatModel}`, `live ${s.liveSeconds / 60} min`],
   };
   for (const [name, parts] of Object.entries(lines)) {
     const el = $(`sum-${name}`);
@@ -269,6 +272,7 @@ const MODE_FIELDS = [
   ['set-conversation-turns', 'conversationTurns', 'int'],
   ['set-conversation-terms', 'conversationTerms', 'int'],
   ['set-conversation-facts', 'conversationFacts', 'int'],
+  ['set-live-seconds', 'liveSeconds', 'int'],
 ];
 
 function wireTyping() {
@@ -294,7 +298,7 @@ function renderTyping() {
   }
 }
 
-/* Every prompt back to this build's default, asked twice in place: fourteen
+/* Every prompt back to this build's default, asked twice in place: sixteen
    prompts may hold a lot of editing. */
 let resetArmed = false;
 let resetDisarm = 0;
@@ -816,6 +820,7 @@ function render() {
 const PROMPT_VIEWS = [
   'sentence', 'speech', 'shadowing', 'notes', 'reading', 'writingBrief', 'writingGrade', 'translationGrade',
   'scenario', 'roleplayReply', 'findOutReply', 'conversationGrade', 'findOutGrade', 'transcribe',
+  'livePartner', 'liveGrade',
 ];
 
 /* A conversation to preview the conversation prompts with: two turns of
@@ -956,6 +961,16 @@ const PREVIEWS = {
     const r = findOutGradeRequest(draft, SAMPLE_FIND_OUT, sample);
     return [`── to ${draft.conversationGradeModel}, as the system instruction ──`, r.system, '', '── then, as the message ──', r.user];
   },
+  livePartner: (draft, sample) => [
+    `── to ${draft.liveModel}, as the system instruction when the conversation opens ──`,
+    partnerInstruction(draft, SAMPLE_FIND_OUT, sample),
+    '',
+    `(then ${START_CUE} to open it, your voice as you talk, and ${TIME_CUE} ${WRAP_UP_SECONDS} seconds before the end)`,
+  ],
+  liveGrade: (draft, sample) => {
+    const r = liveGradeRequest(draft, SAMPLE_FIND_OUT, sample, { mime: 'audio/webm', base64: '…' });
+    return [`── to ${draft.liveGradeModel}, as the system instruction ──`, r.system, '', '── then, as the message ──', r.parts[0].text, '(then the recording of your microphone)'];
+  },
 };
 
 function renderPreview() {
@@ -1013,13 +1028,19 @@ function renderPreview() {
     warnings.scenario.push('The conversation scene prompt has no {kind} placeholder, so it is never told whether to write a roleplay or a find-out, and a reply of the wrong shape starts nothing.');
   }
   if (!draft.prompts.findOutReply.includes('{facts}') || !draft.prompts.findOutReply.includes('"revealed"')) {
-    warnings.findOutReply.push('The find-out reply prompt needs {facts}, or the other person knows nothing, and "revealed" in its JSON, or your checklist never ticks.');
+    warnings.findOutReply.push('The find-out reply prompt needs {facts}, or the model knows nothing to give away, and "revealed" in its JSON, or your checklist never ticks.');
   }
   if (!draft.prompts.conversationGrade.includes('{closing}') || !draft.prompts.conversationGrade.includes('"feedback"')) {
     warnings.conversationGrade.push('The roleplay feedback prompt needs {closing}, or the sixth turn gets no closing line and cannot be read, and "feedback" in its JSON, or no reply can be read.');
   }
   if (!draft.prompts.findOutGrade.includes('"conversation"')) {
     warnings.findOutGrade.push('The find-out feedback prompt no longer asks for "conversation" in its JSON, so no reply can be read.');
+  }
+  if (!draft.prompts.livePartner.includes('{facts}') || !draft.prompts.livePartner.includes(START_CUE)) {
+    warnings.livePartner.push(`The live conversation prompt needs {facts}, or the model knows nothing to be found out, and ${START_CUE}, or it is never told what the signal that opens the conversation means.`);
+  }
+  if (!draft.prompts.liveGrade.includes('"transcript"') || !draft.prompts.liveGrade.includes('"bands"')) {
+    warnings.liveGrade.push('The live feedback prompt no longer asks for "transcript" and "bands" in its JSON. A reply without "transcript" cannot be read, and without "bands" there is no score.');
   }
   if (!draft.prompts.transcribe.includes('"transcript"')) {
     warnings.transcribe.push('The transcription prompt no longer asks for {"transcript": …}, so no spoken turn can be read.');
@@ -1269,6 +1290,7 @@ const ROLE_SHORT = {
   readingModel: 'Texts', readingSpeechModel: 'Reading aloud', writingBriefModel: 'Questions',
   writingGradeModel: 'Feedback', translateModel: 'Feedback', sceneModel: 'Scenes', chatModel: 'Replies',
   conversationGradeModel: 'Feedback', listenModel: 'Listening', notesModel: 'Notes',
+  liveModel: 'Live', liveGradeModel: 'Live feedback',
 };
 
 /* Every element marked data-roles="<section>" holds that section's jobs,

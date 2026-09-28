@@ -141,6 +141,26 @@ job passed. Contributors' branches take a prefix, `<username>/<topic>`.
   judged by the language's listening rules. `tab-conversation.js` saves the session after every
   turn, the learner's turn before the call that answers it, resumes an open
   one when shown, and scores the cards once, when it ends with feedback.
+  Its briefing (Start) is always on screen, above any conversation: a call
+  for one conversation is kept in `out` by its id, not in the tab-wide
+  `working` (which is only 'starting', 'talking' and 'saving'), and lands
+  on its own record whichever conversation is on screen by then; `take()`
+  offers Try again for whatever such a record still owes.
+- A third kind, `'live'`, is durkle's Praat without its server: a find-out
+  scene, then a timed spoken conversation over the Live API's WebSocket,
+  opened from the page with the user's key. `live.js` is its pure logic
+  (the partner's instruction, the setup and every message, reading what
+  comes back, `createTranscript`, `liveGradeRequest`, `readLiveGrade`, and
+  `liveScore`, which computes the percentage from four 0-4 bands, never
+  asks for it); `gemini-live.js` the socket, with no SDK; `live-audio.js`
+  the microphone as 16 kHz PCM through an AudioWorklet, 24 kHz playback and
+  the MediaRecorder of the whole conversation; `live-session.js` the
+  conversation from Start talking to the recording. `store.client.openLive`
+  counts one call on `liveModel` before the socket opens. The recording is
+  written to `conversation/<id>_live.<ext>` the moment it ends, before the
+  grading call on `liveGradeModel`, which listens to it; a failure keeps it
+  for Try again. The microphone is asked for before the socket, so a
+  refusal costs nothing.
 - The selection popup (Add from selected text) is not a tab: it opens over
   whichever tab holds the selected text. `lookup.js` is its pure logic
   (which way round, is the word a card already, the sentence around it),
@@ -164,6 +184,16 @@ job passed. Contributors' branches take a prefix, `<username>/<topic>`.
   Fields the app does not know are carried through every save untouched, so
   never drop unknown keys, and never add app-internal state to a card (the
   deck a card belongs to is tracked in memory, not written to it).
+- **A new session can always be started.** The top of every practice tab
+  starts a new one whatever state the current one is in, even with a call
+  out for it: that call's answer is kept and scored on the session it was
+  made for (Shadowing's `grading`, Writing's `grading`, Translate's
+  `checking`, Conversation's `out`) and shown only if that session is still
+  on screen. Only a live conversation under way holds Start back.
+- **Conversation is with an AI model.** Its UI never calls the other side a
+  person or a partner: the model plays a role, named by `llmRole`, and the
+  scene says so. The prompts may speak of "the other person", since that is
+  the fiction the model is asked to play.
 - **Nothing is language-specific.** The target language comes from settings;
   accent handling works for any script through Unicode normalisation. Do not
   add rules that only make sense for one language.
@@ -186,6 +216,12 @@ job passed. Contributors' branches take a prefix, `<username>/<topic>`.
 - User-visible changes update the README in the same commit; it is the
   documentation.
 - UI labels are sentence case ("Show answer", "Listen again").
+- An error from something the learner waited on is shown where the wait
+  was, not in the panel's error box at the top. Each tab keeps one error box
+  and moves it with `errorSpot` (`error-spot.js`): its `showError` takes the
+  element to show it after (the pressed button's row, the chat for a thinking
+  bubble), and with none it goes home, for errors that belong to nothing in
+  particular. A Try again button travels with it.
 - Commits: an imperative subject, then a body in prose saying why the change
   is right, what it deliberately does not do, and anything found on the way.
   One logical change per commit.
@@ -196,10 +232,12 @@ Writing, Translate and Conversation are ported from lessons-web (the
 `praat-site` branch of the durkle repo), following a plan kept out of git as
 `practice-mode-port.md`. Their prompts are lessons-web's with the Dutch, the
 CEFR tables, scores and lesson content taken out, and each prompt's comment
-in `defaults.js` says what was changed and why. Left out on purpose: Praat
-(the live voice conversation, which would need a WebSocket client written
-from scratch), reading the partner's lines aloud, a microphone check screen,
-numeric scores and any per-language cleanup. A new graded mode should follow
+in `defaults.js` says what was changed and why. Left out on purpose:
+reading the typed partner's lines aloud, a microphone check screen, numeric
+scores and any per-language cleanup. Praat, the live voice conversation, was
+left out at first for want of a WebSocket client; it is now the live kind of
+Conversation (see above), ported from durkle's `praat-site` branch, and its
+percentage is the one numeric score, computed from bands in code. A new graded mode should follow
 the same shape: prompts in `defaults.js` with a box in Settings, pure request
 building and reply reading in a module of its own, `jobCall` on one job's
 model, card verdicts through `cardVerdicts`, and one call per press with a
@@ -211,7 +249,9 @@ Unit tests cover the modules without a DOM — `deck.js`, `text.js`,
 `gemini.js`, the model catalogue, `speech.js`, `azure-tts.js`, `zip.js`,
 `bundle.js`, `backup-due.js`, `opus.js`, `convert-audio.js`, `shadowing.js`,
 `shadow-rules.js`, `lookup.js`, `reading.js`, `json-reply.js`, `writing.js`,
-`translation.js` and `conversation.js` — not the tabs. For anything a
+`translation.js`, `conversation.js` and `live.js` with `gemini-live.js` —
+not the tabs, and not `live-audio.js` or `live-session.js`, which need a
+browser's audio. For anything a
 user sees, drive the real page. Playwright's WebKit is Safari's engine and works well; some quirks
 cost time the first time:
 

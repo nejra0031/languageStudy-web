@@ -113,8 +113,16 @@ language you are learning, in your own words, checked together in one call.
 See [Translate](#translate).
 
 **Conversation** — a few turns of your own (six by default) in a short scene, a roleplay or a
-*find out*, with the other side played by the conversation model and
-feedback at the end. See [Conversation](#conversation).
+*find out*, with the other side played by an AI model and
+feedback at the end; or a **live** conversation with the model, spoken in
+real time for one to three minutes. See [Conversation](#conversation).
+
+**Errors show where you were waiting.** When something you asked for fails
+— a sentence, a text, a question, a check, a reply, the feedback — the error
+takes the place of the spinner you were watching: under the button you
+pressed, or where the thinking bubble was in a conversation, with **Try
+again** beside it where there is one. It is never reported at the top of the
+page while you are looking at the bottom.
 
 ## Shadowing
 
@@ -462,24 +470,27 @@ A set is not kept, as a Typing session is not: what stays is the scores.
 The Conversation tab is a short conversation in the language you are
 learning: **six turns of your own** (or as many as **Settings → Conversation
 → Your turns** says, from 2 to 12), then feedback. A conversation keeps the
-number it started with. There are two kinds.
+number it started with. **You are always talking to an AI model**, never to
+a person: a Gemini model plays the other role in the scene, and the chat
+labels its lines with that role (*Shop assistant*, *Neighbour*). There are
+two kinds, and a third, spoken live, below.
 
 - **Roleplay**: a scene with two roles, such as returning shoes to a shop or
-  planning a weekend with a friend. The other person plays their part and
-  answers each of your turns. Your last turn gets their closing line and the
+  planning a weekend with a friend. The model plays the other role and
+  answers each of your turns. Your last turn gets its closing line and the
   feedback from the same call.
-- **Find out**: the other person knows four things you were sent to find out
-  (**Facts in a find out**, 2 to 6), such as when the rubbish is collected.
-  They answer every one of your
-  turns, but **give a fact only when you ask about it specifically**; a vague
+- **Find out**: the model plays someone who knows four things you were sent
+  to find out (**Facts in a find out**, 2 to 6), such as when the rubbish is
+  collected. It answers every one of your
+  turns, but **gives a fact only when you ask about it specifically**; a vague
   "any tips?" gets a friendly answer with nothing in it. A checklist,
-  *What you need to find out*, ticks each fact as they give it away. The
-  answers stay hidden until the end.
+  *What you need to find out*, ticks each fact as the model gives it away.
+  The answers stay hidden until the end.
 
 **Start** has the text model write the scene, in the language you are
 learning, around five cards from the ticked decks (**Cards in a scene**; the
-Weak / + Developing / All filter is Conversation's own), with the other
-person's opening line: one call. Settings also says which kind the tab starts
+Weak / + Developing / All filter is Conversation's own), with the model's
+opening line in its role: one call. Settings also says which kind the tab starts
 on. **A situation you would like** is optional (*at the bakery*); left
 empty, the model chooses, and what you type is kept for next time. The note
 under it says what the conversation costs: one call on the text model, five
@@ -543,9 +554,80 @@ and style**:
 
 Then **your cards**, judged on your own turns only and scored once, when the
 conversation ends with feedback, through the same rules as everywhere else.
-**Start again** sets a new scene. Every conversation is kept under **Past
-conversations**, newest first; an open one says so, and clicking it carries
-on, while an ended one opens as it was. **Delete** asks once more in place.
+**Start** stays at the top of the tab the whole time, so **a new
+conversation can be started at any point**, even with one unfinished on
+screen, and even while a reply or the feedback is still on its way: that
+answer is saved to its own conversation when it comes. Only a live
+conversation under way holds Start back until it is ended. **Start again**,
+under the feedback, takes you back up to it. Every conversation is kept under
+**Past conversations**, newest first; an open one says so, and clicking it
+carries on where it stopped (with **Try again** if a reply or the feedback
+is still owed), while an ended one opens as it was. **Delete** asks once
+more in place.
+
+### Live conversations
+
+The third kind, **Live**, is a find out spoken in real time **with an AI
+model**, Gemini's Live API, which plays the other role out loud: you and the
+model simply talk, with no button to press between turns, for **1, 2
+or 3 minutes** (chosen beside the kinds, and under **Settings → Conversation
+→ Live conversation length**). It is Praat, from durkle's lessons suite,
+without the server Praat needed: the page talks to Google's **Live API**
+directly, over a WebSocket, with your own key, as every other mode talks to
+Gemini.
+
+**Start** writes the scene as for a find out (the situation, the two roles,
+what you were sent to find out, and your cards). **Start talking** then asks
+for the microphone and opens the conversation. The model speaks first; you
+answer out loud, and it hears you as you speak and answers with a generated
+voice, drawn from the dictation voices. You can talk over it, and it stops.
+It gives each fact only when you ask about it specifically, never corrects
+you, and never leaves the language. Fifteen seconds before the end it is
+told to round off, and when the time is up its last sentence is let finish
+and the conversation closes. **End now** ends it sooner. **Show what's being
+said** shows the last few lines of the running transcript; it is off by
+default, since reading along is not listening. **Use headphones**: the
+microphone's echo cancellation keeps the model from hearing its own voice
+back, but headphones are surer.
+
+While you talk, your microphone is also recorded, and the recording is kept
+beside the conversation the moment it ends. Then one call on the **live
+feedback model** listens to it, reads the running transcript, and writes:
+
+- **the conversation written out**, with your lines taken down from the
+  recording as you said them rather than from the transcript (a speech
+  recogniser quietly repairs exactly the mistakes this is for), each
+  **mistake struck through and corrected**, and up to two **more natural**
+  ways to say something, one step above your level;
+- **how you sounded**: up to five notes on sounds, judged by your language's
+  [listening rules](#listening-rules-and-how-they-learn);
+- **what you found out**: the checklist ticks, and shows every answer;
+- **a percentage**, *How Vietnamese you sounded* (in your language), made of
+  four marks from 0 to 4 with a reason each: pronunciation (35%), grammar
+  (25%), flow (20%) and word choice (20%). The marks are asked for, against
+  written anchors; the percentage is worked out from them, never asked for,
+  since a model asked how native someone sounds gives a different number
+  every time. With fewer than about fifteen words there is no score;
+- and **your cards**, judged on your own lines and scored once.
+
+A live conversation costs three calls: one on the scene model, one on the
+**live model** for the whole conversation, however long, and one on the
+live feedback model. The live model has to be one of Google's Live API
+models (`gemini-3.8-live` by default); Google's free tier limits it by how
+many live sessions run at once, not by calls, so it starts with no limit
+here, and a number per day is a number of conversations. **Nothing is spent
+on a refused microphone**, which is asked for first. If the connection
+fails, Google's own reason is shown and the scene is kept, so Start talking
+tries again (another call on the live model). If the feedback call fails,
+the recording is kept and **Try again** sends it again, also after a reload.
+Leaving the tab mid-conversation ends it as End now would.
+
+A live conversation needs a browser with WebSockets, AudioWorklet and
+MediaRecorder, and a microphone: current Chrome, Edge, Firefox and Safari all
+have them, and where one is missing the tab says so before anything is spent.
+Your voice streams to Google as you speak, and the recording goes to Google
+once for the feedback. As with every other call, Google's free tier may use
+what is sent to improve its products.
 
 ## Choosing which decks are in play
 
@@ -931,7 +1013,7 @@ never see, you need a server, and this project deliberately does not have one.
 once, each with its own calls-per-minute and calls-per-day. **Every call the
 app makes is a job of its own**, and each job is given one model from that
 list, in the Settings section of the mode it belongs to (Dictation's two in
-Dictation, Conversation's four in Conversation):
+Dictation, Conversation's six in Conversation):
 
 | Job | What it does |
 |---|---|
@@ -948,12 +1030,17 @@ Dictation, Conversation's four in Conversation):
 | Conversation replies | plays the other side |
 | Conversation feedback | gives the feedback at the end |
 | Conversation listening | writes down spoken turns, and hears how a spoken roleplay sounded |
+| Live conversation | talks with you live, by voice (a Live API model) |
+| Live feedback | listens to a live conversation and gives the feedback |
 | Notes | writes a card's notes in the [selection form](#adding-a-card-from-selected-text) |
 
 So a cheap model can answer conversation turns while a stronger one gives
 feedback, say. A settings file from before a job existed gives it the model of
 the job it was split from: the text model for anything that writes, the speech
-model for reading aloud, the shadowing model for conversation listening.
+model for reading aloud, the shadowing model for conversation listening, and
+the conversation listening model for live feedback. The live model is the
+exception: no older job could talk live, so it gets `gemini-3.8-live`, added
+to the list with no limits.
 
 Conversation replies suit a flash-lite model with a bigger daily allowance
 than the flash models have: one conversation spends five or six of them, each
@@ -1086,14 +1173,25 @@ wrong. The reply has to be a JSON array with one object per `"id"`, so a
 reply that drops or reorders a sentence cannot move a grade onto the wrong
 one; a reply that is not an array is a failure.
 
+The two **live** prompts belong to [live conversations](#live-conversations).
+The **live conversation prompt** goes to the live model once, when the
+conversation opens, and takes the scene's `{situation}`, `{studentRole}`,
+`{llmRole}` and `{facts}` (with their answers), `{terms}`, `{language}`,
+`{level}` and `{languageNote}`. The page sends `[START]` to open the
+conversation and `[TIME]` fifteen seconds before the end, whatever the prompt
+says, so keep the lines that say what they mean. The **live feedback prompt**
+goes to the live feedback model with the scene, the transcript, your cards
+and the recording, and takes `{rules}`, `{language}`, `{languageNote}` and
+`{feedback}`. Both are Praat's, with Dutch taken out and your cards added.
+
 The five conversation prompts are sent from the [Conversation](#conversation)
 tab. The **scene prompt** goes to the text model when you press Start. It
 takes `{kind}` (*roleplay* or *find-out*, which picks the section to follow),
 `{request}`, `{terms}` (your cards), `{language}`, `{level}` and
 `{languageNote}`, and the reply is the scene as JSON; it replaces the fixed
 scenes lessons-web's lessons carried. The **roleplay reply** and **find-out
-reply** prompts go to the conversation model for each of the other person's
-lines, as the system instruction, with the conversation so far as the
+reply** prompts go to the conversation model for each of its lines in the
+scene, as the system instruction, with the conversation so far as the
 message. The find-out one holds the facts and their answers (`{facts}`),
 strict rules about giving one only when it is asked for, and asks for
 `"revealed"`, the facts the line gave away, which is what ticks your
@@ -1174,6 +1272,11 @@ js/reading.js         Reading: presets, choosing the cards, reading the marked t
 js/writing.js         Writing: word bounds, the grading request, reading the feedback
 js/translation.js     Translate: drawing a set from the bank, grading, what moves
 js/conversation.js    Conversation: the scene, every reply and grade, the budget
+js/live.js            live conversations: the model's instruction, the socket's messages,
+                      the running transcript, the grading call and the score
+js/gemini-live.js     the Live API's WebSocket, written without an SDK
+js/live-audio.js      the microphone as 16 kHz PCM, the model's voice, the recording
+js/live-session.js    one live conversation, from Start talking to the recording
 js/deck.js            deck format, scoring, card selection
 js/speech.js          the device's own voices, for reading words aloud
 js/recorder.js        the microphone: MediaRecorder, and releasing it again
@@ -1181,6 +1284,7 @@ js/shadowing.js       building a set, laying out the grading call, reading it ba
 js/shadow-rules.js    shadowing's listening rules: seeding, rating, revising, undo
 js/gemini.js          API calls, call budget, WAV wrapping
 js/json-reply.js      reading a grader's JSON reply, and its verdicts on your cards
+js/error-spot.js      where a tab's error goes: in place of what you were waiting on
 js/opus.js            dictation audio as Ogg Opus, through the browser's encoder
 js/convert-audio.js   turning a bank's older WAV sentences into Ogg, in place
 js/bundle.js          the export/import file format

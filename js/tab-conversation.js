@@ -1,11 +1,11 @@
 /* Conversation: a few turns of your own in a scene (six unless Settings says
    otherwise), then feedback.
 
-   A roleplay is a scene with two roles, and the other person answers each
-   of your turns; your last gets their closing line and the feedback from
-   one call. A find-out is a scene in which the other person knows three or
+   A roleplay is a scene with two roles, and the model answers each
+   of your turns in its role; your last gets its closing line and the feedback from
+   one call. A find-out is a scene in which the model's role knows three or
    four things you were sent to find out, and gives one only when you ask
-   about it specifically; a checklist ticks as they do, and the feedback is
+   about it specifically; a checklist ticks as it does, and the feedback is
    about whether you listened to the answers or fired off a list.
 
    The states are briefing → chatting ⇄ sending → grading → done. The
@@ -18,9 +18,16 @@
    open resumes when the tab is shown. Every one is kept and listed; an
    ended one opens read-only.
 
+   A live conversation is a find-out spoken in real time, durkle's Praat
+   without its server: the scene is written the same way, then Start
+   talking opens a socket to the Live API and you and the model just
+   talk until the time is up. Its recording is kept the moment it ends,
+   and the feedback call listens to it; a failed call keeps it for Try
+   again. The talking itself is live-session.js; this draws it.
+
    Your cards are judged on your own turns only, and scored once, when the
    conversation ends with feedback. The logic that has no DOM is
-   conversation.js. */
+   conversation.js and live.js. */
 
 import * as store from './store.js';
 import * as storage from './storage.js';
@@ -31,22 +38,33 @@ import {
   awaitingReply, factStatus, normaliseIds, suggestionChanged, conversationTitle, clipPath,
 } from './conversation.js';
 import { escapeHtml } from './text.js';
-import { formatWait } from './gemini.js';
+import { formatWait, pickVoice } from './gemini.js';
 import { describe } from './tab-settings.js';
 import { languageCode } from './speech.js';
 import { scoreVerdicts, cardsResultHtml } from './tab-writing.js';
 import { createRecorder, SUPPORTED as CAN_RECORD } from './recorder.js';
 import { extensionFor } from './shadowing.js';
+import {
+  partnerInstruction, livePath, minutesLabel, clock, BANDS, BAND_LABELS,
+} from './live.js';
+import { createLiveTalk } from './live-session.js';
+import { liveUnsupported } from './live-audio.js';
+import { errorSpot } from './error-spot.js';
 
 const $ = (id) => document.getElementById(id);
 
 let kind = 'roleplay';
 let scope = 'all';
-/* The conversation on screen, and what is happening to it: null while it
-   waits for you, or 'starting', 'sending' or 'grading' while a call is
-   out. */
+/* The conversation on screen. `working` is what the tab as a whole is
+   doing: 'starting' while a scene is written, 'talking' and 'saving' during
+   a live conversation, null otherwise. A call made for one conversation
+   ('sending', 'listening' or 'grading') is kept in `out` under its id
+   instead, with the record it will land on, so a new conversation can be
+   started, or another opened, while it is out: the reply or the feedback is
+   saved to its own conversation whichever one is on screen by then. */
 let session = null;
 let working = null;
+const out = new Map();
 /* What Try again does: the call that failed, sent again as it was. */
 let retry = null;
 /* What scoring did to each card, right after it happened; a conversation
@@ -66,6 +84,18 @@ let recording = false;
 let pending = null;
 /* The one recording playing. */
 let player = null;
+/* A live conversation being had: the talk, what it last reported, whether
+   the running transcript is on screen, and the meters' animation frame.
+   `lastTake` is the recording just made, held so a conversation whose file
+   could not be written can still be sent for feedback. */
+let talk = null;
+let talkView = null;
+let showLive = false;
+let meterFrame = 0;
+let lastTake = null;
+/* Said with every message until the feedback is in: the recording could
+   not be written, so it lasts only as long as the page. */
+let unkept = '';
 
 export function init() {
   $('cv-kind').addEventListener('click', (e) => {
@@ -83,6 +113,19 @@ export function init() {
     setSeg('cv-scope', 'scope', scope);
     store.saveSettings({ conversationScope: scope });
     renderPool();
+  });
+  $('cv-length').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-seconds]');
+    if (!btn) return;
+    setSeg('cv-length', 'seconds', btn.dataset.seconds);
+    store.saveSettings({ liveSeconds: Number(btn.dataset.seconds) }).then(() => { if (!session) renderBriefing(); });
+  });
+  $('lv-start').addEventListener('click', startTalking);
+  $('lv-end').addEventListener('click', () => { if (talk) talk.finish(); });
+  $('lv-show').addEventListener('click', () => {
+    showLive = !showLive;
+    renderLive();
+    renderChat();
   });
   $('cv-request').addEventListener('change', (e) => store.saveSettings({ conversationRequest: e.target.value.trim() }));
   $('cv-start').addEventListener('click', start);
@@ -103,8 +146,10 @@ export function init() {
   $('cv-error').addEventListener('click', (e) => {
     if (e.target.closest('[data-act="retry"]') && retry) retry();
   });
+  placeError = errorSpot($('cv-error'));
   $('cv-result').addEventListener('click', (e) => {
     if (e.target.closest('[data-act="ask-again"]')) finish({ closing: false });
+    if (e.target.closest('[data-act="play-live"]')) playLive();
   });
   $('cv-list').addEventListener('click', (e) => {
     const row = e.target.closest('[data-conversation]');
@@ -118,6 +163,7 @@ export function init() {
   kind = store.state.settings.conversationKind || 'roleplay';
   setSeg('cv-scope', 'scope', scope);
   setSeg('cv-kind', 'kind', kind);
+  setSeg('cv-length', 'seconds', String(store.state.settings.liveSeconds));
   syncRequest();
 
   store.subscribe('deck', renderPool);
@@ -126,10 +172,11 @@ export function init() {
   store.subscribe('settings', (st) => {
     scope = st.settings.conversationScope || 'all';
     setSeg('cv-scope', 'scope', scope);
-    if (!working && !session) {
+    if (!working) {
       kind = st.settings.conversationKind || 'roleplay';
       setSeg('cv-kind', 'kind', kind);
     }
+    setSeg('cv-length', 'seconds', String(st.settings.liveSeconds));
     syncRequest();
     renderBriefing();
   });
@@ -158,16 +205,46 @@ export async function onShow() {
    whose last turn was never answered offers Try again at once: that reply
    is what it is waiting for. */
 function take(record) {
-  if (!session || session.id !== record.id) forgetTake();
+  if (!session || session.id !== record.id) { forgetTake(); unkept = ''; }
   session = record;
   moves = null;
   saved = null;
   retry = null;
   showError('');
+  if (doing(record)) return;
   if (awaitingReply(record)) {
     retry = () => answer();
-    showError('Your last turn has no reply yet.', true);
+    showError('Your last turn has no reply yet.', true, CHAT());
+  } else if (!record.ended && (record.kind === 'live' ? record.talked : record.kind === 'findout' && learnerTurns(record) >= turnsOf(record))) {
+    /* Its turns are spent, or its talk is over, but the feedback never
+       came: a call that failed, or one that came back while another
+       conversation was on screen and could not go on to the next. */
+    retry = () => (record.kind === 'live' ? gradeLive() : finish({ closing: false }));
+    showError('This conversation has not had its feedback yet.', true, CHAT());
   }
+}
+
+/* The call out for a conversation ('sending', 'listening', 'grading'), or
+   null. */
+function doing(s = session) {
+  const job = s && out.get(s.id);
+  return job ? job.what : null;
+}
+
+/* Whether the conversation on screen can be acted on: not while the tab is
+   busy, nor while a call is out for it. */
+function busy() {
+  return working || doing();
+}
+
+/* A call for `s` starts and ends. The record is kept with it so that
+   opening that conversation again meanwhile shows this same object, the
+   one the answer will land on. */
+function begin(s, what) {
+  out.set(s.id, { what, s });
+}
+function end(s) {
+  out.delete(s.id);
 }
 
 /* Leaving the tab closes the microphone: a stream left running keeps the
@@ -177,6 +254,13 @@ export function onHide() {
   if (recording) {
     recorder.dispose();
     recording = false;
+  }
+  /* A live conversation ends here too, as if End now were pressed: what was
+     said so far is still sent for feedback. One still connecting is
+     dropped, having said nothing. */
+  if (talk) {
+    if (talk.phase === 'live') talk.finish();
+    else if (talk.phase === 'connecting') talk.abort();
   }
   stopPlayer();
 }
@@ -249,8 +333,11 @@ function costLine(k) {
   const needs = callsNeeded(s, k);
   const total = needs.reduce((n, r) => n + r.count, 0);
   const parts = needs.map((r) => `${r.count} on ${r.model} (${r.jobs.join(', ')})`);
+  if (k === 'live') {
+    return `This costs ${total} calls: ${parts.join('; ')}. You talk for up to ${minutesLabel(s.liveSeconds)}, and the audio streams both ways as you do, so it needs a microphone; headphones stop the model hearing its own voice.`;
+  }
   return `This costs ${total} calls: ${parts.join('; ')}.`
-    + ` ${k === 'findout' ? `The other person answers all ${s.conversationTurns} of your turns.` : 'Your last turn is answered by the same call as the feedback.'}`
+    + ` ${k === 'findout' ? `The model answers all ${s.conversationTurns} of your turns.` : 'Your last turn is answered by the same call as the feedback.'}`
     + ' Ending early costs less.'
     + ` A spoken turn adds one call on ${s.listenModel} to write it down, and a roleplay with spoken turns is graded by ${s.listenModel}, since it listens to them.`;
 }
@@ -258,6 +345,7 @@ function costLine(k) {
 function renderBriefing() {
   $('cv-cost').textContent = costLine(kind);
   $('cv-request-row').hidden = false;
+  $('cv-length').hidden = kind !== 'live';
   renderStart();
 }
 
@@ -267,16 +355,24 @@ function renderStart() {
   const s = store.state.settings;
   const t = store.limiter.usageOf(s, s.sceneModel);
   const short = budgetProblem(s, kind, (m, rpm, rpd) => store.limiter.usage(m, rpm, rpd));
-  btn.disabled = !storage.getApiKey() || t.retryAfter > 0 || !!short;
-  const why = t.retryAfter > 0
+  /* A browser that cannot hold a live conversation says so before a scene
+     is written for one. */
+  const cannot = kind === 'live' ? liveUnsupported() : null;
+  /* Only a live conversation under way holds Start back: it has its own
+     End now, and ending it is what saves the recording. */
+  const talking = working === 'talking' || working === 'saving';
+  btn.disabled = talking || !storage.getApiKey() || t.retryAfter > 0 || !!short || !!cannot;
+  const why = (talking ? 'A live conversation is under way. End it first; it is kept, and its feedback follows.' : '') || cannot || (t.retryAfter > 0
     ? `${t.model} is out of budget for now: next call in ${formatWait(t.retryAfter)}.`
-    : short || '';
+    : short || '');
   $('cv-why').textContent = why;
   $('cv-why').hidden = !why;
 }
 
+/* A new conversation, whether or not the one on screen has ended: that one
+   stays in the list below, open, to carry on with later. */
 async function start() {
-  if (working || session) return;
+  if (working) return;
   const cards = pickReadingCards(pool(), store.state.settings.conversationTerms).map((c) => ({
     front: c.front, back: c.back || '', deck: store.deckOf(c), ...(isPattern(c) ? { type: 'pattern' } : {}),
   }));
@@ -289,6 +385,7 @@ async function start() {
   const btn = $('cv-start');
   btn.innerHTML = '<span class="spinner"></span>Setting the scene';
   btn.disabled = true;
+  let made = null;
   try {
     const { scenario, model } = await store.client.writeScenario({ kind: at, cards, request });
     const record = {
@@ -309,19 +406,32 @@ async function start() {
       maxTurns: s.conversationTurns,
       models: { scene: model },
     };
+    /* A live partner opens the conversation itself, in its own words, so
+       the written opening line is not a turn; and it runs for a time
+       rather than a number of turns. */
+    if (at === 'live') {
+      record.turns = [];
+      delete record.maxTurns;
+      delete record.deliveryNote;
+      record.seconds = s.liveSeconds;
+      record.talked = 0;
+    }
     record.title = conversationTitle(record);
-    session = record;
-    moves = null;
-    saved = null;
+    stopPlayer();
+    take(record);
+    made = record;
     await save();
   } catch (e) {
     console.error(e);
-    showError(describe(e));
+    showError(describe(e), false, $('cv-request-row'));
   } finally {
     working = null;
     btn.textContent = 'Start';
     render();
-    if (session) $('cv-text').focus();
+    if (made && session === made) {
+      $('cv-card').scrollIntoView({ block: 'start', behavior: 'smooth' });
+      (session.kind === 'live' ? $('lv-start') : $('cv-text')).focus({ preventScroll: true });
+    }
   }
 }
 
@@ -339,17 +449,19 @@ function startAgain() {
 
 /* ── the turns ───────────────────────────────────────────────────────── */
 
-async function save() {
-  if (!session) return;
-  if (!(await store.saveConversation(session))) {
-    showError(`This conversation could not be written to ${storage.label()}. Reconnect the data folder in Settings; it will be lost on reload.`);
+/* `s` is the conversation on screen unless a call that came back for
+   another says otherwise; only the one on screen can say it was not kept. */
+async function save(s = session) {
+  if (!s) return;
+  if (!(await store.saveConversation(s)) && session === s) {
+    showError(`This conversation could not be written to ${storage.label()}. Reconnect the data folder in Settings; it will be lost on reload.`, false, CHAT());
   }
 }
 
 /* Your turn is saved before anything is sent for it, so a failure keeps
    it. */
 async function send() {
-  if (working || !session || session.ended || awaitingReply(session)) return;
+  if (busy() || !session || session.ended || awaitingReply(session)) return;
   const text = $('cv-text').value.replace(/\s+/g, ' ').trim().slice(0, MAX_TURN_TEXT);
   if (!text || learnerTurns(session) >= turnsOf(session)) return;
   $('cv-text').value = '';
@@ -359,7 +471,7 @@ async function send() {
   await answer();
 }
 
-/* The other person's answer to your last turn. A roleplay's last turn is
+/* The model's answer to your last turn. A roleplay's last turn is
    answered by the closing call; a find-out answers every one and then
    concludes. */
 async function answer() {
@@ -367,28 +479,28 @@ async function answer() {
   if (!s || s.ended) return;
   const n = learnerTurns(s);
   if (s.kind === 'roleplay' && n >= turnsOf(s)) { await finish({ closing: true }); return; }
-  working = 'sending';
+  begin(s, 'sending');
   retry = null;
   showError('');
   render();
   try {
     const got = await store.client.partnerReply(s, liveCards(s));
-    if (session !== s) return;
+    /* Kept on its own conversation even if another is on screen now. */
     s.turns.push({ speaker: 'partner', text: got.text });
     if (s.kind === 'findout') {
       s.revealed = normaliseIds([...(s.revealed || []), ...got.revealed], s.scenario.facts);
     }
     s.models = { ...(s.models || {}), reply: got.model };
-    await save();
+    await save(s);
   } catch (e) {
     console.error(e);
     if (session === s) {
       retry = () => answer();
-      showError(`${describe(e)} Your turn is kept.`, true);
+      showError(`${describe(e)} Your turn is kept.`, true, CHAT());
     }
     return;
   } finally {
-    working = null;
+    end(s);
     render();
   }
   if (session !== s) return;
@@ -399,14 +511,14 @@ async function answer() {
 /* ── spoken turns ────────────────────────────────────────────────────── */
 
 async function toggleRecord() {
-  if (working || !session || session.ended || awaitingReply(session)) return;
+  if (busy() || !session || session.ended || awaitingReply(session)) return;
   stopPlayer();
   if (recording) { await finishTake(); return; }
   const ok = await recorder.start();
   if (!ok) {
     showError(micDenied
       ? 'The microphone is blocked for this page. Allow it in your browser’s address bar, then try again, or type your turn.'
-      : 'The microphone could not be started. Check that this site may use it and that something is plugged in, or type your turn.');
+      : 'The microphone could not be started. Check that this site may use it and that something is plugged in, or type your turn.', false, SPEAK());
     renderInput();
     return;
   }
@@ -422,7 +534,7 @@ async function finishTake() {
   const s = session;
   const blob = await recorder.stop();
   if (!blob || !blob.size) {
-    showError('Nothing was recorded. Try again, and give it a moment before you speak.');
+    showError('Nothing was recorded. Try again, and give it a moment before you speak.', false, SPEAK());
     renderInput();
     return;
   }
@@ -432,7 +544,7 @@ async function finishTake() {
   if (pending) URL.revokeObjectURL(pending.url);
   pending = null;
   if (!(await store.writeConversationClip(path, blob))) {
-    showError('That recording could not be saved. Record your turn again.');
+    showError('That recording could not be saved. Record your turn again.', false, SPEAK());
     renderInput();
     return;
   }
@@ -453,9 +565,9 @@ async function dropTake() {
    the learner records again. A failure keeps the take for Try again. */
 async function sendTake() {
   const s = session;
-  if (working || !s || s.ended || !pending || awaitingReply(s) || learnerTurns(s) >= turnsOf(s)) return;
+  if (busy() || !s || s.ended || !pending || awaitingReply(s) || learnerTurns(s) >= turnsOf(s)) return;
   const take = pending;
-  working = 'listening';
+  begin(s, 'listening');
   retry = null;
   showError('');
   render();
@@ -467,17 +579,27 @@ async function sendTake() {
     console.error(e);
     if (session === s) {
       retry = () => sendTake();
-      showError(`${describe(e)} Your recording is kept.`, true);
+      showError(`${describe(e)} Your recording is kept.`, true, CHAT());
     }
     return;
   } finally {
-    working = null;
+    end(s);
     render();
   }
-  if (session !== s || pending !== take) return;
+  /* Another conversation was started or opened meanwhile. The turn is
+     still this one's: written down, it joins the conversation and waits
+     for its reply, which Try again asks for when it is opened again. */
+  if (session !== s) {
+    if (!transcript) { await store.removeConversationClip(take.path); return; }
+    URL.revokeObjectURL(take.url);
+    s.turns.push({ speaker: 'learner', text: transcript, take: take.path, mime: take.mime });
+    await save(s);
+    return;
+  }
+  if (pending !== take) return;
   if (!transcript) {
     await dropTake();
-    showError('Nothing was heard in that recording, so the turn was not spent. Record it again.');
+    showError('Nothing was heard in that recording, so the turn was not spent. Record it again.', false, CHAT());
     renderInput();
     return;
   }
@@ -526,7 +648,7 @@ function stopPlayer() {
 }
 
 function endEarly() {
-  if (working || !session || session.ended || learnerTurns(session) < 1) return;
+  if (busy() || !session || session.ended || learnerTurns(session) < 1) return;
   finish({ closing: false });
 }
 
@@ -537,15 +659,16 @@ function endEarly() {
    call leaves "Ask for feedback again". */
 async function finish({ closing }) {
   const s = session;
-  if (!s || working) return;
-  working = 'grading';
+  if (!s || busy()) return;
+  begin(s, 'grading');
   retry = null;
   showError('');
   render();
   try {
     const clips = s.kind === 'roleplay' ? await clipsOf(s) : [];
     const got = await store.client.concludeConversation(s, liveCards(s), { closing, clips });
-    if (session !== s) return;
+    /* Applied to its own conversation even if another is on screen now:
+       the feedback is kept and the cards scored all the same. */
     if (closing && got.reply) s.turns.push({ speaker: 'partner', text: got.reply });
     s.feedback = s.kind === 'findout'
       ? { conversation: got.conversation, asking: got.asking, nextTime: got.nextTime, found: got.found, missed: got.missed, cards: got.cards }
@@ -556,40 +679,311 @@ async function finish({ closing }) {
     if (!s.scored) {
       const scored = await scoreVerdicts(got.cards, s.cards);
       s.scored = true;
-      moves = scored.moves;
-      saved = scored.saved;
+      if (session === s) {
+        moves = scored.moves;
+        saved = scored.saved;
+      }
     }
-    await save();
+    await save(s);
   } catch (e) {
     console.error(e);
-    if (session !== s) return;
     if (s.kind === 'findout') {
       s.ended = true;
       s.feedback = null;
-      await save();
-      showError(`The conversation is over, but the feedback could not be fetched. ${describe(e)}`);
-    } else {
+      await save(s);
+      if (session === s) showError(`The conversation is over, but the feedback could not be fetched. ${describe(e)}`, false, CHAT());
+    } else if (session === s) {
       retry = () => (closing ? answer() : finish({ closing: false }));
-      showError(`${describe(e)} Your turns are kept.`, true);
+      showError(`${describe(e)} Your turns are kept.`, true, CHAT());
     }
   } finally {
-    working = null;
+    end(s);
     render();
   }
   if (session === s && s.ended) $('cv-result').scrollIntoView({ block: 'start', behavior: 'smooth' });
 }
 
+/* ── live conversations ──────────────────────────────────────────────── */
+
+/* What each way a live conversation can fail to happen says. Only the
+   microphone is asked for before the socket is opened, so those two cost
+   nothing; every other has spent the call on the live model. */
+const LIVE_ERRORS = {
+  mic_denied: 'The browser did not allow the microphone. Allow it in the address bar, then press Start talking again. Nothing was spent.',
+  no_mic: 'No microphone was found. Plug one in, or use headphones with a microphone, and press Start talking again. Nothing was spent.',
+  connection_failed: 'Could not connect to the live model.',
+  connection_lost: 'The connection dropped right at the start, so there is nothing to give feedback on yet.',
+  audio_failed: 'The audio could not be started in this browser.',
+  nothing_recorded: 'Nothing was recorded from the microphone, so there is nothing to give feedback on.',
+};
+
+function liveErrorText(e) {
+  const code = e && e.code;
+  const said = LIVE_ERRORS[code] || describe(e);
+  let detail = code === 'connection_failed' && e.message && e.message !== code ? ` ${e.message.trim()}` : '';
+  if (detail && !/[.!?]$/.test(detail)) detail += '.';
+  const again = code === 'mic_denied' || code === 'no_mic' ? ''
+    : ' The scene is kept: press Start talking to try again, which spends another call on the live model.';
+  return `${said}${detail}${again}`;
+}
+
+/* Start talking. Everything up to the socket happens inside this click, so
+   the model's voice is allowed to play. The recording is written the
+   moment the conversation ends, then the transcript, and then it goes for
+   feedback; a feedback call that fails keeps both, with Try again. */
+async function startTalking() {
+  const s = session;
+  if (!s || s.kind !== 'live' || s.ended || s.talked || busy()) return;
+  const cannot = liveUnsupported();
+  if (cannot) { showError(cannot, false, $('lv-status')); return; }
+  const st = store.state.settings;
+  const voice = pickVoice(st);
+  const system = partnerInstruction(st, s, liveCards(s));
+  stopPlayer();
+  working = 'talking';
+  showLive = false;
+  retry = null;
+  showError('');
+  const t = createLiveTalk({
+    seconds: s.seconds || st.liveSeconds,
+    connect: (handlers) => store.client.openLive({ system, voice, ...handlers }),
+    onUpdate: (view) => {
+      if (talk !== t) return;
+      talkView = view;
+      renderLive();
+      if (showLive) renderChat();
+    },
+  });
+  talk = t;
+  talkView = { phase: 'connecting', secondsLeft: s.seconds || st.liveSeconds, turns: [], error: null };
+  render();
+  startMeters();
+  let got = null;
+  try {
+    got = await t.start();
+  } catch (e) {
+    if (e && e.code !== 'aborted' && session === s) showError(liveErrorText(e), false, $('lv-status'));
+  } finally {
+    if (talk === t) { talk = null; talkView = null; }
+    working = null;
+    stopMeters();
+  }
+  if (!got || session !== s) { render(); return; }
+
+  /* Saving, so the stage does not offer Start talking again meanwhile. */
+  working = 'saving';
+  const path = livePath(s.id, extensionFor(got.mime));
+  lastTake = { id: s.id, blob: got.blob };
+  const kept = await store.writeConversationClip(path, got.blob);
+  unkept = kept ? '' : `The recording could not be written to ${storage.label()}, so it is gone on reload.`;
+  s.turns = got.turns;
+  s.take = path;
+  s.mime = got.mime;
+  s.talked = Math.max(1, got.talked);
+  s.voice = voice;
+  s.models = { ...(s.models || {}), live: st.liveModel };
+  await save();
+  working = null;
+  await gradeLive();
+}
+
+/* The recording of a live conversation: the one just made, or its file. */
+async function liveBlob(s) {
+  if (lastTake && lastTake.id === s.id) return lastTake.blob;
+  return s.take ? store.readConversationClip(s.take) : null;
+}
+
+/* The feedback, from one call that listens to the recording. On success
+   the conversation ends: its lines are written afresh from the recording,
+   the facts found out are ticked, and the cards are scored, once. */
+async function gradeLive() {
+  const s = session;
+  if (!s || s.kind !== 'live' || !s.talked || s.ended || busy()) return;
+  begin(s, 'grading');
+  retry = null;
+  showError(unkept, false, CHAT());
+  render();
+  try {
+    const blob = await liveBlob(s);
+    if (!blob) throw new Error(`The recording of this conversation could not be read from ${storage.label()}, so it cannot be given feedback.`);
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const got = await store.client.gradeLive(s, liveCards(s), { mime: s.mime || blob.type, bytes });
+    /* Applied to its own conversation even if another is on screen now. */
+    s.feedback = {
+      lines: got.lines, pronunciation: got.pronunciation, bands: got.bands, reasons: got.reasons,
+      score: got.score, overall: got.overall, cards: got.cards,
+    };
+    s.revealed = got.found;
+    s.models = { ...(s.models || {}), feedback: got.model };
+    s.ended = true;
+    if (!s.scored) {
+      const scored = await scoreVerdicts(got.cards, s.cards);
+      s.scored = true;
+      if (session === s) {
+        moves = scored.moves;
+        saved = scored.saved;
+      }
+    }
+    await save(s);
+    if (session === s) {
+      showError(unkept, false, CHAT());
+      unkept = '';
+    }
+  } catch (e) {
+    console.error(e);
+    if (session === s) {
+      retry = () => gradeLive();
+      showError(`${describe(e)} ${unkept || 'Your recording is kept.'}`, true, CHAT());
+    }
+  } finally {
+    end(s);
+    render();
+  }
+  if (session === s && s.ended) $('cv-result').scrollIntoView({ block: 'start', behavior: 'smooth' });
+}
+
+async function playLive() {
+  const s = session;
+  if (!s || !s.take) return;
+  stopPlayer();
+  const blob = await liveBlob(s);
+  if (!blob) { showError('That recording could not be read.'); return; }
+  const url = URL.createObjectURL(blob);
+  player = new Audio(url);
+  player.onended = () => URL.revokeObjectURL(url);
+  player.play().catch(() => URL.revokeObjectURL(url));
+}
+
+/* Two dots that swell with each side's voice, so it is plain who is
+   talking without reading anything. */
+function startMeters() {
+  stopMeters();
+  const them = $('lv-them').firstElementChild;
+  const me = $('lv-me').firstElementChild;
+  const frame = () => {
+    const lv = talk ? talk.levels() : { learner: 0, partner: 0 };
+    them.style.transform = `scale(${1 + Math.min(1, lv.partner * 6)})`;
+    me.style.transform = `scale(${1 + Math.min(1, lv.learner * 6)})`;
+    meterFrame = requestAnimationFrame(frame);
+  };
+  meterFrame = requestAnimationFrame(frame);
+}
+
+function stopMeters() {
+  cancelAnimationFrame(meterFrame);
+  meterFrame = 0;
+  for (const id of ['lv-them', 'lv-me']) $(id).firstElementChild.style.transform = '';
+}
+
+/* The stage: what to do before, the clock during, nothing after. */
+function renderLive() {
+  const s = session;
+  const box = $('cv-live');
+  const talking = working === 'talking' && talkView;
+  if (!s || s.kind !== 'live' || s.ended || (s.talked && !talking)) { box.hidden = true; return; }
+  box.hidden = false;
+  const phase = talking ? talkView.phase : 'idle';
+  const total = s.seconds || store.state.settings.liveSeconds;
+  const st = store.state.settings;
+  const blocked = [st.liveModel, st.liveGradeModel]
+    .map((m) => store.limiter.usageOf(st, m)).find((u) => u.retryAfter > 0);
+  const cannot = liveUnsupported();
+  const status = {
+    idle: cannot || (blocked
+      ? `${blocked.model} is out of budget for now: next call in ${formatWait(blocked.retryAfter)}.`
+      : `You are talking to an AI model, which plays the other role out loud. It speaks first. Then just talk, for up to ${minutesLabel(total)}: there is no button to press between turns, and it rounds the conversation off when the time is nearly up. Use headphones if you can.`),
+    connecting: 'Connecting…',
+    live: '',
+    wrapping: 'Rounding off…',
+    done: 'Saving the recording…',
+    error: '',
+  }[phase] || '';
+  $('lv-status').textContent = status;
+  /* A failed start is reported just under this line (see showError), so
+     the line gives way to it rather than explaining Start talking above
+     the reason it did not work. */
+  const failed = $('lv-status').nextElementSibling === $('cv-error') && !!$('cv-error').textContent;
+  $('lv-status').hidden = !status || failed;
+  const start = $('lv-start');
+  start.hidden = phase !== 'idle';
+  start.disabled = !!busy() || !storage.getApiKey() || !!blocked || !!cannot;
+  start.title = `One call on ${st.liveModel}, then one on ${st.liveGradeModel} for the feedback`;
+  const going = phase === 'live' || phase === 'wrapping';
+  $('lv-end').hidden = phase !== 'live';
+  $('lv-show').hidden = !going;
+  $('lv-show').setAttribute('aria-pressed', String(showLive));
+  $('lv-show').textContent = showLive ? 'Hide what’s being said' : 'Show what’s being said';
+  $('lv-clock').hidden = !going;
+  $('lv-timebar').hidden = !going;
+  if (going) {
+    const left = talkView.secondsLeft;
+    $('lv-clock').textContent = phase === 'live' ? clock(left) : clock(0);
+    const used = phase === 'live' ? 1 - left / total : 1;
+    $('lv-timebar').firstElementChild.style.transform = `scaleX(${Math.max(0, Math.min(1, used))})`;
+    $('lv-timebar').setAttribute('aria-valuemax', String(total));
+    $('lv-timebar').setAttribute('aria-valuenow', String(total - left));
+  }
+  box.classList.toggle('is-live', going);
+}
+
+/* The written-out conversation with its corrections, the four marks, the
+   notes on how it sounded, and the cards. */
+function liveResultHtml(s, fb, lang) {
+  const parts = [];
+  if (fb.score !== null && fb.score !== undefined && fb.bands) {
+    parts.push(`<div class="lv-score"><span class="lv-pct">${fb.score}%</span><span class="lv-pct-label">How ${escapeHtml(s.language || store.state.settings.targetLanguage)} you sounded</span></div>`);
+    parts.push(`<ul class="lv-bands">${BANDS.map((b) => {
+      const v = fb.bands[b];
+      return `<li><span class="lv-band-name">${BAND_LABELS[b]}</span>
+        <span class="lv-dots" aria-label="${v} of 4">${'●'.repeat(v)}${'○'.repeat(4 - v)}</span>
+        ${fb.reasons && fb.reasons[b] ? `<span class="wr-sub">${escapeHtml(fb.reasons[b])}</span>` : ''}</li>`;
+    }).join('')}</ul>`);
+  } else {
+    parts.push('<p class="wr-sub">Too little was said to score.</p>');
+  }
+  if (fb.overall) parts.push(`<p>${escapeHtml(fb.overall)}</p>`);
+  if (s.take) {
+    parts.push(`<div class="row"><button class="btn btn--sm" data-act="play-live">▶ Play your recording</button><span class="note">${escapeHtml(minutesLabel(s.talked))}</span></div>`);
+  }
+  const sc = s.scenario;
+  parts.push('<h4>The conversation</h4>');
+  parts.push(`<ol class="lv-lines">${(fb.lines || []).map((l) => {
+    const mine = l.speaker === 'learner';
+    const fixes = (l.corrections || []).map((c) => `<div class="lv-fix"><del lang="${lang}">${escapeHtml(c.original)}</del> → <ins lang="${lang}">${escapeHtml(c.correction)}</ins>${c.why ? `<span class="wr-sub">${escapeHtml(c.why)}</span>` : ''}</div>`).join('');
+    const alts = (l.alternatives || []).map((a) => `<div class="cv-natural">More natural: <b lang="${lang}">${a.suggestions.map((x) => `“${escapeHtml(x)}”`).join(' or ')}</b> for <span lang="${lang}">“${escapeHtml(a.original)}”</span>${a.why ? `<span class="wr-sub">${escapeHtml(a.why)}</span>` : ''}</div>`).join('');
+    return `<li class="lv-line lv-line--${mine ? 'me' : 'them'}">
+      <span class="cv-who">${escapeHtml(mine ? sc.studentRole : sc.llmRole)}</span>
+      <span class="cv-said" lang="${lang}">${escapeHtml(l.text)}</span>${fixes}${alts}
+    </li>`;
+  }).join('')}</ol>`);
+  if (fb.pronunciation && fb.pronunciation.length) {
+    parts.push('<h4>How you sounded</h4>');
+    parts.push(`<ul class="lv-notes">${fb.pronunciation.map((n) => `<li><b lang="${lang}">${escapeHtml(n.word)}</b> ${escapeHtml(n.comment)}</li>`).join('')}</ul>`);
+  }
+  const { missed } = factStatus(s);
+  if (missed.length) {
+    parts.push(`<p class="wr-sub">You never found out: <span lang="${lang}">${missed.map(escapeHtml).join('; ')}</span></p>`);
+  }
+  if (s.cards && s.cards.length) {
+    parts.push('<h4>Your cards</h4>');
+    parts.push(cardsResultHtml(s.cards, fb.cards, moves, saved, lang));
+  }
+  return `<div class="wr-fb">${parts.join('')}</div>`;
+}
+
 /* ── drawing ─────────────────────────────────────────────────────────── */
 
+/* The briefing is always there, above whatever conversation is on screen:
+   a new one can be started at any point, and an unfinished one stays in
+   the list to carry on with. */
 function render() {
-  const briefing = !session;
-  $('cv-briefing').hidden = !briefing;
-  if (briefing) renderBriefing();
-  $('cv-card').hidden = briefing;
-  if (!briefing) {
+  renderBriefing();
+  $('cv-card').hidden = !session;
+  if (session) {
     renderScene();
     renderChat();
     renderInput();
+    renderLive();
     renderResult();
   }
   renderList();
@@ -600,12 +994,16 @@ function renderScene() {
   const s = session;
   const sc = s.scenario;
   const lang = escapeHtml(languageCode(s.language || store.state.settings.targetLanguage));
-  const findOut = s.kind === 'findout';
+  const live = s.kind === 'live';
+  const findOut = s.kind === 'findout' || live;
   const status = findOut ? factStatus(s) : null;
+  const progress = live
+    ? (s.talked ? `${minutesLabel(s.talked)} talked` : minutesLabel(s.seconds))
+    : `turn ${Math.min(learnerTurns(s) + 1, turnsOf(s))} of ${turnsOf(s)}`;
   $('cv-meta').innerHTML = [
-    findOut ? 'Find out' : 'Roleplay',
+    live ? 'Live' : findOut ? 'Find out' : 'Roleplay',
     escapeHtml(s.created),
-    s.ended ? 'ended' : `turn ${Math.min(learnerTurns(s) + 1, turnsOf(s))} of ${turnsOf(s)}`,
+    s.ended ? 'ended' : progress,
     s.level ? escapeHtml(s.level) : '',
   ].filter(Boolean).map((x) => `<span>${x}</span>`).join('');
 
@@ -615,11 +1013,17 @@ function renderScene() {
     ['You’re talking to', sc.llmRole],
   ];
   if (findOut) rows.push(['What you were sent to find out', sc.goal]);
-  let html = `<dl class="cv-brief">${rows.map(([k, v]) => `<dt>${k}</dt><dd lang="${lang}">${escapeHtml(v)}</dd>`).join('')}</dl>`;
+  /* The role is a character in the scene; who is actually answering is an
+     AI model, and that is said where the role is named. */
+  let html = `<dl class="cv-brief">${rows.map(([k, v]) => `<dt>${k}</dt><dd><span lang="${lang}">${escapeHtml(v)}</span>${k === rows[2][0]
+    ? `<span class="wr-sub">played by an AI model${live ? ', out loud' : ''}</span>` : ''}</dd>`).join('')}</dl>`;
   if (findOut) {
     const revealed = normaliseIds(s.revealed, sc.facts);
+    /* A live partner does not say what it gave away, so the count comes
+       only with the feedback. */
+    const count = live && !s.ended ? '' : `: ${status.found.length} of ${sc.facts.length}`;
     html += `<div class="cv-facts">
-      <div class="cv-facts-head">What you need to find out: ${status.found.length} of ${sc.facts.length}</div>
+      <div class="cv-facts-head">What you need to find out${count}</div>
       <ul>${sc.facts.map((f) => {
         const got = revealed.includes(String(f.id));
         /* The answer stays hidden until the end: it is the thing being
@@ -652,31 +1056,54 @@ function tryToUseHtml(s, lang) {
 
 function renderChat() {
   const s = session;
+  if (!s) return;
   const lang = escapeHtml(languageCode(s.language || store.state.settings.targetLanguage));
+  if (s.kind === 'live') { $('cv-chat').innerHTML = liveChatHtml(s, lang); return; }
   const bubbles = s.turns.map((t, i) => `<div class="cv-bubble cv-bubble--${t.speaker === 'learner' ? 'me' : 'them'}">
       <span class="cv-who">${escapeHtml(t.speaker === 'learner' ? s.scenario.studentRole : s.scenario.llmRole)}${t.take
         ? ` <button type="button" class="cv-play" data-play="${i}" aria-label="Play your recording of this turn" title="Play your recording">▶</button>` : ''}</span>
       <span class="cv-said" lang="${lang}">${escapeHtml(t.text)}</span>
     </div>`);
-  if (working === 'listening') {
+  if (doing() === 'listening') {
     bubbles.push(`<div class="cv-bubble cv-bubble--me cv-thinking" aria-live="polite">
       <span class="cv-who">${escapeHtml(s.scenario.studentRole)}</span>
       <span class="cv-said"><span class="spinner"></span>Writing down what you said</span>
     </div>`);
   }
-  if (working === 'sending' || working === 'grading') {
+  if (doing() === 'sending' || doing() === 'grading') {
     bubbles.push(`<div class="cv-bubble cv-bubble--them cv-thinking" aria-live="polite">
-      <span class="cv-who">${escapeHtml(working === 'grading' ? 'Feedback' : s.scenario.llmRole)}</span>
-      <span class="cv-said"><span class="spinner"></span>${working === 'grading' ? 'Reading the whole conversation' : 'Thinking'}</span>
+      <span class="cv-who">${escapeHtml(doing() === 'grading' ? 'Feedback' : s.scenario.llmRole)}</span>
+      <span class="cv-said"><span class="spinner"></span>${doing() === 'grading' ? 'Reading the whole conversation' : 'Thinking'}</span>
     </div>`);
   }
   $('cv-chat').innerHTML = bubbles.join('');
 }
 
+/* While talking, the last few turns of the running transcript, and only if
+   asked for: reading along is not listening. After, and before the
+   feedback, the whole of it; after the feedback, nothing here, since the
+   feedback writes it out again. */
+function liveChatHtml(s, lang) {
+  if (s.ended) return '';
+  const bubble = (t) => `<div class="cv-bubble cv-bubble--${t.speaker === 'learner' ? 'me' : 'them'}">
+      <span class="cv-who">${escapeHtml(t.speaker === 'learner' ? s.scenario.studentRole : s.scenario.llmRole)}</span>
+      <span class="cv-said" lang="${lang}">${escapeHtml(t.text)}</span>
+    </div>`;
+  if (working === 'talking') return showLive && talkView ? talkView.turns.slice(-4).map(bubble).join('') : '';
+  const out = (s.turns || []).map(bubble);
+  if (doing() === 'grading') {
+    out.push(`<div class="cv-bubble cv-bubble--them cv-thinking" aria-live="polite">
+      <span class="cv-who">Feedback</span>
+      <span class="cv-said"><span class="spinner"></span>Listening to the whole conversation</span>
+    </div>`);
+  }
+  return out.join('');
+}
+
 function renderInput() {
   const s = session;
   const area = $('cv-input-area');
-  if (!s || s.ended) { area.hidden = true; return; }
+  if (!s || s.ended || s.kind === 'live') { area.hidden = true; return; }
   area.hidden = false;
   const n = learnerTurns(s);
   const waiting = awaitingReply(s);
@@ -684,14 +1111,14 @@ function renderInput() {
     ? `Turn ${n} of ${turnsOf(s)} · waiting for the reply`
     : `Turn ${n + 1} of ${turnsOf(s)}`;
   const text = $('cv-text');
-  text.disabled = !!working || waiting;
+  text.disabled = !!busy() || waiting;
   text.lang = languageCode(s.language || store.state.settings.targetLanguage);
   text.placeholder = waiting ? 'Your turn is kept. Press Try again above.' : `Your turn, in ${s.language || store.state.settings.targetLanguage}…`;
   const st = store.state.settings;
   const replyBlocked = store.limiter.usageOf(st, n + 1 >= turnsOf(s) && s.kind === 'roleplay' ? st.conversationGradeModel : st.chatModel).retryAfter > 0;
   const gradeBlocked = store.limiter.usageOf(st, st.conversationGradeModel).retryAfter > 0;
-  $('cv-send').disabled = !!working || waiting || recording || !text.value.trim() || !storage.getApiKey() || replyBlocked;
-  $('cv-end').disabled = !!working || recording || n < 1 || !storage.getApiKey() || gradeBlocked;
+  $('cv-send').disabled = !!busy() || waiting || recording || !text.value.trim() || !storage.getApiKey() || replyBlocked;
+  $('cv-end').disabled = !!busy() || recording || n < 1 || !storage.getApiKey() || gradeBlocked;
   renderSpeak(waiting, replyBlocked);
 }
 
@@ -710,7 +1137,7 @@ function renderSpeak(waiting, replyBlocked) {
     return;
   }
   btn.hidden = false;
-  btn.disabled = !!working || waiting || !storage.getApiKey();
+  btn.disabled = !!busy() || waiting || !storage.getApiKey();
   btn.classList.toggle('is-rec', recording);
   btn.textContent = recording ? '■ Stop recording' : pending ? '● Record again' : '● Speak';
   note.hidden = !micDenied;
@@ -722,7 +1149,7 @@ function renderSpeak(waiting, replyBlocked) {
     if (audio.dataset.url !== pending.url) { audio.src = pending.url; audio.dataset.url = pending.url; }
     const st = store.state.settings;
     const listenBlocked = store.limiter.usageOf(st, st.listenModel).retryAfter > 0;
-    $('cv-send-take').disabled = !!working || waiting || listenBlocked || replyBlocked || !storage.getApiKey();
+    $('cv-send-take').disabled = !!busy() || waiting || listenBlocked || replyBlocked || !storage.getApiKey();
     $('cv-send-take').title = `One call on ${st.listenModel} to write it down, then the reply`;
   }
 }
@@ -734,9 +1161,10 @@ function renderResult() {
   if (!s.ended) { el.innerHTML = ''; return; }
   const lang = escapeHtml(languageCode(s.language || store.state.settings.targetLanguage));
   const fb = s.feedback;
+  if (s.kind === 'live' && fb) { el.innerHTML = liveResultHtml(s, fb, lang); return; }
   if (!fb) {
     el.innerHTML = `<div class="banner is-warn wr-fb">The feedback on this conversation could not be fetched.
-      <button class="btn btn--sm" data-act="ask-again"${working ? ' disabled' : ''}>Ask for feedback again</button></div>`;
+      <button class="btn btn--sm" data-act="ask-again"${busy() ? ' disabled' : ''}>Ask for feedback again</button></div>`;
     return;
   }
   const parts = [];
@@ -783,7 +1211,7 @@ function renderList() {
             ${r.ended === false ? '<span class="rd-badge rd-badge--audio">Open</span>' : ''}
           </span>
           <span class="sh-hist-sub">${[
-            r.created, r.kind === 'findout' ? 'find out' : 'roleplay', r.decks && r.decks.length ? r.decks.join(', ') : '', r.language,
+            r.created, r.kind === 'findout' ? 'find out' : r.kind === 'live' ? 'live' : 'roleplay', r.decks && r.decks.length ? r.decks.join(', ') : '', r.language,
           ].filter(Boolean).map(escapeHtml).join(' · ')}</span>
         </button>
         <button class="btn btn--sm btn--danger" data-act="delete" title="Delete this conversation">${armed === r.id ? 'Really delete?' : 'Delete'}</button>
@@ -797,7 +1225,10 @@ async function open(id) {
     $('cv-card').scrollIntoView({ block: 'start', behavior: 'smooth' });
     return;
   }
-  const record = await store.loadConversation(id);
+  /* One with a call out is taken as it is in memory, which is where the
+     answer will land, not as the copy on disk. */
+  const job = out.get(id);
+  const record = job ? job.s : await store.loadConversation(id);
   if (!record) {
     showError(`That conversation could not be read from ${storage.label()}. Its file may have been moved or deleted outside the app.`);
     return;
@@ -810,7 +1241,7 @@ async function open(id) {
 /* Asks twice, in place, as Reading's Delete does: a conversation cost
    several calls. */
 async function remove(id) {
-  if (working && session && session.id === id) return;
+  if (out.has(id) || (working && session && session.id === id)) return;
   clearTimeout(disarm);
   if (armed !== id) {
     armed = id;
@@ -843,13 +1274,13 @@ function renderQuota() {
   const part = (label, u) => `${label} ${u.usedDay}/${u.rpd || '∞'}${u.retryAfter > 0 ? ` (waits ${formatWait(u.retryAfter)})` : ''}`;
   el.textContent = `${part('conversation', c)} · ${part('feedback', g)} in 24h`;
   el.className = 'quota ' + (c.retryAfter > 0 || g.retryAfter > 0 ? 'is-bad' : 'is-ok');
-  if (!session) renderStart();
-  else renderInput();
+  renderStart();
+  if (session && session.kind === 'live') { if (working !== 'talking') renderLive(); } else if (session) renderInput();
   /* Why Send or End is greyed out, said beside them rather than only in a
      tooltip. A call is refused while its model is out of budget, never
      queued, so the turn waits in the box until then. */
   const wait = $('cv-wait');
-  const blocked = session && !session.ended && !working
+  const blocked = session && !session.ended && !busy()
     ? [c, g].find((u) => u.retryAfter > 0) : null;
   wait.hidden = !blocked;
   if (blocked) wait.textContent = `${blocked.model} is out of budget for now: next call in ${formatWait(blocked.retryAfter)}.`;
@@ -857,8 +1288,19 @@ function renderQuota() {
   $('cv-end').title = `One call on ${s.conversationGradeModel}`;
 }
 
-function showError(text, withRetry = false) {
+/* `at` is where the wait was shown: the Start row for the scene, the end of
+   the chat for anything a thinking bubble stood for (a reply, a transcript,
+   the feedback), the live stage's status line, the Speak row for the
+   microphone. The error takes that spot (errorSpot), so a failure at the
+   foot of a long conversation is seen where the bubble was, not above the
+   scene. The Try again button goes with it. */
+let placeError = () => {};
+const CHAT = () => $('cv-chat');
+const SPEAK = () => $('cv-record').closest('.row');
+
+function showError(text, withRetry = false, at = null) {
   const el = $('cv-error');
+  placeError(text ? at : null);
   el.innerHTML = text
     ? `<div class="banner is-bad">${escapeHtml(text)}${withRetry ? ' <button class="btn btn--sm" data-act="retry">Try again</button>' : ''}</div>`
     : '';
