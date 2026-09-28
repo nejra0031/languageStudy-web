@@ -8,7 +8,6 @@ a folder you choose where the browser allows it, and the only thing that ever
 leaves the machine is a request to Google, signed with your own API key.
 
 **[Open the app →](https://nejra0031.github.io/languageStudy-web/)**
-*(live once GitHub Pages is enabled: Settings → Pages → deploy from `main`, root)*
 
 ---
 
@@ -1258,11 +1257,58 @@ anything under `js/` or `css/` changes, replace that version everywhere it
 appears in `index.html`. A new module also needs a line in the import map. The
 tests fail if either is forgotten.
 
+## Contributing
+
+`main` is the live site, so every change reaches it through a pull request,
+the owner's included. GitHub enforces the steps below; skipping one gets the
+push or the merge refused rather than quietly accepted.
+
+1. **Branch from an up-to-date `main`, named `<your-username>/<topic>`.**
+   GitHub refuses any other branch name.
+   ```sh
+   git switch main && git pull
+   git switch -c yourname/writing-hints
+   ```
+2. **Commit one logical change at a time.** An imperative subject line
+   ("Add a word count to Writing"), then a few sentences on why the change is
+   right and what it deliberately leaves alone. Change the README in the same
+   commit as anything a user will notice, and bump the version as described
+   above if `js/` or `css/` changed.
+3. **Run the tests, push, and open a pull request against `main`.**
+   ```sh
+   node --test "test/*.test.mjs"
+   git push -u origin yourname/writing-hints
+   gh pr create --fill              # or open it on github.com; --draft while unfinished
+   ```
+   Every push runs the tests on GitHub Actions and shows the result on the
+   pull request.
+4. **Merge once it is green.** The merge button unlocks when the `test` check
+   has passed on the latest commit and the branch is up to date with `main`.
+   If `main` has moved on, press **Update branch**, which merges `main` into
+   yours and runs the tests again. Pull requests are merged with a merge
+   commit, so your commits land on `main` exactly as you wrote them, and the
+   branch is deleted afterwards.
+   ```sh
+   git switch main && git pull
+   git branch -d yourname/writing-hints
+   ```
+
+**Work in parts?** Stack the pull requests: branch part 2 from part 1's
+branch and open its pull request with part 1's branch as the base
+(`gh pr create --base yourname/part-1`). Merge them from the bottom up; after
+each merge GitHub points the next one at `main`, and Update branch brings it
+level. Because nothing is squashed or rebased, no one ever needs to
+force-push.
+
+**Don't rename a branch that has an open pull request.** GitHub closes the
+pull request, and it cannot be reopened on the new name.
+
 ## Layout
 
 ```
 index.html            the page
 css/app.css           one stylesheet
+js/app.js             boots the page, switches tabs, starts the selection popup
 js/text.js            comparison, diacritics, word diff
 js/lookup.js          selection → card: direction, matching, the sentence around it
 js/translate.js       the one Google Translate request
@@ -1279,6 +1325,7 @@ js/live-audio.js      the microphone as 16 kHz PCM, the model's voice, the recor
 js/live-session.js    one live conversation, from Start talking to the recording
 js/deck.js            deck format, scoring, card selection
 js/speech.js          the device's own voices, for reading words aloud
+js/azure-tts.js       Azure's neural voices, optional, with your own key
 js/recorder.js        the microphone: MediaRecorder, and releasing it again
 js/shadowing.js       building a set, laying out the grading call, reading it back
 js/shadow-rules.js    shadowing's listening rules: seeding, rating, revising, undo
@@ -1288,6 +1335,7 @@ js/error-spot.js      where a tab's error goes: in place of what you were waitin
 js/opus.js            dictation audio as Ogg Opus, through the browser's encoder
 js/convert-audio.js   turning a bank's older WAV sentences into Ogg, in place
 js/bundle.js          the export/import file format
+js/backup-due.js      when to remind someone on browser storage to take a backup
 js/zip.js             just enough zip to write and read a backup
 js/storage.js         the store: layout, files, and which backend is live
 js/fs-folder.js       backend — a folder the user picked (Chromium)
