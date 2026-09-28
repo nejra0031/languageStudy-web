@@ -18,6 +18,10 @@ python3 -m http.server 8000        # preview; modules do not load from file://
 node --test "test/*.test.mjs"      # unit tests, Node's built-in runner
 ```
 
+GitHub Actions runs the same tests on every push and pull request
+(`.github/workflows/test.yml`), and `main` accepts only commits whose `test`
+job passed. Contributors' branches take a prefix, `<username>/<topic>`.
+
 ## How the code is laid out
 
 - `app.js` boots the page and switches tabs. Each `tab-*.js` owns one panel and
