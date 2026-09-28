@@ -270,7 +270,7 @@ test('a model that refuses thinkingConfig with a bare 400 is retried without it,
     return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] }), { status: 200 });
   };
   try {
-    let settings = withDefaults({ textModel: 'lite', models: [{ id: 'lite' }, { id: 'flash' }] });
+    let settings = withDefaults({ textModel: 'lite', rulesModel: 'lite', models: [{ id: 'lite' }, { id: 'flash' }] });
     const client = createClient({
       getSettings: () => settings,
       getApiKey: () => 'k',
@@ -286,7 +286,7 @@ test('a model that refuses thinkingConfig with a bare 400 is retried without it,
 
     /* Another model still gets thinking turned off. */
     sent.length = 0;
-    settings = withDefaults({ ...settings, textModel: 'flash' });
+    settings = withDefaults({ ...settings, rulesModel: 'flash' });
     await client.draftShadowRules();
     assert.deepEqual(sent, [{ model: 'flash', thinking: true }]);
   } finally {

@@ -35,12 +35,21 @@ import { attachableClips, toBase64 } from './shadowing.js';
 import { rulesFor, formatRulesBlock } from './shadow-rules.js';
 
 export const KINDS = ['roleplay', 'findout'];
+/* Your turns in a conversation, unless the conversationTurns setting says
+   otherwise. A conversation keeps the number it started with, as maxTurns,
+   so a change in Settings never moves the end of one already under way. */
 export const MAX_LEARNER_TURNS = 6;
+
+export function turnsOf(session) {
+  const n = Number(session && session.maxTurns);
+  return Number.isInteger(n) && n >= 2 ? n : MAX_LEARNER_TURNS;
+}
 
 /* The most one typed turn takes. A turn is a line or two of speech. */
 export const MAX_TURN_TEXT = 1000;
 
-/* How many cards a scene is written around. */
+/* How many cards a scene is written around, unless the conversationTerms
+   setting says otherwise. */
 export const CONVERSATION_TERMS = 5;
 
 const MAX_SCENE = 600;
@@ -49,12 +58,12 @@ const MAX_LINE = 1200;
 
 /* ── the cost, said up front ─────────────────────────────────────────── */
 
-/* How many replies the other person gives. A roleplay's sixth turn is
-   answered by the closing call, so the conversation model answers five; a
-   find-out answers all six, since a question left unanswered could not
-   find anything out. */
-export function repliesNeeded(kind) {
-  return kind === 'findout' ? MAX_LEARNER_TURNS : MAX_LEARNER_TURNS - 1;
+/* How many replies the other person gives in `turns` turns of yours. A
+   roleplay's last turn is answered by the closing call, so the replies
+   model answers one fewer; a find-out answers every one, since a question
+   left unanswered could not find anything out. */
+export function repliesNeeded(kind, turns = MAX_LEARNER_TURNS) {
+  return kind === 'findout' ? turns : turns - 1;
 }
 
 /* Every call a typed conversation of this kind makes, by model: one on the
@@ -70,9 +79,9 @@ export function callsNeeded(settings, kind) {
     const hit = out.find((r) => r.model === model);
     if (hit) { hit.count += count; hit.jobs.push(label); } else out.push({ model, count, jobs: [label] });
   };
-  add('textModel', 'the scene', 1);
-  add('chatModel', 'the replies', repliesNeeded(kind));
-  add('gradeModel', 'the feedback', 1);
+  add('sceneModel', 'the scene', 1);
+  add('chatModel', 'the replies', repliesNeeded(kind, settings.conversationTurns || MAX_LEARNER_TURNS));
+  add('conversationGradeModel', 'the feedback', 1);
   return out;
 }
 
@@ -98,6 +107,7 @@ export function budgetProblem(settings, kind, usage) {
 
 export function scenarioVars(settings, kind, cards, request) {
   return {
+    factCount: settings.conversationFacts || 4,
     kind: kind === 'findout' ? 'find-out' : 'roleplay',
     language: settings.targetLanguage,
     level: settings.learnerLevel,
@@ -117,11 +127,12 @@ export function unquote(line) {
 }
 
 /* The scene as the reply gave it, or null for anything malformed: a field
-   missing, fewer than three facts, a fact with no label or no answer. Ids
-   are made strings and must be unique; a fifth fact and beyond is dropped.
+   missing, a fact with no label or no answer, or more than one fact fewer
+   than the `factCount` asked for (and never fewer than two). Ids are made
+   strings and must be unique; facts beyond the count are dropped.
    `detail` is kept on the session, for the other person and for the end,
    and the tab does not show it until then. */
-export function readScenario(reply, kind) {
+export function readScenario(reply, kind, factCount = 4) {
   const p = extractTrailingJson(reply);
   if (!p || typeof p !== 'object') return null;
   const studentRole = text(p.studentRole, MAX_ROLE);
@@ -145,9 +156,9 @@ export function readScenario(reply, kind) {
     if (!label || !detail || ids.has(id)) continue;
     ids.add(id);
     facts.push({ id, label, detail });
-    if (facts.length === 4) break;
+    if (facts.length === factCount) break;
   }
-  if (facts.length < 3) return null;
+  if (facts.length < Math.max(2, factCount - 1)) return null;
   return { situation, studentRole, llmRole, goal, facts, openingLine };
 }
 
@@ -191,7 +202,7 @@ export function roleplayReplyRequest(settings, session, cards) {
     level: settings.learnerLevel,
     languageNote: settings.languageNote || '',
     turn: learnerTurns(session),
-    maxTurns: MAX_LEARNER_TURNS,
+    maxTurns: turnsOf(session),
     terms: cards.length ? readingTermListing(cards) : '(none)',
   });
   const transcript = session.turns.map((t) => `${roleOf(session, t)}: ${t.text}`).join('\n');
@@ -318,7 +329,7 @@ export function findOutReplyRequest(settings, session) {
     level: settings.learnerLevel,
     languageNote: settings.languageNote || '',
     facts: factSheet(sc.facts),
-    left: MAX_LEARNER_TURNS - learnerTurns(session),
+    left: turnsOf(session) - learnerTurns(session),
     remaining: remaining.length
       ? `They have not yet asked about: ${remaining.map((f) => f.label).join('; ')}. Do not steer them there and do not mention that anything is missing.`
       : 'They have already found out everything you know, so simply carry the conversation on pleasantly.',

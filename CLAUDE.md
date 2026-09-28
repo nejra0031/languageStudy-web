@@ -56,16 +56,31 @@ job passed. Contributors' branches take a prefix, `<username>/<topic>`.
   list and the starter deck. Settings from disk are merged over it, so a new
   key needs only a default here.
 - `gemini.js` talks to the Gemini API from the page with the user's key, and
-  counts calls per model locally before any request goes out. The jobs are
-  `MODEL_ROLES` in `defaults.js`; a mode added after the first four calls
-  `jobCall(job, …)`, which refuses before spending and makes exactly one call.
+  counts calls per model locally before any request goes out. Every call
+  site is a job of its own in `MODEL_ROLES` (`defaults.js`): key, label, what
+  it does, the Settings section its dropdown sits in, and the job an older
+  settings file gives it the model of. A new call gets a new job there, and
+  goes through `jobCall(job, …)`, which refuses before spending and makes
+  exactly one call; `store.jobUsage(job)` is its budget.
   Grading prompts without `{feedback}` get the Feedback language and style
   block appended by `withFeedbackBlock`. What the speech
   model is given is built by `speechText`, which adds the register or dialect
   note for audio in code, so a rewritten speech prompt cannot drop it.
+- `tab-settings.js` is one accordion: a `<details data-acc>` per section,
+  and a Prompts panel inside some, whose open state is kept in localStorage
+  (`lsw.settingsOpen`), never in `settings.json`. A section's job dropdowns
+  are drawn from `MODEL_ROLES` into its `data-roles` element; its prompts are
+  listed in `PROMPT_VIEWS` with a preview function in `PREVIEWS`. A new
+  setting goes in the section of the mode it belongs to, with a default in
+  `defaults.js` and a line in that section's summary (`renderSummaries`).
+  Anything with `data-open-sec="<section>"`, on any tab, opens that section.
 - `speech.js` is the device's own text-to-speech, not Gemini: free, instant,
   offline. `azure-tts.js` is Azure's neural voices, optional, with the user's
-  own key, called from the page like Gemini. `recorder.js` is the microphone.
+  own key, called from the page like Gemini. Which reads is the
+  `speechSource` switch ('device' or 'azure'); each side keeps its own pick
+  (`speechVoice`, `azureVoice`), `voiceSetting(settings)` is what a caller
+  passes to `speak()`, and `voiceStatus` is the plain function behind the
+  line that says what will actually read and why. `recorder.js` is the microphone.
 - `zip.js` and `bundle.js` are the two backups: a zip laid out like the data
   folder (keeps the audio), and one readable JSON file (decks and settings).
   `backup-due.js` decides when to remind someone using browser storage to
@@ -102,8 +117,9 @@ job passed. Contributors' branches take a prefix, `<username>/<topic>`.
   again). `tab-writing.js` is the task, the box and the feedback; its
   `scoreVerdicts` and `cardsResultHtml` are shared with the other graded
   modes. Every hand-in is kept in `writing/`.
-- `translation.js` is Translate's pure logic: a set of six drawn from the
-  bank in Shadowing's order (a checked set shows every sentence), the
+- `translation.js` is Translate's pure logic: a set (`translateItems`, six
+  by default) drawn from the bank in `translateOrder`, Shadowing's order by
+  default since a checked set shows every sentence, the
   request (every item, blanks included, keyed by id), reading the array
   back (`null` if it is not one; an item without a verdict is ungraded), and
   `translationScores`, which decides what moves. The bank is only read.
@@ -115,7 +131,9 @@ job passed. Contributors' branches take a prefix, `<username>/<topic>`.
   text), its closing call (line and feedback in one) and its early end; a
   find-out's replies (with `revealed`, run through `normaliseIds`) and its
   conclusion, where found and missed are worked out in code. Only learner
-  turns are graded. A spoken turn is recorded with `recorder.js`, written to
+  turns are graded. A session stores its number of turns as `maxTurns` when
+  it starts (`turnsOf`), so a change in Settings never moves the end of one
+  under way. A spoken turn is recorded with `recorder.js`, written to
   `conversation/<id>_<position>.<ext>` as soon as it stops, transcribed by
   the shadowing model (`transcribeRequest`; an empty transcript spends no
   turn), and a roleplay with recordings is graded by the shadowing model

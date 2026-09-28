@@ -3,7 +3,9 @@
 
 import * as storage from './storage.js';
 import * as store from './store.js';
-import { VOICES, MODEL_ROLES, rolesUsing, DEFAULT_SETTINGS } from './defaults.js';
+import {
+  VOICES, MODEL_ROLES, SPEECH_ROLES, rolesIn, rolesUsing, DEFAULT_SETTINGS,
+} from './defaults.js';
 import {
   fillTemplate, sentenceVars, notesVars, formatWait, GeminiError, QuotaError, shadowSystem, speechText,
 } from './gemini.js';
@@ -61,10 +63,258 @@ export function init() {
   store.subscribe('bank', () => renderBankConvert());
   wireBackupDue();
   wireBankConvert();
+  wireSections();
+  wireTyping();
+  wireResetAll();
   render();
   renderStore();
   renderQuota();
   setInterval(renderQuota, 1000);
+  store.subscribe('folder', renderSummaries);
+  store.subscribe('ready', openProblems);
+}
+
+/* ── the sections ────────────────────────────────────────────────────── */
+
+/* Every section, and the Prompts panel inside some of them, is a <details>
+   named by data-acc. Which are open is a convenience of this browser, not
+   part of the setup, so it is kept in localStorage — never in
+   settings.json, where it would travel with the data folder and a bundle.
+   A first visit opens API keys only. */
+const OPEN_KEY = 'lsw.settingsOpen';
+let openState = {};
+/* While a search is filtering the page, opening and closing is the search's
+   doing and is not remembered. */
+let searching = false;
+
+function readOpen() {
+  try {
+    const v = JSON.parse(localStorage.getItem(OPEN_KEY));
+    return v && typeof v === 'object' && !Array.isArray(v) ? v : null;
+  } catch (e) { return null; }
+}
+
+function writeOpen() {
+  try { localStorage.setItem(OPEN_KEY, JSON.stringify(openState)); } catch (e) { /* ignore */ }
+}
+
+function allDetails() {
+  return [...document.querySelectorAll('#panel-settings details[data-acc]')];
+}
+
+function sections() {
+  return [...document.querySelectorAll('#panel-settings details.sec')];
+}
+
+function wireSections() {
+  openState = readOpen() || { keys: true };
+  for (const d of allDetails()) {
+    d.open = !!openState[d.dataset.acc];
+    d.addEventListener('toggle', () => {
+      if (searching) return;
+      if (!!openState[d.dataset.acc] === d.open) return;
+      openState[d.dataset.acc] = d.open;
+      writeOpen();
+    });
+  }
+  $('sec-open-all').addEventListener('click', () => setAll(true));
+  $('sec-close-all').addEventListener('click', () => setAll(false));
+  $('sec-search').addEventListener('input', (e) => search(e.target.value));
+  $('api-key').addEventListener('change', renderSummaries);
+}
+
+/* The sections, not the Prompts panels inside them: expanding everything
+   should not unroll fourteen prompts. */
+function setAll(open) {
+  clearSearch();
+  for (const d of sections()) {
+    d.open = open;
+    openState[d.dataset.acc] = open;
+  }
+  writeOpen();
+}
+
+/* Shows only the sections whose words match, opened, and a Prompts panel
+   too when the match is inside it. Clearing it puts back what was open. */
+function search(query) {
+  const q = String(query || '').trim().toLowerCase();
+  searching = !!q;
+  let any = false;
+  for (const d of sections()) {
+    if (!q) {
+      d.hidden = false;
+      d.open = !!openState[d.dataset.acc];
+      for (const p of d.querySelectorAll('details[data-acc]')) p.open = !!openState[p.dataset.acc];
+      continue;
+    }
+    const hit = d.textContent.toLowerCase().includes(q);
+    d.hidden = !hit;
+    if (!hit) continue;
+    any = true;
+    d.open = true;
+    for (const p of d.querySelectorAll('details[data-acc]')) {
+      if (p.textContent.toLowerCase().includes(q)) p.open = true;
+    }
+  }
+  /* A group heading with nothing left under it goes too. */
+  for (const h of document.querySelectorAll('#panel-settings .sec-group')) {
+    let el = h.nextElementSibling;
+    let shown = false;
+    while (el && !el.classList.contains('sec-group')) {
+      if (el.matches('details.sec') && !el.hidden) shown = true;
+      el = el.nextElementSibling;
+    }
+    h.hidden = !shown;
+  }
+  $('sec-none').hidden = !q || any;
+}
+
+function clearSearch() {
+  if (!searching) return;
+  $('sec-search').value = '';
+  search('');
+}
+
+/* Opened from elsewhere: a link on another tab, or a note on this one. */
+export function openSection(name) {
+  clearSearch();
+  const d = document.querySelector(`#panel-settings details.sec[data-acc="${name}"]`);
+  if (!d) return;
+  d.open = true;
+  d.scrollIntoView({ block: 'start', behavior: 'smooth' });
+}
+
+/* Once the store is read: a section that needs attention opens itself —
+   API keys when there is no Gemini key, and any section holding a prompt
+   that has lost something it needs, with its Prompts panel. What the
+   learner closed afterwards stays closed. */
+let problemsShown = false;
+function openProblems() {
+  if (problemsShown) return;
+  problemsShown = true;
+  if (!storage.getApiKey()) openQuietly(document.querySelector('details.sec[data-acc="keys"]'));
+  for (const warn of document.querySelectorAll('#panel-settings .prompt-warn')) {
+    if (warn.hidden) continue;
+    openQuietly(warn.closest('details.sec-prompts'));
+    openQuietly(warn.closest('details.sec'));
+  }
+}
+
+function openQuietly(d) {
+  if (d) d.open = true;
+}
+
+/* One line under each closed section's title, so the setup can be read
+   without opening anything. Sections whose line was already drawn by their
+   own code (Your data, Add from selected text, Shadowing) are not here. */
+const SCOPE_LABEL = { weak: 'weak cards', developing: 'weak and developing', all: 'all cards', accents: 'accents' };
+const ORDER_LABEL = { dictated: 'dictated first', fresh: 'not yet dictated first', random: 'random order' };
+const DIRECTION_LABEL = { 'front-to-back': 'front → back', 'back-to-front': 'back → front', random: 'mixed' };
+
+/* An Azure voice by its display name once the list is in ("NamMinh"),
+   by its short name before; the first voice when none is chosen. */
+function azureLabel(name) {
+  const voices = speech.azureStatus().voices;
+  const hit = name ? voices.find((v) => v.name === name) : voices[0];
+  return hit ? hit.label : name || 'first voice';
+}
+
+function renderSummaries() {
+  const s = store.state.settings;
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  const lines = {
+    keys: [storage.getApiKey() ? 'Gemini key set' : 'no Gemini key', azure.getKey() ? 'Azure key set' : ''],
+    models: [plural(s.models.length, 'model'), plural(MODEL_ROLES.length, 'job')],
+    language: [s.targetLanguage, s.learnerLevel],
+    feedback: [String(s.feedbackRequest || '').trim() || 'English'],
+    voice: s.speechSource === 'azure'
+      ? ['Azure', azureLabel(s.azureVoice), `${speech.clampRate(s.speechRate)}×`]
+      : ['this device', s.speechVoice || (speech.voicesFor(speech.languageCode(s.targetLanguage))[0] || {}).name || 'best available', `${speech.clampRate(s.speechRate)}×`],
+    typing: [SCOPE_LABEL[s.typingScope], DIRECTION_LABEL[s.typingDirection] || s.typingDirection, s.typingSpeak ? 'read aloud' : 'silent'],
+    dictation: [SCOPE_LABEL[s.dictationScope], `${s.sentenceWords.min}–${s.sentenceWords.max} words`, `${s.termsPerSentence} per sentence`, plural(s.voices.length, 'voice'), s.textModel],
+    reading: [SCOPE_LABEL[s.readingScope], plural(s.readingTerms, 'card'), `${s.readingPatternShare}% patterns`, s.readingModel],
+    writing: [SCOPE_LABEL[s.writingScope], `${s.writingWords.min}–${s.writingWords.max} words`, plural(s.writingTerms, 'card'), s.writingGradeModel],
+    translate: [plural(s.translateItems, 'sentence'), ORDER_LABEL[s.translateOrder], s.translateModel],
+    conversation: [plural(s.conversationTurns, 'turn'), plural(s.conversationTerms, 'card'), plural(s.conversationFacts, 'fact'), `replies ${s.chatModel}`],
+  };
+  for (const [name, parts] of Object.entries(lines)) {
+    const el = $(`sum-${name}`);
+    if (el) el.textContent = parts.filter(Boolean).join(' · ');
+  }
+}
+
+/* The practice modes' own options, one control each: [id, settings key,
+   kind]. A number is saved as it is typed, and withDefaults() holds it to
+   the range in NUMBER_RANGES, which is what the control then shows; so an
+   out-of-range number snaps back rather than being refused. Several of
+   these are also set on their tab (a filter, the direction, the kind of
+   conversation), and each is one setting, whichever place changes it. */
+const MODE_FIELDS = [
+  ['set-typing-scope', 'typingScope', 'select'],
+  ['set-typing-direction', 'typingDirection', 'select'],
+  ['set-typing-speak', 'typingSpeak', 'check'],
+  ['set-dictation-scope', 'dictationScope', 'select'],
+  ['set-shadow-scope', 'shadowScope', 'select'],
+  ['set-reading-scope', 'readingScope', 'select'],
+  ['set-reading-terms', 'readingTerms', 'int'],
+  ['set-reading-patterns', 'readingPatternShare', 'int'],
+  ['set-writing-scope', 'writingScope', 'select'],
+  ['set-writing-terms', 'writingTerms', 'int'],
+  ['set-writing-share', 'writingSummaryShare', 'int'],
+  ['set-translate-items', 'translateItems', 'int'],
+  ['set-translate-order', 'translateOrder', 'select'],
+  ['set-translate-blank', 'translateBlankWrong', 'check'],
+  ['set-conversation-kind', 'conversationKind', 'select'],
+  ['set-conversation-scope', 'conversationScope', 'select'],
+  ['set-conversation-turns', 'conversationTurns', 'int'],
+  ['set-conversation-terms', 'conversationTerms', 'int'],
+  ['set-conversation-facts', 'conversationFacts', 'int'],
+];
+
+function wireTyping() {
+  for (const [id, key, kind] of MODE_FIELDS) {
+    $(id).addEventListener('change', async (e) => {
+      const el = e.target;
+      const value = kind === 'check' ? el.checked : kind === 'int' ? Number(el.value) : el.value;
+      await store.saveSettings({ [key]: value });
+      /* Put back what was kept, in case it was held to its range. */
+      renderTyping();
+      renderPreview();
+    });
+  }
+}
+
+function renderTyping() {
+  const s = store.state.settings;
+  for (const [id, key, kind] of MODE_FIELDS) {
+    const el = $(id);
+    if (document.activeElement === el) continue;
+    if (kind === 'check') el.checked = !!s[key];
+    else el.value = String(s[key]);
+  }
+}
+
+/* Every prompt back to this build's default, asked twice in place: fourteen
+   prompts may hold a lot of editing. */
+let resetArmed = false;
+let resetDisarm = 0;
+function wireResetAll() {
+  const btn = $('prompts-reset-all');
+  btn.addEventListener('click', async () => {
+    clearTimeout(resetDisarm);
+    if (!resetArmed) {
+      resetArmed = true;
+      btn.textContent = 'Really reset every prompt?';
+      resetDisarm = setTimeout(() => { resetArmed = false; btn.textContent = 'Reset every prompt'; }, 4000);
+      return;
+    }
+    resetArmed = false;
+    btn.textContent = 'Reset every prompt';
+    for (const name of PROMPT_VIEWS) $(`set-prompt-${name}`).value = DEFAULT_SETTINGS.prompts[name];
+    await store.saveSettings({ prompts: { ...store.state.settings.prompts, ...DEFAULT_SETTINGS.prompts } });
+    renderPreview();
+    $('prompts-reset-note').textContent = `All ${PROMPT_VIEWS.length} prompts are back to their defaults.`;
+  });
 }
 
 /* ── where data is saved ─────────────────────────────────────────────── */
@@ -548,6 +798,8 @@ function render() {
     if (document.activeElement !== el) el.value = s.prompts[name];
   }
   renderModels();
+  renderTyping();
+  renderSummaries();
   renderLookup();
   renderVoices();
   renderShadowing();
@@ -654,15 +906,15 @@ const PREVIEWS = {
     })),
   ],
   reading: (draft, sample) => [
-    `── to ${draft.textModel} ──`,
+    `── to ${draft.readingModel} ──`,
     fillTemplate(draft.prompts.reading, readingVars(draft, sample, draft.readingRequest)),
   ],
   writingBrief: (draft, sample) => [
-    `── to ${draft.textModel} ──`,
+    `── to ${draft.writingBriefModel} ──`,
     fillTemplate(draft.prompts.writingBrief, briefVars(draft, sample)),
   ],
   writingGrade: (draft, sample) => [
-    `── to ${draft.gradeModel}, as the system instruction ──`,
+    `── to ${draft.writingGradeModel}, as the system instruction ──`,
     writingGradeSystem(draft),
     '',
     '── then, as the message ──',
@@ -672,7 +924,7 @@ const PREVIEWS = {
     }),
   ],
   translationGrade: (draft, sample) => [
-    `── to ${draft.gradeModel}, as the system instruction ──`,
+    `── to ${draft.translateModel}, as the system instruction ──`,
     translationGradeSystem(draft),
     '',
     '── then, as the message, one block per sentence in the set ──',
@@ -681,7 +933,7 @@ const PREVIEWS = {
     }], ['<what you wrote>'], draft.targetLanguage),
   ],
   scenario: (draft, sample) => [
-    `── to ${draft.textModel} ──`,
+    `── to ${draft.sceneModel} ──`,
     fillTemplate(draft.prompts.scenario, scenarioVars(draft, 'roleplay', sample, draft.conversationRequest)),
   ],
   roleplayReply: (draft, sample) => {
@@ -694,15 +946,15 @@ const PREVIEWS = {
   },
   conversationGrade: (draft, sample) => {
     const r = roleplayGradeRequest(draft, SAMPLE_ROLEPLAY, sample, { closing: true });
-    return [`── to ${draft.gradeModel}, as the system instruction (after your sixth turn) ──`, r.system, '', '── then, as the message ──', r.user];
+    return [`── to ${draft.conversationGradeModel}, as the system instruction (after the last turn) ──`, r.system, '', '── then, as the message ──', r.user];
   },
   transcribe: (draft) => {
     const r = transcribeRequest(draft, SAMPLE_ROLEPLAY, { mime: 'audio/webm', base64: '…' });
-    return [`── to ${draft.shadowModel}, as the system instruction ──`, r.system, '', '── then, as the message ──', r.parts[0].text, '(then your recording)'];
+    return [`── to ${draft.listenModel}, as the system instruction ──`, r.system, '', '── then, as the message ──', r.parts[0].text, '(then your recording)'];
   },
   findOutGrade: (draft, sample) => {
     const r = findOutGradeRequest(draft, SAMPLE_FIND_OUT, sample);
-    return [`── to ${draft.gradeModel}, as the system instruction ──`, r.system, '', '── then, as the message ──', r.user];
+    return [`── to ${draft.conversationGradeModel}, as the system instruction ──`, r.system, '', '── then, as the message ──', r.user];
   },
 };
 
@@ -803,17 +1055,6 @@ function draftSettings() {
 
 /* ── the models, and what each one does ──────────────────────────────── */
 
-/* Which <select> carries which job. defaults.js names the jobs; this is the
-   only place that knows what they look like on the page. */
-const ROLE_FIELD = {
-  textModel: 'set-textmodel',
-  ttsModel: 'set-ttsmodel',
-  shadowModel: 'set-shadowmodel',
-  notesModel: 'set-notesmodel',
-  gradeModel: 'set-grademodel',
-  chatModel: 'set-chatmodel',
-};
-
 /* A row typed into but not yet stored. A model with no id is not a model, so
    Add a model cannot write one into the settings — it puts an empty row on the
    page and waits to see what is typed in it. */
@@ -838,12 +1079,14 @@ function wireModels() {
     setModelStatus('Type the model id exactly as Google spells it, then give it its limits.', '');
   });
 
-  for (const [key] of MODEL_ROLES) {
-    $(ROLE_FIELD[key]).addEventListener('change', async (e) => {
-      await store.saveSettings({ [key]: e.target.value });
-      renderPreview();
-    });
-  }
+  /* A job's dropdown can be anywhere on the page — each sits in the
+     section of the mode it belongs to — so one listener serves them all. */
+  $('panel-settings').addEventListener('change', async (e) => {
+    const sel = e.target.closest('select[data-role]');
+    if (!sel) return;
+    await store.saveSettings({ [sel.dataset.role]: sel.value });
+    renderPreview();
+  });
 }
 
 /* An id, a per-minute limit or a per-day limit, committed on blur. The three
@@ -1019,15 +1262,36 @@ function modelRow(model, at, jobs) {
   </div>`;
 }
 
+/* What a job is called inside its own section, where the section's name
+   would only be said twice: "Replies model" under Conversation. */
+const ROLE_SHORT = {
+  textModel: 'Sentences', ttsModel: 'Speech', shadowModel: 'Listening', rulesModel: 'Listening rules',
+  readingModel: 'Texts', readingSpeechModel: 'Reading aloud', writingBriefModel: 'Questions',
+  writingGradeModel: 'Feedback', translateModel: 'Feedback', sceneModel: 'Scenes', chatModel: 'Replies',
+  conversationGradeModel: 'Feedback', listenModel: 'Listening', notesModel: 'Notes',
+};
+
+/* Every element marked data-roles="<section>" holds that section's jobs,
+   one labelled dropdown each, drawn from MODEL_ROLES; "*" holds them all.
+   The dropdowns are built once and then only refilled, so one that is open
+   is not rebuilt under the pointer. */
 function renderRoles() {
   const s = store.state.settings;
+  for (const box of document.querySelectorAll('[data-roles]')) {
+    if (box.dataset.drawn) continue;
+    const rows = box.dataset.roles === '*' ? MODEL_ROLES : rolesIn(box.dataset.roles);
+    box.innerHTML = rows.map(([key, label, does]) => `<label class="field"><span>${escapeAttr(ROLE_SHORT[key] || label)} model</span>
+        <select data-role="${key}"></select>
+        <em class="field-sub">${escapeAttr(does)}</em>
+      </label>`).join('');
+    box.dataset.drawn = '1';
+  }
   const options = s.models
     .map((m) => `<option value="${escapeAttr(m.id)}">${escapeAttr(m.id)}</option>`)
     .join('');
-  for (const [key] of MODEL_ROLES) {
-    const sel = $(ROLE_FIELD[key]);
+  for (const sel of document.querySelectorAll('select[data-role]')) {
     if (sel.innerHTML !== options) sel.innerHTML = options;
-    sel.value = s[key];
+    sel.value = s[sel.dataset.role];
   }
   $('roles-hint').textContent =
     `${plural(MODEL_ROLES.length, 'job')} across ${plural(new Set(MODEL_ROLES.map(([k]) => s[k])).size, 'model')}`;
@@ -1040,10 +1304,12 @@ function renderRoles() {
     .map(([m, jobs]) => `${sentenceList(jobs).toLowerCase()} both run on ${m.id}, out of its one allowance`);
 
   const el = $('roles-status');
-  if (!/tts|speech|audio/i.test(s.ttsModel)) {
-    /* A guess, and said as one — but the wrong model here is the expensive
-       mistake to make quietly: only the TTS models return audio at all. */
-    el.textContent = `${s.ttsModel} does not look like a speech model. Only Google's TTS models return audio, so the dictation tab would get a text reply it cannot play.`;
+  /* A guess, and said as one — but the wrong model here is the expensive
+     mistake to make quietly: only the TTS models return audio at all. */
+  const mute = SPEECH_ROLES.filter((key) => !/tts|speech|audio/i.test(s[key]));
+  if (mute.length) {
+    const labels = mute.map((key) => MODEL_ROLES.find((r) => r[0] === key)[1]);
+    el.textContent = `${sentenceList(mute.map((key) => s[key]))} ${mute.length === 1 ? 'does' : 'do'} not look like a speech model, but ${sentenceList(labels)} must return audio. Only Google's TTS models do, so that job would get a text reply it cannot play.`;
     el.className = 'status is-warn';
     return;
   }
@@ -1194,9 +1460,14 @@ function renderQuota() {
 /* The browser's own voices, used by the Typing tab. Nothing here touches
    Gemini or the API budget — see speech.js. */
 function wireSpeech() {
-  $('set-speech-voice').addEventListener('change', (e) => {
-    store.saveSettings({ speechVoice: e.target.value });
+  /* The switch, and a voice picker for each side: each side keeps its own
+     choice, so switching back and forth loses neither. */
+  $('set-speech-source').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-source]');
+    if (btn) store.saveSettings({ speechSource: btn.dataset.source });
   });
+  $('set-speech-voice').addEventListener('change', (e) => store.saveSettings({ speechVoice: e.target.value }));
+  $('set-azure-voice').addEventListener('change', (e) => store.saveSettings({ azureVoice: e.target.value }));
   const rate = $('set-speech-rate');
   Object.assign(rate, { min: speech.RATE.min, max: speech.RATE.max, step: speech.RATE.step });
   /* The label follows the thumb; the setting is saved once it is let go. */
@@ -1207,7 +1478,7 @@ function wireSpeech() {
     const card = store.practiceCards().find((c) => c.front) || null;
     const text = card ? card.front.replace(/\([^)]*\)/g, ' ') : 'Xin chào';
     const s = store.state.settings;
-    speech.speak(text, speech.languageCode(s.targetLanguage), { voice: s.speechVoice, rate: s.speechRate });
+    speech.speak(text, speech.languageCode(s.targetLanguage), { voice: speech.voiceSetting(s), rate: s.speechRate });
   });
   store.subscribe('settings', renderSpeech);
   speech.onVoicesChanged(renderSpeech);
@@ -1248,53 +1519,51 @@ function wireAzure() {
 function renderSpeech() {
   const s = store.state.settings;
   const code = speech.languageCode(s.targetLanguage);
-  const list = speech.voicesFor(code);
-  const sel = $('set-speech-voice');
-  const chosen = s.speechVoice || '';
-  const cloud = speech.azureStatus().voices.map((v) => speech.AZURE_PREFIX + v.name);
-  const missing = chosen && !list.some((v) => v.name === chosen) && !cloud.includes(chosen);
-  const any = speech.canSpeak(code);
-  sel.innerHTML = speech.voiceOptions(code, chosen);
-  sel.value = chosen;
-  sel.disabled = !any;
+  const azureSide = s.speechSource === 'azure';
+  for (const b of $('set-speech-source').querySelectorAll('button')) {
+    b.setAttribute('aria-pressed', String(b.dataset.source === s.speechSource));
+  }
+  /* Only the chosen side's controls are shown, so what is on screen is what
+     is in use. */
+  $('voice-device').hidden = azureSide;
+  $('voice-azure').hidden = !azureSide;
+
+  const device = speech.voicesFor(code).map((v) => v.name);
+  fillVoice($('set-speech-voice'), speech.voiceOptions(code, s.speechVoice, 'device'), s.speechVoice);
+  $('set-speech-voice').disabled = !device.length;
+  fillVoice($('set-azure-voice'), speech.voiceOptions(code, s.azureVoice, 'azure'), s.azureVoice);
+
+  const any = speech.canSpeak(code, s.speechSource);
   $('speech-sample').disabled = !any;
   const rate = $('set-speech-rate');
   if (document.activeElement !== rate) rate.value = speech.clampRate(s.speechRate);
   $('set-speech-rate-val').textContent = speech.rateLabel(rate.value);
   rate.disabled = !any;
 
-  const el = $('speech-status');
-  if (!code) {
-    el.textContent = `"${s.targetLanguage}" is not a language name this app knows a code for — try its English name, or a code such as "vi".`;
-    el.className = 'status is-warn';
-  } else if (!list.length && !any) {
-    el.textContent = `No ${s.targetLanguage} voice is installed on this device, so nothing is read aloud.`;
-    el.className = 'status is-warn';
-  } else if (!list.length) {
-    el.textContent = `No ${s.targetLanguage} voice on this device.`;
-    el.className = 'status is-warn';
-  } else if (missing) {
-    el.textContent = chosen.startsWith(speech.AZURE_PREFIX)
-      ? (speech.azureStatus().key
-        ? `${chosen.slice(speech.AZURE_PREFIX.length)} cannot be reached right now: words already saved still play in it, and new ones are read by the device voice.`
-        : `${chosen.slice(speech.AZURE_PREFIX.length)} is an Azure voice and needs your key, so the device voice reads instead.`)
-      : `"${chosen}" is not installed on this device, so ${list[0] ? list[0].name : 'the best available'} is used instead.`;
-    el.className = 'status is-warn';
-  } else {
-    el.textContent = `${list.length} ${s.targetLanguage} voice${list.length === 1 ? '' : 's'} installed.`;
-    el.className = 'status is-ok';
-  }
-
-  /* What Azure is doing, after what the device has. */
   const az = speech.azureStatus();
-  if (az.key && az.problem) {
-    el.textContent += `  ·  ${az.problem}`;
-    el.className = 'status is-warn';
-  } else if (az.key && az.voices.length) {
-    el.textContent += `  ·  Azure: ${az.voices.length} ${s.targetLanguage} voice${az.voices.length === 1 ? '' : 's'} (${az.voices.map((v) => v.label).join(', ')}) · ${az.saved} word${az.saved === 1 ? '' : 's'} saved, played without calling Azure again.`;
-  } else if (az.key && az.code) {
-    el.textContent += `  ·  Azure has no ${s.targetLanguage} voice.`;
+  const { text, level } = speech.voiceStatus({
+    source: s.speechSource,
+    language: s.targetLanguage,
+    code,
+    device,
+    chosenDevice: s.speechVoice,
+    azure: az,
+    chosenAzure: s.azureVoice,
+  });
+  const el = $('speech-status');
+  el.textContent = text;
+  el.className = `status is-${level}`;
+  renderSummaries();
+}
+
+/* A voice picker refilled only when its options change, so one that is
+   open is not rebuilt under the pointer. */
+function fillVoice(sel, html, value) {
+  if (sel.dataset.drawn !== html) {
+    sel.innerHTML = html;
+    sel.dataset.drawn = html;
   }
+  sel.value = value || '';
 }
 
 function escapeAttr(s) {

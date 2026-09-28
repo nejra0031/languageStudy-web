@@ -19,7 +19,7 @@ import * as store from './store.js';
 import * as storage from './storage.js';
 import { recordResult, SCORE_LABEL } from './deck.js';
 import {
-  TRANSLATION_ITEMS, MAX_ANSWER, pickTranslationItems, translationScores, cleanAnswer,
+  MAX_ANSWER, pickTranslationItems, translationScores, cleanAnswer,
 } from './translation.js';
 import { escapeHtml, scoreMark } from './text.js';
 import { formatWait } from './gemini.js';
@@ -130,7 +130,8 @@ function renderPool() {
 
 function drawSet() {
   stopPlayer();
-  items = pickTranslationItems(inScope(), TRANSLATION_ITEMS, store.findCard);
+  const s = store.state.settings;
+  items = pickTranslationItems(inScope(), s.translateItems, store.findCard, s.translateOrder);
   answers = items.map(() => '');
   results = null;
   moves = null;
@@ -161,7 +162,8 @@ function render() {
   }
   idle.hidden = true;
   $('tr-card').hidden = false;
-  const short = items.length < TRANSLATION_ITEMS;
+  const want = store.state.settings.translateItems;
+  const short = items.length < want;
   $('tr-short').hidden = !short;
   $('tr-short').textContent = short
     ? `Only ${items.length} banked sentence${items.length === 1 ? ' is' : 's are'} in scope, so this set has ${items.length}. Dictation's New sentence adds more.`
@@ -226,7 +228,7 @@ function renderSummary() {
 function renderCheck() {
   const btn = $('tr-check');
   if (busy) return;
-  const g = store.quotaReport().grade;
+  const g = store.jobUsage('translateModel');
   btn.disabled = !!results || !answers.some((a) => cleanAnswer(a)) || g.retryAfter > 0 || !storage.getApiKey();
   btn.hidden = !!results;
   const wait = $('tr-wait');
@@ -270,7 +272,7 @@ async function check() {
 async function score(set, got, typed) {
   const out = new Map();
   const touched = [];
-  for (const { item, card, ok } of translationScores(got, set, typed)) {
+  for (const { item, card, ok } of translationScores(got, set, typed, { blankWrong: store.state.settings.translateBlankWrong })) {
     const c = set[item].cards[card];
     const found = c && store.findCard(c.front, c.deck);
     if (!found) continue;
@@ -306,7 +308,7 @@ function stopPlayer() {
 
 function renderQuota() {
   if (!isActive()) return;
-  const g = store.quotaReport().grade;
+  const g = store.jobUsage('translateModel');
   const el = $('tr-quota');
   const usage = `feedback ${g.usedDay}/${g.rpd || '∞'} in 24h`;
   if (g.retryAfter > 0) {

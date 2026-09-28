@@ -114,28 +114,48 @@ export function voiceFor(code, name = '') {
   return (name && list.find((v) => v.name === name)) || list[0] || null;
 }
 
-export function canSpeak(code) {
-  return !!voiceFor(code) || azureVoicesFor(code).length > 0;
+/* The one voice setting speak() takes, from the settings: which source
+   reads (speechSource, the switch in Settings) and that source's own
+   choice, so switching back and forth keeps each side's pick. An Azure
+   choice is "azure:<ShortName>", or a bare "azure:" for the first Azure
+   voice there is; a device choice is the voice's name, or '' for the best
+   installed. */
+export function voiceSetting(settings) {
+  if (settings && settings.speechSource === 'azure') return AZURE_PREFIX + String(settings.azureVoice || '');
+  return String((settings && settings.speechVoice) || '');
+}
+
+/* Whether anything can read this language from this source: the device
+   needs an installed voice; Azure needs a key and a voice for the language,
+   and without one the device reads, so a device voice counts too. */
+export function canSpeak(code, source = 'device') {
+  if (source === 'azure' && azure.getKey() && azureVoicesFor(code).length) return true;
+  return !!voiceFor(code);
 }
 
 /* Speaks text, cutting off anything still being said. Returns false when
-   there is no voice for the language. An Azure voice is used when one is
-   chosen and a key is set — or when the device has no voice for the
-   language at all. */
+   there is no voice for the language. `voice` is voiceSetting(): an Azure
+   voice is used when that is the source and a key is set, and the device's
+   voice otherwise — including when Azure is chosen but cannot be used,
+   which Settings says in so many words. */
 export function speak(text, code, { rate = 1, voice: name = '' } = {}) {
   if (!text) return false;
-  const azureVoices = azureVoicesFor(code);
-  const wanted = name.startsWith(AZURE_PREFIX) ? name.slice(AZURE_PREFIX.length) : '';
-  /* A chosen Azure voice is spoken with straight away, without waiting for
-     the voice list: the list arrives a moment after boot, and the first card
-     is read before then — by the device's voice, which is the wrong one.
-     Its name carries its locale ("vi-VN-NamMinhNeural"), which is all a
-     request needs; the list is only for the picker. */
-  const pick = (wanted && (azureVoices.find((v) => v.name === wanted) || azureVoiceFromName(wanted, code)))
-    || (!voiceFor(code) && azureVoices[0]) || null;
-  if (pick && azure.getKey()) {
-    speakAzure(String(text), pick, rate, code);
-    return true;
+  if (name.startsWith(AZURE_PREFIX) && azure.getKey()) {
+    const wanted = name.slice(AZURE_PREFIX.length);
+    const azureVoices = azureVoicesFor(code);
+    /* A chosen Azure voice is spoken with straight away, without waiting for
+       the voice list: the list arrives a moment after boot, and the first
+       card is read before then — by the device's voice, which is the wrong
+       one. Its name carries its locale ("vi-VN-NamMinhNeural"), which is all
+       a request needs; the list is only for the picker. With no choice, the
+       first Azure voice for the language reads, once the list is in. */
+    const pick = wanted
+      ? (azureVoices.find((v) => v.name === wanted) || azureVoiceFromName(wanted, code))
+      : azureVoices[0] || null;
+    if (pick) {
+      speakAzure(String(text), pick, rate, code);
+      return true;
+    }
   }
   return speakDevice(text, code, rate, name);
 }
@@ -243,24 +263,63 @@ export function rateLabel(rate) {
   return `${Number(clampRate(rate).toFixed(2))}×`;
 }
 
-/* The <option>s for a voice picker: "Best available" first, then every
-   installed voice for the language, and the chosen one kept on the list
-   even when this device lacks it, so picking on one machine is not undone
-   by opening the app on another. */
-export function voiceOptions(code, chosen = '') {
+/* The <option>s for one source's voice picker. The device's: "Best
+   available" first, then every installed voice for the language. Azure's:
+   "First voice" first, then every Azure voice for the language, by the
+   short name the option's value carries without its prefix. The chosen one
+   is kept on the list even when it is not available here, so picking on
+   one machine is not undone by opening the app on another. */
+export function voiceOptions(code, chosen = '', source = 'device') {
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  if (source === 'azure') {
+    const cloud = azure.getKey() ? azureVoicesFor(code) : [];
+    const missing = chosen && !cloud.some((v) => v.name === chosen);
+    return [
+      `<option value="">First voice${cloud[0] ? ` (${esc(cloud[0].label)})` : ''}</option>`,
+      ...cloud.map((v) => `<option value="${esc(v.name)}">${esc(v.label)} · ${esc(v.locale)}${v.gender ? ` · ${esc(v.gender.toLowerCase())}` : ''}</option>`),
+      ...(missing ? [`<option value="${esc(chosen)}">${esc(chosen)} · ${cloud.length ? 'not offered for this language' : 'not loaded'}</option>`] : []),
+    ].join('');
+  }
   const list = voicesFor(code);
-  const cloud = azure.getKey() ? azureVoicesFor(code) : [];
-  const known = [...list.map((v) => v.name), ...cloud.map((v) => AZURE_PREFIX + v.name)];
-  const missing = chosen && !known.includes(chosen);
-  const best = list[0] ? list[0].name : cloud[0] ? `${cloud[0].label} · Azure` : '';
-  const device = list.map((v) => `<option value="${esc(v.name)}">${esc(v.name)} · ${esc(v.lang)}${v.localService ? '' : ' · online'}</option>`);
-  const neural = cloud.map((v) => `<option value="${esc(AZURE_PREFIX + v.name)}">${esc(v.label)} · ${esc(v.locale)}${v.gender ? ` · ${esc(v.gender.toLowerCase())}` : ''}</option>`);
+  const missing = chosen && !list.some((v) => v.name === chosen);
   return [
-    `<option value="">Best available${best ? ` (${esc(best)})` : ''}</option>`,
-    ...(neural.length ? [`<optgroup label="This device">`, ...device, '</optgroup>', `<optgroup label="Azure neural voices (your key)">`, ...neural, '</optgroup>'] : device),
-    ...(missing ? [`<option value="${esc(chosen)}">${esc(chosen.replace(AZURE_PREFIX, ''))} · ${chosen.startsWith(AZURE_PREFIX) ? 'needs your Azure key' : 'not installed here'}</option>`] : []),
+    `<option value="">Best available${list[0] ? ` (${esc(list[0].name)})` : ''}</option>`,
+    ...list.map((v) => `<option value="${esc(v.name)}">${esc(v.name)} · ${esc(v.lang)}${v.localService ? '' : ' · online'}</option>`),
+    ...(missing ? [`<option value="${esc(chosen)}">${esc(chosen)} · not installed here</option>`] : []),
   ].join('');
+}
+
+/* The line under Read-aloud voice: what will actually read, said plainly,
+   with anything in the way. A plain function of what is known, so every
+   case can be tested:
+
+     source        'device' or 'azure', the switch
+     language      the target language's name, for the words
+     code          its language code, '' when the name is not one we know
+     device        the installed voices' names for it, best first
+     chosenDevice  the device side's pick, '' for the best
+     azure         {key, voices: [{name, label}], problem, saved, code}
+     chosenAzure   the Azure side's pick, '' for the first
+
+   Returns {text, level}, level being 'ok' or 'warn'. */
+export function voiceStatus({ source, language, code, device = [], chosenDevice = '', azure: az = {}, chosenAzure = '' }) {
+  const warn = (text) => ({ text, level: 'warn' });
+  if (!code) return warn(`"${language}" is not a language name this app knows a code for — try its English name, or a code such as "vi".`);
+  const fallback = device.length ? `your device's voice (${chosenDevice && device.includes(chosenDevice) ? chosenDevice : device[0]}) reads instead` : `and this device has no ${language} voice either, so nothing is read aloud`;
+  if (source === 'azure') {
+    if (!az.key) return warn(`Azure is chosen but there is no Azure key yet: enter one above. Until then ${fallback}.`);
+    if (az.problem) return warn(`Azure could not be used: ${az.problem} Until it can, ${fallback}.`);
+    if (!az.voices || !az.voices.length) {
+      return warn(az.code ? `Azure has no ${language} voice, so ${fallback}.` : `Press Load voices to fetch Azure's ${language} voices. Until then ${fallback}.`);
+    }
+    const picked = chosenAzure && az.voices.find((v) => v.name === chosenAzure);
+    if (chosenAzure && !picked) return warn(`${chosenAzure} is not one of Azure's ${language} voices, so the first one, ${az.voices[0].label}, reads.`);
+    const who = picked ? picked.label : az.voices[0].label;
+    return { text: `Azure reads, with ${who}. ${az.voices.length} ${language} voice${az.voices.length === 1 ? '' : 's'} to choose from; ${az.saved || 0} word${az.saved === 1 ? '' : 's'} saved, played without calling Azure again.`, level: 'ok' };
+  }
+  if (!device.length) return warn(`No ${language} voice is installed on this device, so nothing is read aloud. Install one (see above), or switch to Azure.`);
+  if (chosenDevice && !device.includes(chosenDevice)) return warn(`"${chosenDevice}" is not installed on this device, so ${device[0]} reads instead.`);
+  return { text: `This device reads, with ${chosenDevice || device[0]}. ${device.length} ${language} voice${device.length === 1 ? '' : 's'} installed.`, level: 'ok' };
 }
 
 /* A saved clip if there is one; otherwise Azure, and the answer saved. */

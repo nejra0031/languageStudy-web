@@ -6,7 +6,7 @@
 <title>Language Study</title>
 <meta name="description" content="Flashcards, typing practice and AI dictation for any language. Your own API key, your own files, no accounts and no server.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230f1117'/><rect x='3' y='3' width='10' height='10' fill='%23d4b455'/></svg>">
-<link rel="stylesheet" href="css/app.css?v=2026-09-27.5">
+<link rel="stylesheet" href="css/app.css?v=2026-09-27.13">
 <!-- Cache-busting. GitHub Pages lets a browser keep any file for ten minutes,
      so without this a deploy can leave you with a new index.html and an old
      module, or the reverse, and the page fails to start. Every module is
@@ -18,41 +18,41 @@
 <script type="importmap">
 {
   "imports": {
-    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-27.5",
-    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-27.5",
-    "./js/bundle.js": "./js/bundle.js?v=2026-09-27.5",
-    "./js/conversation.js": "./js/conversation.js?v=2026-09-27.5",
-    "./js/convert-audio.js": "./js/convert-audio.js?v=2026-09-27.5",
-    "./js/deck.js": "./js/deck.js?v=2026-09-27.5",
-    "./js/defaults.js": "./js/defaults.js?v=2026-09-27.5",
-    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-27.5",
-    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-27.5",
-    "./js/gemini.js": "./js/gemini.js?v=2026-09-27.5",
-    "./js/json-reply.js": "./js/json-reply.js?v=2026-09-27.5",
-    "./js/lookup.js": "./js/lookup.js?v=2026-09-27.5",
-    "./js/lookup-popup.js": "./js/lookup-popup.js?v=2026-09-27.5",
-    "./js/opus.js": "./js/opus.js?v=2026-09-27.5",
-    "./js/reading.js": "./js/reading.js?v=2026-09-27.5",
-    "./js/recorder.js": "./js/recorder.js?v=2026-09-27.5",
-    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-27.5",
-    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-27.5",
-    "./js/speech.js": "./js/speech.js?v=2026-09-27.5",
-    "./js/storage.js": "./js/storage.js?v=2026-09-27.5",
-    "./js/store.js": "./js/store.js?v=2026-09-27.5",
-    "./js/tab-conversation.js": "./js/tab-conversation.js?v=2026-09-27.5",
-    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-27.5",
-    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-27.5",
-    "./js/tab-reading.js": "./js/tab-reading.js?v=2026-09-27.5",
-    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-27.5",
-    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-27.5",
-    "./js/tab-translate.js": "./js/tab-translate.js?v=2026-09-27.5",
-    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-27.5",
-    "./js/tab-writing.js": "./js/tab-writing.js?v=2026-09-27.5",
-    "./js/text.js": "./js/text.js?v=2026-09-27.5",
-    "./js/translate.js": "./js/translate.js?v=2026-09-27.5",
-    "./js/translation.js": "./js/translation.js?v=2026-09-27.5",
-    "./js/writing.js": "./js/writing.js?v=2026-09-27.5",
-    "./js/zip.js": "./js/zip.js?v=2026-09-27.5"
+    "./js/azure-tts.js": "./js/azure-tts.js?v=2026-09-27.13",
+    "./js/backup-due.js": "./js/backup-due.js?v=2026-09-27.13",
+    "./js/bundle.js": "./js/bundle.js?v=2026-09-27.13",
+    "./js/conversation.js": "./js/conversation.js?v=2026-09-27.13",
+    "./js/convert-audio.js": "./js/convert-audio.js?v=2026-09-27.13",
+    "./js/deck.js": "./js/deck.js?v=2026-09-27.13",
+    "./js/defaults.js": "./js/defaults.js?v=2026-09-27.13",
+    "./js/fs-folder.js": "./js/fs-folder.js?v=2026-09-27.13",
+    "./js/fs-opfs.js": "./js/fs-opfs.js?v=2026-09-27.13",
+    "./js/gemini.js": "./js/gemini.js?v=2026-09-27.13",
+    "./js/json-reply.js": "./js/json-reply.js?v=2026-09-27.13",
+    "./js/lookup.js": "./js/lookup.js?v=2026-09-27.13",
+    "./js/lookup-popup.js": "./js/lookup-popup.js?v=2026-09-27.13",
+    "./js/opus.js": "./js/opus.js?v=2026-09-27.13",
+    "./js/reading.js": "./js/reading.js?v=2026-09-27.13",
+    "./js/recorder.js": "./js/recorder.js?v=2026-09-27.13",
+    "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-27.13",
+    "./js/shadowing.js": "./js/shadowing.js?v=2026-09-27.13",
+    "./js/speech.js": "./js/speech.js?v=2026-09-27.13",
+    "./js/storage.js": "./js/storage.js?v=2026-09-27.13",
+    "./js/store.js": "./js/store.js?v=2026-09-27.13",
+    "./js/tab-conversation.js": "./js/tab-conversation.js?v=2026-09-27.13",
+    "./js/tab-dictation.js": "./js/tab-dictation.js?v=2026-09-27.13",
+    "./js/tab-flashcards.js": "./js/tab-flashcards.js?v=2026-09-27.13",
+    "./js/tab-reading.js": "./js/tab-reading.js?v=2026-09-27.13",
+    "./js/tab-settings.js": "./js/tab-settings.js?v=2026-09-27.13",
+    "./js/tab-shadowing.js": "./js/tab-shadowing.js?v=2026-09-27.13",
+    "./js/tab-translate.js": "./js/tab-translate.js?v=2026-09-27.13",
+    "./js/tab-typing.js": "./js/tab-typing.js?v=2026-09-27.13",
+    "./js/tab-writing.js": "./js/tab-writing.js?v=2026-09-27.13",
+    "./js/text.js": "./js/text.js?v=2026-09-27.13",
+    "./js/translate.js": "./js/translate.js?v=2026-09-27.13",
+    "./js/translation.js": "./js/translation.js?v=2026-09-27.13",
+    "./js/writing.js": "./js/writing.js?v=2026-09-27.13",
+    "./js/zip.js": "./js/zip.js?v=2026-09-27.13"
   }
 }
 </script>
@@ -95,9 +95,17 @@
 <section class="panel" id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
 <div class="wrap">
 
-  <div class="block">
-    <div class="block-head"><h2>Where your data lives</h2><span class="hint" id="store-hint"></span></div>
-    <div class="block-body">
+  <div class="sec-tools">
+    <input type="search" id="sec-search" placeholder="Find a setting" aria-label="Find a setting" spellcheck="false">
+    <button class="btn btn--sm" id="sec-open-all">Expand all</button>
+    <button class="btn btn--sm" id="sec-close-all">Collapse all</button>
+  </div>
+  <p class="note sec-none" id="sec-none" hidden>No setting matches that.</p>
+
+  <h2 class="sec-group">General</h2>
+  <details class="sec" data-acc="data" id="sec-data">
+    <summary><span class="sec-title">Your data</span><span class="sec-sum" id="store-hint"></span></summary>
+    <div class="sec-body">
       <p class="note">Your decks, your settings and the audio the dictation tab generates all stay on this device. Nothing is uploaded and there is no account. <strong>Saving starts immediately, in this browser's own storage</strong> — you need not set anything up. It is kept across reloads, but only for as long as this page's site data lasts.</p>
       <p class="note"><strong>Chrome and Edge</strong> can do better: pick a folder and the same files sit on disk where you can see them, copy them, and put them inside Drive or Dropbox for sync. Choosing a folder moves everything already saved into it; disconnecting moves it back. <strong>Firefox and Safari</strong> have no folder picker, so browser storage is the whole story there.</p>
       <div class="row">
@@ -128,27 +136,27 @@
           <button class="btn btn--sm" id="import-cancel">Cancel</button>
         </div>
       </div>
-    </div>
     <div class="status" id="store-status">Working out where this browser can save.</div>
-  </div>
-
-  <div class="block">
-    <div class="block-head"><h2>Gemini API key</h2><span class="hint">needed for everything the model does</span></div>
-    <div class="block-body">
+    </div>
+  </details>
+  <details class="sec" data-acc="keys" id="sec-keys">
+    <summary><span class="sec-title">API keys</span><span class="sec-sum" id="sum-keys"></span></summary>
+    <div class="sec-body">
       <p class="note">Dictation, Shadowing, Reading, Writing, Translate and Conversation call the Gemini API directly from this page with <strong>your</strong> key. It is stored in this browser's local storage, never alongside your decks, so it cannot end up in a git commit, and it is sent to nobody but Google. Get one free at <code>aistudio.google.com/apikey</code>.</p>
       <label class="field"><span>API key</span>
         <input type="password" id="api-key" placeholder="AIza…" autocomplete="off" spellcheck="false">
       </label>
       <div class="row">
         <button class="btn" id="key-test">Test key</button>
-        <span class="note" id="key-test-note">Spends one text-model call from today's budget.</span>
+        <span class="note" id="key-test-note">Spends one call on the Dictation model from today's budget.</span>
       </div>
+      <p class="note">The <strong>Azure Speech key</strong>, for Azure's read-aloud voices, is set under <a href="#sec-voice" data-open-sec="voice">Read-aloud voice</a>, where it is used. It is kept in this browser only too.</p>
     </div>
-  </div>
-
-  <div class="block">
-    <div class="block-head"><h2>Models</h2><span class="hint" id="models-hint"></span></div>
-    <div class="block-body">
+  </details>
+  <details class="sec" data-acc="models" id="sec-models">
+    <summary><span class="sec-title">Models and budget</span><span class="sec-sum" id="sum-models"></span></summary>
+    <div class="sec-body">
+      <h3 class="sec-sub">Models <span class="hint" id="models-hint"></span></h3>
       <p class="note">Every Gemini model you use, listed once each. <strong>The limits belong to the model, not to the job it is doing</strong> — Google counts calls per model, so a model given two jobs below draws both of them from the one allowance you enter here, and typing it twice would only be a way of lying to yourself about what is left.</p>
       <div class="model-list" id="model-list"></div>
       <div class="row">
@@ -156,42 +164,25 @@
         <span class="note">A model doing a job cannot be removed; give the job to something else first.</span>
       </div>
       <p class="note"><strong>Calls / min</strong> and <strong>calls / day</strong> are counted in this browser before a request goes out, so you never discover a limit by being refused by Google. The windows roll over the last minute and the last 24 hours rather than resetting at midnight, so the day's budget trickles back an hour at a time. <strong>0 means unlimited</strong> — the right answer for a paid key, and the one case where Google gets to be the one who says no. The defaults are the free tier.</p>
-    </div>
     <div class="status" id="models-status"></div>
-  </div>
-
-  <div class="block">
-    <div class="block-head"><h2>What each model does</h2><span class="hint" id="roles-hint"></span></div>
-    <div class="block-body">
-      <div class="grid">
-        <label class="field"><span>Text — writes sentences and reading texts</span>
-          <select id="set-textmodel"></select>
-        </label>
-        <label class="field"><span>Speech — reads it aloud</span>
-          <select id="set-ttsmodel"></select>
-        </label>
-        <label class="field"><span>Shadowing — listens to you</span>
-          <select id="set-shadowmodel"></select>
-        </label>
-        <label class="field"><span>Notes — writes card notes</span>
-          <select id="set-notesmodel"></select>
-        </label>
-        <label class="field"><span>Feedback — grades writing, translations and conversations</span>
-          <select id="set-grademodel"></select>
-        </label>
-        <label class="field"><span>Conversation — plays the other side</span>
-          <select id="set-chatmodel"></select>
-        </label>
-      </div>
-      <p class="note">Pick the same model for two jobs and they share its allowance, exactly as they already do at Google's end. Speech is the one that really has to differ: only the TTS models return audio. Conversation suits a flash-lite model with a bigger daily allowance: one conversation spends five or six of its calls, each a line or two.</p>
+      <h3 class="sec-sub">Who does what <span class="hint" id="roles-hint"></span></h3>
+      <p class="note">Each job's model is chosen in the section of the mode it belongs to: Dictation's in Dictation, Conversation's four in Conversation, and so on. The list above says which jobs each model is doing.</p>
+      <p class="note">Pick the same model for two jobs and they share its allowance, exactly as they already do at Google's end. The two speech jobs are the ones that really have to differ: only the TTS models return audio. Conversation replies suit a flash-lite model with a bigger daily allowance: one conversation spends five or six of its calls, each a line or two.</p>
       <p class="note">If a model ID is wrong the API's own error is shown verbatim, so a 404 here means exactly that. There is deliberately no hidden fallback list: the model that answers is the one you typed, and nothing quietly spends on another.</p>
-    </div>
     <div class="status" id="roles-status"></div>
-  </div>
-
-  <div class="block">
-    <div class="block-head"><h2>Language</h2><span class="hint">feeds the prompts</span></div>
-    <div class="block-body">
+      <h3 class="sec-sub">Call budget <span class="hint" id="quota-hint"></span></h3>
+      <p class="note">What has actually been spent, against the limits set under Models. One line per model, not per job, because that is how the counting works: two jobs on one model run one counter down together.</p>
+      <div class="usage" id="quota-usage"></div>
+      <div class="row">
+        <button class="btn btn--sm btn--danger" id="quota-reset">Reset budget</button>
+        <span class="note">Clears the local count. It does not reset Google's.</span>
+      </div>
+    <div class="status" id="quota-status"></div>
+    </div>
+  </details>
+  <details class="sec" data-acc="language" id="sec-language">
+    <summary><span class="sec-title">Language</span><span class="sec-sum" id="sum-language"></span></summary>
+    <div class="sec-body">
       <div class="grid">
         <label class="field"><span>Target language</span>
           <input type="text" id="set-language" placeholder="Vietnamese" spellcheck="false">
@@ -207,23 +198,66 @@
         <input type="text" id="set-speech-note" placeholder="Southern Vietnamese accent, relaxed everyday speech.">
       </label>
       <p class="note">The first note shapes the words the text model writes. The audio note is added to every request that makes audio with a Gemini voice, the dictation sentences and a Reading text read aloud, as a line of direction before the text. Your device's own voice and Azure voices do not use it.</p>
-      <div class="grid grid--tight">
-        <label class="field"><span>Words min</span><input type="number" id="set-wmin" min="2" max="60"></label>
-        <label class="field"><span>Words max</span><input type="number" id="set-wmax" min="3" max="80"></label>
-        <label class="field"><span>Terms per sentence</span><input type="number" id="set-terms" min="1" max="6"></label>
-      </div>
-      <div class="grid grid--tight">
-        <label class="field"><span>Writing words min</span><input type="number" id="set-writing-min" min="5" max="1000"></label>
-        <label class="field"><span>Writing words max</span><input type="number" id="set-writing-max" min="10" max="1000"></label>
-      </div>
-      <p class="note">The first three are for a dictation sentence. The writing words are how long an opinion piece on the Writing tab should be; a summary asks for about two thirds of that, more for a long text and less for a short one.</p>
       <p class="note">Any language the model writes is fine; type its English name. Answer checking is language-agnostic: it compares accents and diacritics exactly, and aligns words with them stripped, which works the same for Vietnamese tones, Spanish acutes and German umlauts.</p>
     </div>
-  </div>
+  </details>
+  <details class="sec" data-acc="feedback" id="sec-feedback">
+    <summary><span class="sec-title">Feedback</span><span class="sec-sum" id="sum-feedback"></span></summary>
+    <div class="sec-body">
+      <label class="field"><span>Feedback language and style</span>
+        <input type="text" id="set-feedback-request" placeholder="English">
+      </label>
+      <p class="note">How every note and every piece of feedback should be written, in your own words: Shadowing's notes, and the feedback in Writing, Translate and Conversation. A language (<em>English</em>), several (<em>English and Vietnamese</em>), or more than that (<em>English, avoid technical terms</em>, <em>Vietnamese, with an English summary at the end</em>). The words you are practising are always quoted as written. Left empty, the notes are in English.</p>
+    </div>
+  </details>
+  <details class="sec" data-acc="voice" id="sec-voice">
+    <summary><span class="sec-title">Read-aloud voice</span><span class="sec-sum" id="sum-voice"></span></summary>
+    <div class="sec-body">
+      <p class="note">What reads words aloud in <strong>Typing</strong>, and the flashcard lines in <strong>Shadowing</strong>. Neither choice is Gemini, and neither spends anything from your Gemini budget. Dictation and Reading have Gemini voices of their own, in their sections.</p>
+      <div class="field">
+        <span>Read with</span>
+        <div class="seg" id="set-speech-source" role="group" aria-label="What reads words aloud">
+          <button type="button" data-source="device" aria-pressed="true">This device</button>
+          <button type="button" data-source="azure" aria-pressed="false">Azure neural voices</button>
+        </div>
+      </div>
 
-  <div class="block">
-    <div class="block-head"><h2>Add from selected text</h2><span class="hint" id="lookup-hint"></span></div>
-    <div class="block-body">
+      <div id="voice-device">
+        <p class="note"><strong>This device</strong>: the voices that come with your operating system. Free, instant and offline. Only voices for your target language are listed. To add one on Windows: Settings → Time &amp; language → Speech → Add voices. On a Mac: System Settings → Accessibility → Spoken Content → System voice → Manage Voices. Reload this page afterwards.</p>
+        <label class="field"><span>Device voice</span>
+          <select id="set-speech-voice"></select>
+        </label>
+      </div>
+
+      <div id="voice-azure" hidden>
+        <p class="note"><strong>Azure neural voices</strong>: Microsoft's natural-sounding voices, the same on every device, read with your own key from an Azure Speech resource. Its free tier covers 500,000 characters a month, and each word is fetched only once: the clip is saved with your data and played from there after that. The key is kept in this browser only, like the Gemini key. The README says how to make one. If Azure cannot be reached, a word is read by your device's voice instead, and the line under this section says why.</p>
+        <div class="row">
+          <label class="field" style="flex:2 1 240px"><span>Azure Speech key</span>
+            <input type="password" id="set-azure-key" placeholder="KEY 1 from Keys and Endpoint" autocomplete="off" spellcheck="false">
+          </label>
+          <label class="field" style="flex:1 1 140px"><span>Region</span>
+            <input type="text" id="set-azure-region" placeholder="southeastasia" autocomplete="off" spellcheck="false">
+          </label>
+          <button class="btn" id="azure-load" style="align-self:flex-end">Load voices</button>
+        </div>
+        <label class="field"><span>Azure voice</span>
+          <select id="set-azure-voice"></select>
+        </label>
+      </div>
+
+      <div class="row">
+        <label class="field" style="flex:1 1 200px"><span>Speed <b id="set-speech-rate-val"></b></span>
+          <input type="range" id="set-speech-rate" class="rate">
+        </label>
+        <button class="btn" id="speech-sample" style="align-self:flex-end">Play sample</button>
+      </div>
+    </div>
+    <div class="status" id="speech-status"></div>
+  </details>
+  <details class="sec" data-acc="lookup" id="sec-lookup">
+    <summary><span class="sec-title">Add from selected text</span><span class="sec-sum" id="lookup-hint"></span></summary>
+    <div class="sec-body">
+      <div class="grid" data-roles="lookup"></div>
       <p class="note">Select a word or a short phrase anywhere on the page, such as a new word in a dictation sentence, and a small form opens under it. It shows the word, its translation and an empty notes box, and <strong>Add</strong> puts the word into the deck below as a new card. If that deck already has the word, the form shows the card as it is stored and the button reads <strong>Update</strong>. Updating changes the meaning, the notes and whether the card is a grammar pattern, and keeps the card's score and history. Tick <strong>Grammar pattern</strong> for a construction such as <em>hễ … là …</em>; it ticks itself when the word has a <code>…</code> in it. You can select text in either language: text in your own language is taken as the meaning, and the word is looked up from it.</p>
       <div class="row">
         <label class="voice" style="flex:1 1 240px"><input type="checkbox" id="set-lookup-on"><span>Open a card form when I select text</span></label>
@@ -239,69 +273,88 @@
           <select id="set-lookup-deck"></select>
         </label>
       </div>
-      <p class="note"><strong>The translation comes from Google Translate</strong>, through the free public address its own website uses. It needs no key and spends nothing from your budget. It is also unofficial: Google can refuse it for a while, especially on a busy or shared network, and then the form says so and you type the meaning yourself. The selected text is sent to Google. <strong>Ask for notes</strong> is Gemini: it spends one call on the Notes model above and uses the notes prompt below.</p>
-    </div>
+      <p class="note"><strong>The translation comes from Google Translate</strong>, through the free public address its own website uses. It needs no key and spends nothing from your budget. It is also unofficial: Google can refuse it for a while, especially on a busy or shared network, and then the form says so and you type the meaning yourself. The selected text is sent to Google. <strong>Ask for notes</strong> is Gemini: it spends one call on the Notes model below and uses the notes prompt below it.</p>
     <div class="status" id="lookup-status"></div>
-  </div>
 
-  <div class="block">
-    <div class="block-head"><h2>Shadowing</h2><span class="hint" id="shadow-hint"></span></div>
-    <div class="block-body">
-      <p class="note">A set is some lines to read aloud and record. Both sources are drawn from what you already have, and <strong>nothing on the Shadowing tab ever writes a new sentence</strong> — the only thing that does is the Dictation tab's <em>New sentence</em> button, and both tabs share one bank, so whatever it makes is immediately shadowable.</p>
-      <div class="row">
-        <label class="voice" style="flex:1 1 240px"><input type="checkbox" id="set-shadow-cards"><span>Flashcards</span><em>read by your device's voice</em></label>
-        <label class="voice" style="flex:1 1 240px"><input type="checkbox" id="set-shadow-bank"><span>Sentence bank</span><em>read by the Gemini recording</em></label>
-      </div>
-      <div class="grid grid--tight">
-        <label class="field"><span>Lines per set</span><input type="number" id="set-shadow-items" min="1" max="30"></label>
-      </div>
-      <p class="note">Each hand-in costs <strong>one call</strong>, however many lines are in it, because every recording you choose goes up together. You can hand in a whole set at once, or part of it now and the rest later, or just one retake. A set is whatever is actually available up to the number above, and the tab says so when it comes up short. The call is spent on whichever model the shadowing job is given above, out of that model's own allowance.</p>
-      <label class="field"><span>Feedback language and style</span>
-        <input type="text" id="set-feedback-request" placeholder="English">
-      </label>
-      <p class="note">How the notes should be written, in your own words. A language (<em>English</em>), several (<em>English and Vietnamese</em>), or more than that (<em>English, avoid technical terms</em>, <em>Vietnamese, with an English summary at the end</em>). The words you are practising are always quoted as written. Left empty, the notes are in English.</p>
-      <label class="field"><span id="rules-label">Listening rules</span>
-        <textarea id="set-rules" rows="10" spellcheck="false" placeholder="None yet. They are drafted the first time you hand in a set in this language, or press Draft rules below."></textarea>
-      </label>
-      <p class="note" id="rules-meta"></p>
-      <div class="row">
-        <button class="btn btn--sm" id="rules-undo">Undo last change</button>
-        <button class="btn btn--sm" id="rules-draft">Draft rules</button>
-      </div>
-      <div class="grid grid--tight">
-        <label class="field"><span>Revise after this many rated notes</span><input type="number" id="set-revise-after" min="1" max="100"></label>
-      </div>
-      <p class="note">What the feedback listens for, one rule per line, for the language above only — every language keeps its own. A line starting <code>style:</code> is about how the notes are written rather than what is heard. The rules are drafted for your language the first time you hand in a set, and each note says which ones it applied. <strong>Rate the notes</strong> on the Shadowing tab, and once enough notes under one version are rated, with at least one not useful, the rules are rewritten from what you said. Drafting and revising spend one call each on the text model. A line you write or change here is yours: revisions keep it word for word.</p>
-      <p class="note"><strong>Shadowing prints the sentence in full</strong>, which a dictation deliberately hides. Sets prefer sentences you have already typed in Dictation, and Dictation prefers ones you have not yet shadowed, so the two tabs stay out of each other's way — but a sentence you shadow first is one whose dictation you have already read.</p>
-      <div class="row">
-        <button class="btn btn--sm btn--danger" id="shadow-wipe">Delete all recordings</button>
-        <span class="note" id="shadow-wipe-note">Removes every past set and every voice recording in them. The sentence bank is untouched.</span>
-      </div>
-    </div>
-    <div class="status" id="shadow-status"></div>
-  </div>
-
-  <div class="block">
-    <div class="block-head"><h2>Call budget</h2><span class="hint" id="quota-hint"></span></div>
-    <div class="block-body">
-      <p class="note">What has actually been spent, against the limits set under Models. One line per model, not per job, because that is how the counting works: two jobs on one model run one counter down together.</p>
-      <div class="usage" id="quota-usage"></div>
-      <div class="row">
-        <button class="btn btn--sm btn--danger" id="quota-reset">Reset budget</button>
-        <span class="note">Clears the local count. It does not reset Google's.</span>
-      </div>
-    </div>
-    <div class="status" id="quota-status"></div>
-  </div>
-
-  <div class="block">
-    <div class="block-head"><h2>Prompts</h2><span class="hint">exactly what gets sent</span></div>
-    <div class="block-body">
-      <p class="note">Switch any prompt to <strong>Preview</strong> to see it as it will be sent: filled in with your settings and three of your cards. The preview cannot be edited; switch back to Edit to change the prompt.</p>
+      <details class="sec-prompts" data-acc="lookup.prompts">
+        <summary>Prompts <span class="sec-count">1</span></summary>
+        <div class="sec-prompts-body">
+      <p class="note">Exactly what gets sent. Switch a prompt to <strong>Preview</strong> to see it filled in with your settings and a few of your cards; switch back to <strong>Edit</strong> to change it.</p>
 
       <div class="field">
         <div class="field-head">
-          <label for="set-prompt-sentence">Sentence prompt — text model</label>
+          <label for="set-prompt-notes">Notes prompt</label>
+          <div class="seg" role="group" aria-label="Show the notes prompt as" data-prompt="notes">
+            <button type="button" data-view="edit" aria-pressed="true">Edit</button>
+            <button type="button" data-view="preview" aria-pressed="false">Preview</button>
+          </div>
+        </div>
+        <textarea id="set-prompt-notes" rows="14" spellcheck="false"></textarea>
+        <textarea id="prompt-preview-notes" class="prompt-preview" rows="14" readonly spellcheck="false" aria-label="Notes prompt, as it will be sent" hidden></textarea>
+      </div>
+      <p class="note prompt-warn" id="prompt-warn-notes" hidden></p>
+      <p class="note">Sent when you press <em>Ask for notes</em> in the form that opens on selected text. Placeholders: <code>{language}</code> and <code>{nativeLanguage}</code>, the two languages under Add from selected text; <code>{front}</code> and <code>{back}</code>, the word and its meaning; <code>{context}</code>, the sentence the word was selected from; <code>{pattern}</code>, which for a grammar pattern asks for the construction to be explained and is empty otherwise; <code>{level}</code> and <code>{languageNote}</code>. The reply goes into the notes box exactly as it comes, so ask for plain text.</p>
+      <div class="row"><button class="btn btn--sm" id="prompt-notes-reset">Reset to default</button></div>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <h2 class="sec-group">Practice modes</h2>
+  <details class="sec" data-acc="typing" id="sec-typing">
+    <summary><span class="sec-title">Typing</span><span class="sec-sum" id="sum-typing"></span></summary>
+    <div class="sec-body">
+      <div class="grid">
+        <label class="field"><span>Cards to draw from</span>
+          <select id="set-typing-scope"><option value="weak">Weak</option><option value="developing">Weak and developing</option><option value="all">All</option><option value="accents">Accents: last missed on the marks alone</option></select>
+          <em class="field-sub">the filter the tab starts on; changing it on the tab changes it here</em>
+        </label>
+        <label class="field"><span>Direction</span>
+          <select id="set-typing-direction">
+            <option value="front-to-back">Front → back: see the word, type the meaning</option>
+            <option value="back-to-front">Back → front: see the meaning, type the word</option>
+            <option value="random">Mixed</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <label class="voice" style="flex:1 1 240px"><input type="checkbox" id="set-typing-speak"><span>Read the word aloud</span><em>with the voice below</em></label>
+      </div>
+      <p class="note">The voice that reads the word is set under <a href="#sec-voice" data-open-sec="voice">Read-aloud voice</a>, above: your device's own, or Azure's.</p>
+    </div>
+  </details>
+  <details class="sec" data-acc="dictation" id="sec-dictation">
+    <summary><span class="sec-title">Dictation</span><span class="sec-sum" id="sum-dictation"></span></summary>
+    <div class="sec-body">
+      <div class="grid" data-roles="dictation"></div>
+      <div class="grid">
+        <label class="field"><span>Cards to draw from</span>
+          <select id="set-dictation-scope"><option value="weak">Weak</option><option value="developing">Weak and developing</option><option value="all">All</option><option value="accents">Accents: last missed on the marks alone</option></select>
+          <em class="field-sub">the filter the tab starts on; changing it on the tab changes it here</em>
+        </label>
+      </div>
+      <div class="grid grid--tight">
+        <label class="field"><span>Words min</span><input type="number" id="set-wmin" min="2" max="60"></label>
+        <label class="field"><span>Words max</span><input type="number" id="set-wmax" min="3" max="80"></label>
+        <label class="field"><span>Terms per sentence</span><input type="number" id="set-terms" min="1" max="6"></label>
+      </div>
+      <p class="note">How long a dictation sentence is, and how many of your cards each one is written around.</p>
+      <h3 class="sec-sub">Gemini voices <span class="hint" id="voice-hint"></span></h3>
+      <p class="note">One is drawn at random for each new sentence, so listening practice is not always the same speaker. Untick the ones you would rather not hear. You cannot untick them all, since something has to read the sentence.</p>
+      <div class="row">
+        <button class="btn btn--sm" id="voice-all">Select all</button>
+        <button class="btn btn--sm" id="voice-none">Just one</button>
+      </div>
+      <div class="voice-grid" id="voice-grid"></div>
+
+      <details class="sec-prompts" data-acc="dictation.prompts">
+        <summary>Prompts <span class="sec-count">2</span></summary>
+        <div class="sec-prompts-body">
+      <p class="note">Exactly what gets sent. Switch a prompt to <strong>Preview</strong> to see it filled in with your settings and a few of your cards; switch back to <strong>Edit</strong> to change it.</p>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="set-prompt-sentence">Sentence prompt</label>
           <div class="seg" role="group" aria-label="Show the sentence prompt as" data-prompt="sentence">
             <button type="button" data-view="edit" aria-pressed="true">Edit</button>
             <button type="button" data-view="preview" aria-pressed="false">Preview</button>
@@ -316,7 +369,7 @@
 
       <div class="field">
         <div class="field-head">
-          <label for="set-prompt-speech">Speech prompt — speech model</label>
+          <label for="set-prompt-speech">Speech prompt</label>
           <div class="seg" role="group" aria-label="Show the speech prompt as" data-prompt="speech">
             <button type="button" data-view="edit" aria-pressed="true">Edit</button>
             <button type="button" data-view="preview" aria-pressed="false">Preview</button>
@@ -328,10 +381,57 @@
       <p class="note prompt-warn" id="prompt-warn-speech" hidden></p>
       <p class="note">Placeholder: <code>{sentence}</code>. Bare <code>{sentence}</code> just reads it out. A prefix such as <em>Read slowly and clearly for a language learner:</em> steers the delivery. The answer key stays the sentence alone, whatever you put here.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-speech-reset">Reset to default</button></div>
+        </div>
+      </details>
+    </div>
+  </details>
+  <details class="sec" data-acc="shadowing" id="sec-shadowing">
+    <summary><span class="sec-title">Shadowing</span><span class="sec-sum" id="shadow-hint"></span></summary>
+    <div class="sec-body">
+      <div class="grid" data-roles="shadowing"></div>
+      <div class="grid">
+        <label class="field"><span>Cards to draw from</span>
+          <select id="set-shadow-scope"><option value="weak">Weak</option><option value="developing">Weak and developing</option><option value="all">All</option><option value="accents">Accents: last missed on the marks alone</option></select>
+          <em class="field-sub">the filter the tab starts on; changing it on the tab changes it here</em>
+        </label>
+      </div>
+      <p class="note">A set is some lines to read aloud and record. Both sources are drawn from what you already have, and <strong>nothing on the Shadowing tab ever writes a new sentence</strong> — the only thing that does is the Dictation tab's <em>New sentence</em> button, and both tabs share one bank, so whatever it makes is immediately shadowable.</p>
+      <div class="row">
+        <label class="voice" style="flex:1 1 240px"><input type="checkbox" id="set-shadow-cards"><span>Flashcards</span><em>read by your device's voice</em></label>
+        <label class="voice" style="flex:1 1 240px"><input type="checkbox" id="set-shadow-bank"><span>Sentence bank</span><em>read by the Gemini recording</em></label>
+      </div>
+      <div class="grid grid--tight">
+        <label class="field"><span>Lines per set</span><input type="number" id="set-shadow-items" min="1" max="30"></label>
+      </div>
+      <p class="note">Each hand-in costs <strong>one call</strong>, however many lines are in it, because every recording you choose goes up together. You can hand in a whole set at once, or part of it now and the rest later, or just one retake. A set is whatever is actually available up to the number above, and the tab says so when it comes up short. The call is spent on the Shadowing model below, out of that model's own allowance.</p>
+
+      <label class="field"><span id="rules-label">Listening rules</span>
+        <textarea id="set-rules" rows="10" spellcheck="false" placeholder="None yet. They are drafted the first time you hand in a set in this language, or press Draft rules below."></textarea>
+      </label>
+      <p class="note" id="rules-meta"></p>
+      <div class="row">
+        <button class="btn btn--sm" id="rules-undo">Undo last change</button>
+        <button class="btn btn--sm" id="rules-draft">Draft rules</button>
+      </div>
+      <div class="grid grid--tight">
+        <label class="field"><span>Revise after this many rated notes</span><input type="number" id="set-revise-after" min="1" max="100"></label>
+      </div>
+      <p class="note">What the feedback listens for, one rule per line, for the language above only — every language keeps its own. A line starting <code>style:</code> is about how the notes are written rather than what is heard. The rules are drafted for your language the first time you hand in a set, and each note says which ones it applied. <strong>Rate the notes</strong> on the Shadowing tab, and once enough notes under one version are rated, with at least one not useful, the rules are rewritten from what you said. Drafting and revising spend one call each on the Listening rules model below. A line you write or change here is yours: revisions keep it word for word.</p>
+      <p class="note"><strong>Shadowing prints the sentence in full</strong>, which a dictation deliberately hides. Sets prefer sentences you have already typed in Dictation, and Dictation prefers ones you have not yet shadowed, so the two tabs stay out of each other's way — but a sentence you shadow first is one whose dictation you have already read.</p>
+      <div class="row">
+        <button class="btn btn--sm btn--danger" id="shadow-wipe">Delete all recordings</button>
+        <span class="note" id="shadow-wipe-note">Removes every past set and every voice recording in them. The sentence bank is untouched.</span>
+      </div>
+    <div class="status" id="shadow-status"></div>
+
+      <details class="sec-prompts" data-acc="shadowing.prompts">
+        <summary>Prompts <span class="sec-count">1</span></summary>
+        <div class="sec-prompts-body">
+      <p class="note">Exactly what gets sent. Switch a prompt to <strong>Preview</strong> to see it filled in with your settings and a few of your cards; switch back to <strong>Edit</strong> to change it.</p>
 
       <div class="field">
         <div class="field-head">
-          <label for="set-prompt-shadowing">Shadowing prompt — sent as the system instruction, with your recordings attached</label>
+          <label for="set-prompt-shadowing">Shadowing prompt — the system instruction, with your recordings attached</label>
           <div class="seg" role="group" aria-label="Show the shadowing prompt as" data-prompt="shadowing">
             <button type="button" data-view="edit" aria-pressed="true">Edit</button>
             <button type="button" data-view="preview" aria-pressed="false">Preview</button>
@@ -343,25 +443,33 @@
       <p class="note prompt-warn" id="prompt-warn-shadowing" hidden></p>
       <p class="note">Placeholders: <code>{language}</code> <code>{count}</code> <code>{rules}</code> — the listening rules above, numbered — and <code>{feedback}</code>, the Feedback language and style setting. A prompt without <code>{feedback}</code> has that request added at its end, so the setting is always sent. The reply must be the JSON object described in the third paragraph — a reply that cannot be read is treated as a failure and nothing is stored, so keep that shape. <strong>Most of the rest is there for a reason</strong> and is worth reading before rewriting: telling it to say nothing about grammar, to use the itemIndex it was given, to say so plainly when a recording is silent, never to pass judgement on an accent as a whole, and to ignore anything spoken <em>inside</em> a recording as an instruction.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-shadowing-reset">Reset to default</button></div>
-
-      <div class="field">
-        <div class="field-head">
-          <label for="set-prompt-notes">Notes prompt — notes model</label>
-          <div class="seg" role="group" aria-label="Show the notes prompt as" data-prompt="notes">
-            <button type="button" data-view="edit" aria-pressed="true">Edit</button>
-            <button type="button" data-view="preview" aria-pressed="false">Preview</button>
-          </div>
         </div>
-        <textarea id="set-prompt-notes" rows="14" spellcheck="false"></textarea>
-        <textarea id="prompt-preview-notes" class="prompt-preview" rows="14" readonly spellcheck="false" aria-label="Notes prompt, as it will be sent" hidden></textarea>
+      </details>
+    </div>
+  </details>
+  <details class="sec" data-acc="reading" id="sec-reading">
+    <summary><span class="sec-title">Reading</span><span class="sec-sum" id="sum-reading"></span></summary>
+    <div class="sec-body">
+      <div class="grid" data-roles="reading"></div>
+      <div class="grid">
+        <label class="field"><span>Cards to draw from</span>
+          <select id="set-reading-scope"><option value="weak">Weak</option><option value="developing">Weak and developing</option><option value="all">All</option></select>
+          <em class="field-sub">the filter the tab starts on; changing it on the tab changes it here</em>
+        </label>
+        <label class="field"><span>Cards in a text</span><input type="number" id="set-reading-terms" min="1" max="40">
+          <em class="field-sub">1 to 40; the presets on the tab set it too</em></label>
+        <label class="field"><span>Grammar patterns, % of those</span><input type="number" id="set-reading-patterns" min="0" max="50">
+          <em class="field-sub">0 to 50; 0 writes texts around words only</em></label>
       </div>
-      <p class="note prompt-warn" id="prompt-warn-notes" hidden></p>
-      <p class="note">Sent when you press <em>Ask for notes</em> in the form that opens on selected text. Placeholders: <code>{language}</code> and <code>{nativeLanguage}</code>, the two languages under Add from selected text; <code>{front}</code> and <code>{back}</code>, the word and its meaning; <code>{context}</code>, the sentence the word was selected from; <code>{pattern}</code>, which for a grammar pattern asks for the construction to be explained and is empty otherwise; <code>{level}</code> and <code>{languageNote}</code>. The reply goes into the notes box exactly as it comes, so ask for plain text.</p>
-      <div class="row"><button class="btn btn--sm" id="prompt-notes-reset">Reset to default</button></div>
+
+      <details class="sec-prompts" data-acc="reading.prompts">
+        <summary>Prompts <span class="sec-count">1</span></summary>
+        <div class="sec-prompts-body">
+      <p class="note">Exactly what gets sent. Switch a prompt to <strong>Preview</strong> to see it filled in with your settings and a few of your cards; switch back to <strong>Edit</strong> to change it.</p>
 
       <div class="field">
         <div class="field-head">
-          <label for="set-prompt-reading">Reading prompt — text model</label>
+          <label for="set-prompt-reading">Reading prompt</label>
           <div class="seg" role="group" aria-label="Show the reading prompt as" data-prompt="reading">
             <button type="button" data-view="edit" aria-pressed="true">Edit</button>
             <button type="button" data-view="preview" aria-pressed="false">Preview</button>
@@ -373,10 +481,38 @@
       <p class="note prompt-warn" id="prompt-warn-reading" hidden></p>
       <p class="note">Sent when you press <em>Write a text</em> on the Reading tab. Placeholders: <code>{request}</code>, what you typed in that tab's request box; <code>{terms}</code>, the cards to use, numbered; <code>{language}</code>, <code>{level}</code> and <code>{languageNote}</code>. The text is read back from the <code>TITLE:</code> and <code>TEXT:</code> lines, and each use of a card from its <code>[[number|words]]</code> mark. Keep the marks: a text without them has nothing to click and is refused.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-reading-reset">Reset to default</button></div>
+        </div>
+      </details>
+    </div>
+  </details>
+  <details class="sec" data-acc="writing" id="sec-writing">
+    <summary><span class="sec-title">Writing</span><span class="sec-sum" id="sum-writing"></span></summary>
+    <div class="sec-body">
+      <div class="grid" data-roles="writing"></div>
+      <div class="grid">
+        <label class="field"><span>Cards to draw from</span>
+          <select id="set-writing-scope"><option value="weak">Weak</option><option value="developing">Weak and developing</option><option value="all">All</option></select>
+          <em class="field-sub">the filter the tab starts on; changing it on the tab changes it here</em>
+        </label>
+        <label class="field"><span>Cards to try to use</span><input type="number" id="set-writing-terms" min="1" max="10">
+          <em class="field-sub">1 to 10, for an opinion piece; a summary uses its text's cards</em></label>
+        <label class="field"><span>Summary length, % of the words below</span><input type="number" id="set-writing-share" min="30" max="100">
+          <em class="field-sub">30 to 100; then scaled by the length of the text</em></label>
+      </div>
+      <div class="grid grid--tight">
+        <label class="field"><span>Writing words min</span><input type="number" id="set-writing-min" min="5" max="1000"></label>
+        <label class="field"><span>Writing words max</span><input type="number" id="set-writing-max" min="10" max="1000"></label>
+      </div>
+      <p class="note">How long an opinion piece should be. A summary asks for the percentage above of that, more for a long text and less for a short one.</p>
+
+      <details class="sec-prompts" data-acc="writing.prompts">
+        <summary>Prompts <span class="sec-count">2</span></summary>
+        <div class="sec-prompts-body">
+      <p class="note">Exactly what gets sent. Switch a prompt to <strong>Preview</strong> to see it filled in with your settings and a few of your cards; switch back to <strong>Edit</strong> to change it.</p>
 
       <div class="field">
         <div class="field-head">
-          <label for="set-prompt-writingBrief">Writing question prompt — text model</label>
+          <label for="set-prompt-writingBrief">Question prompt</label>
           <div class="seg" role="group" aria-label="Show the writing question prompt as" data-prompt="writingBrief">
             <button type="button" data-view="edit" aria-pressed="true">Edit</button>
             <button type="button" data-view="preview" aria-pressed="false">Preview</button>
@@ -391,7 +527,7 @@
 
       <div class="field">
         <div class="field-head">
-          <label for="set-prompt-writingGrade">Writing feedback prompt — feedback model, as the system instruction</label>
+          <label for="set-prompt-writingGrade">Feedback prompt — the system instruction</label>
           <div class="seg" role="group" aria-label="Show the writing feedback prompt as" data-prompt="writingGrade">
             <button type="button" data-view="edit" aria-pressed="true">Edit</button>
             <button type="button" data-view="preview" aria-pressed="false">Preview</button>
@@ -403,10 +539,37 @@
       <p class="note prompt-warn" id="prompt-warn-writingGrade" hidden></p>
       <p class="note">Sent when you press <em>Hand in</em> on the Writing tab, as the system instruction. Placeholders: <code>{language}</code>, <code>{languageNote}</code> and <code>{feedback}</code>, the Feedback language and style setting, added at the end when the prompt has none. Nothing in it changes from one hand-in to the next, so the model can reuse it: the task, your level, a summary's source text, your cards and your writing go in a message of their own after it, in tagged blocks. The reply has to be the JSON object it describes: <code>"valid"</code>, the sections, and <code>"cards"</code>, which is how your cards are scored. A reply that cannot be read is a failure, and nothing is kept or scored.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-writingGrade-reset">Reset to default</button></div>
+        </div>
+      </details>
+    </div>
+  </details>
+  <details class="sec" data-acc="translate" id="sec-translate">
+    <summary><span class="sec-title">Translate</span><span class="sec-sum" id="sum-translate"></span></summary>
+    <div class="sec-body">
+      <div class="grid" data-roles="translate"></div>
+      <div class="grid">
+        <label class="field"><span>Sentences in a set</span><input type="number" id="set-translate-items" min="1" max="20">
+          <em class="field-sub">1 to 20, all checked in one call</em></label>
+        <label class="field"><span>Which sentences come first</span>
+          <select id="set-translate-order">
+            <option value="dictated">Ones already dictated</option>
+            <option value="fresh">Ones not yet dictated</option>
+            <option value="random">Any, at random</option>
+          </select>
+          <em class="field-sub">a checked set shows every sentence, which gives away its dictation</em></label>
+      </div>
+      <div class="row">
+        <label class="voice" style="flex:1 1 280px"><input type="checkbox" id="set-translate-blank"><span>A blank answer scores its words wrong</span><em>as Show answer does in Typing</em></label>
+      </div>
+
+      <details class="sec-prompts" data-acc="translate.prompts">
+        <summary>Prompts <span class="sec-count">1</span></summary>
+        <div class="sec-prompts-body">
+      <p class="note">Exactly what gets sent. Switch a prompt to <strong>Preview</strong> to see it filled in with your settings and a few of your cards; switch back to <strong>Edit</strong> to change it.</p>
 
       <div class="field">
         <div class="field-head">
-          <label for="set-prompt-translationGrade">Translation feedback prompt — feedback model, as the system instruction</label>
+          <label for="set-prompt-translationGrade">Feedback prompt — the system instruction</label>
           <div class="seg" role="group" aria-label="Show the translation feedback prompt as" data-prompt="translationGrade">
             <button type="button" data-view="edit" aria-pressed="true">Edit</button>
             <button type="button" data-view="preview" aria-pressed="false">Preview</button>
@@ -418,9 +581,39 @@
       <p class="note prompt-warn" id="prompt-warn-translationGrade" hidden></p>
       <p class="note">Sent when you press <em>Check answers</em> on the Translate tab, as the system instruction. Placeholders: <code>{language}</code> and <code>{feedback}</code>. The items follow in a message of their own: each one's id, its English, the banked sentence as one reference answer, what you wrote, and its target words, numbered. The reply has to be a JSON array with one object per <code>"id"</code>; a reply that is not an array is a failure and nothing is scored. <code>"cards"</code> in it names the target words a wrong answer got wrong, which is how those cards are scored.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-translationGrade-reset">Reset to default</button></div>
+        </div>
+      </details>
+    </div>
+  </details>
+  <details class="sec" data-acc="conversation" id="sec-conversation">
+    <summary><span class="sec-title">Conversation</span><span class="sec-sum" id="sum-conversation"></span></summary>
+    <div class="sec-body">
+      <div class="grid" data-roles="conversation"></div>
+      <div class="grid">
+        <label class="field"><span>Start on</span>
+          <select id="set-conversation-kind"><option value="roleplay">Roleplay</option><option value="findout">Find out</option></select>
+        </label>
+        <label class="field"><span>Cards to draw from</span>
+          <select id="set-conversation-scope"><option value="weak">Weak</option><option value="developing">Weak and developing</option><option value="all">All</option></select>
+          <em class="field-sub">the filter the tab starts on; changing it on the tab changes it here</em>
+        </label>
+        <label class="field"><span>Your turns</span><input type="number" id="set-conversation-turns" min="2" max="12">
+          <em class="field-sub">2 to 12; a conversation keeps the number it started with</em></label>
+        <label class="field"><span>Cards in a scene</span><input type="number" id="set-conversation-terms" min="1" max="10">
+          <em class="field-sub">1 to 10</em></label>
+        <label class="field"><span>Facts in a find out</span><input type="number" id="set-conversation-facts" min="2" max="6">
+          <em class="field-sub">2 to 6 things to find out</em></label>
+      </div>
+      <p class="note">A conversation spends one call on the scene model, one on the replies model for each of the other person's turns, and one on the feedback model at the end. A spoken turn adds one on the listening model, and a roleplay with spoken turns is graded by the listening model, since it listens to them.</p>
+
+      <details class="sec-prompts" data-acc="conversation.prompts">
+        <summary>Prompts <span class="sec-count">6</span></summary>
+        <div class="sec-prompts-body">
+      <p class="note">Exactly what gets sent. Switch a prompt to <strong>Preview</strong> to see it filled in with your settings and a few of your cards; switch back to <strong>Edit</strong> to change it.</p>
+
       <div class="field">
         <div class="field-head">
-          <label for="set-prompt-scenario">Conversation scene prompt — text model</label>
+          <label for="set-prompt-scenario">Scene prompt</label>
           <div class="seg" role="group" aria-label="Show the conversation scene prompt as" data-prompt="scenario">
             <button type="button" data-view="edit" aria-pressed="true">Edit</button>
             <button type="button" data-view="preview" aria-pressed="false">Preview</button>
@@ -432,9 +625,10 @@
       <p class="note prompt-warn" id="prompt-warn-scenario" hidden></p>
       <p class="note">Sent when you press <em>Start</em> on the Conversation tab. Placeholders: <code>{kind}</code>, <em>roleplay</em> or <em>find-out</em>, which says which of its two sections to follow; <code>{request}</code>, the situation you typed; <code>{terms}</code>, your cards, numbered; <code>{language}</code>, <code>{level}</code> and <code>{languageNote}</code>. The reply has to be the JSON object its section describes; one that cannot be read starts nothing.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-scenario-reset">Reset to default</button></div>
+
       <div class="field">
         <div class="field-head">
-          <label for="set-prompt-roleplayReply">Roleplay reply prompt — conversation model, as the system instruction</label>
+          <label for="set-prompt-roleplayReply">Roleplay reply prompt — the system instruction</label>
           <div class="seg" role="group" aria-label="Show the roleplay reply prompt as" data-prompt="roleplayReply">
             <button type="button" data-view="edit" aria-pressed="true">Edit</button>
             <button type="button" data-view="preview" aria-pressed="false">Preview</button>
@@ -446,9 +640,10 @@
       <p class="note prompt-warn" id="prompt-warn-roleplayReply" hidden></p>
       <p class="note">Sent for each of the other person's lines in a roleplay, with the conversation so far as the message. Placeholders: <code>{scenario}</code>, <code>{studentRole}</code> and <code>{llmRole}</code> from the scene; <code>{turn}</code> and <code>{maxTurns}</code>; <code>{terms}</code>, your cards; <code>{language}</code>, <code>{level}</code> and <code>{languageNote}</code>. The reply is used as the line, as plain text.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-roleplayReply-reset">Reset to default</button></div>
+
       <div class="field">
         <div class="field-head">
-          <label for="set-prompt-findOutReply">Find-out reply prompt — conversation model, as the system instruction</label>
+          <label for="set-prompt-findOutReply">Find-out reply prompt — the system instruction</label>
           <div class="seg" role="group" aria-label="Show the find-out reply prompt as" data-prompt="findOutReply">
             <button type="button" data-view="edit" aria-pressed="true">Edit</button>
             <button type="button" data-view="preview" aria-pressed="false">Preview</button>
@@ -460,9 +655,10 @@
       <p class="note prompt-warn" id="prompt-warn-findOutReply" hidden></p>
       <p class="note">Sent for each of the other person's lines in a find out, with the conversation so far as the message. Placeholders: <code>{situation}</code>, <code>{studentRole}</code> and <code>{llmRole}</code>; <code>{facts}</code>, the fact sheet with the answers; <code>{left}</code>, your turns left after this one; <code>{remaining}</code>, which facts you have not asked about yet; <code>{language}</code>, <code>{level}</code> and <code>{languageNote}</code>. The reply has to be the JSON it describes: <code>"revealed"</code> is what ticks your checklist.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-findOutReply-reset">Reset to default</button></div>
+
       <div class="field">
         <div class="field-head">
-          <label for="set-prompt-conversationGrade">Roleplay feedback prompt — feedback model, as the system instruction</label>
+          <label for="set-prompt-conversationGrade">Roleplay feedback prompt — the system instruction</label>
           <div class="seg" role="group" aria-label="Show the roleplay feedback prompt as" data-prompt="conversationGrade">
             <button type="button" data-view="edit" aria-pressed="true">Edit</button>
             <button type="button" data-view="preview" aria-pressed="false">Preview</button>
@@ -472,11 +668,12 @@
         <textarea id="prompt-preview-conversationGrade" class="prompt-preview" rows="18" readonly spellcheck="false" aria-label="Roleplay feedback prompt, as it will be sent" hidden></textarea>
       </div>
       <p class="note prompt-warn" id="prompt-warn-conversationGrade" hidden></p>
-      <p class="note">Sent when a roleplay ends. Placeholders: <code>{closing}</code>, which after your sixth turn asks for the other person's closing line as well, and after an early end says to write none; <code>{scenario}</code>, <code>{studentRole}</code>, <code>{llmRole}</code>, <code>{language}</code>, <code>{level}</code>, <code>{languageNote}</code> and <code>{feedback}</code>. The transcript, your turns by position and your cards follow as the message. The reply has to be the JSON object it describes; <code>"cards"</code> is how your cards are scored.</p>
+      <p class="note">Sent when a roleplay ends. Placeholders: <code>{closing}</code>, which after your last turn asks for the other person's closing line as well, and after an early end says to write none; <code>{scenario}</code>, <code>{studentRole}</code>, <code>{llmRole}</code>, <code>{language}</code>, <code>{level}</code>, <code>{languageNote}</code> and <code>{feedback}</code>. The transcript, your turns by position and your cards follow as the message. The reply has to be the JSON object it describes; <code>"cards"</code> is how your cards are scored.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-conversationGrade-reset">Reset to default</button></div>
+
       <div class="field">
         <div class="field-head">
-          <label for="set-prompt-findOutGrade">Find-out feedback prompt — feedback model, as the system instruction</label>
+          <label for="set-prompt-findOutGrade">Find-out feedback prompt — the system instruction</label>
           <div class="seg" role="group" aria-label="Show the find-out feedback prompt as" data-prompt="findOutGrade">
             <button type="button" data-view="edit" aria-pressed="true">Edit</button>
             <button type="button" data-view="preview" aria-pressed="false">Preview</button>
@@ -491,7 +688,7 @@
 
       <div class="field">
         <div class="field-head">
-          <label for="set-prompt-transcribe">Transcription prompt — shadowing model, as the system instruction</label>
+          <label for="set-prompt-transcribe">Transcription prompt — the system instruction</label>
           <div class="seg" role="group" aria-label="Show the transcription prompt as" data-prompt="transcribe">
             <button type="button" data-view="edit" aria-pressed="true">Edit</button>
             <button type="button" data-view="preview" aria-pressed="false">Preview</button>
@@ -503,47 +700,22 @@
       <p class="note prompt-warn" id="prompt-warn-transcribe" hidden></p>
       <p class="note">Sent when you press <em>Send recording</em> on the Conversation tab, with your recording, the scene and the line you are answering attached. Placeholder: <code>{language}</code>. It asks for what you said as you said it, mistakes included, since the feedback is on that. The reply has to be <code>{"transcript":"…"}</code>; an empty transcript means nothing was heard, and the turn is not spent.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-transcribe-reset">Reset to default</button></div>
+        </div>
+      </details>
     </div>
-  </div>
+  </details>
 
-  <div class="block">
-    <div class="block-head"><h2>Read-aloud voice</h2><span class="hint">Typing · this device, or Azure</span></div>
-    <div class="block-body">
-      <p class="note">The voice that reads words aloud in Typing practice. These come with your operating system, cost nothing and work offline — they are nothing to do with Gemini or your API key. Only voices for your target language are listed; to add more on a Mac, go to System Settings → Accessibility → Spoken Content → System voice → Manage Voices, then reload this page.</p>
+  <h2 class="sec-group">Reset</h2>
+  <details class="sec" data-acc="reset" id="sec-reset">
+    <summary><span class="sec-title">Reset prompts</span><span class="sec-sum" id="sum-reset"></span></summary>
+    <div class="sec-body">
+      <p class="note">Puts every prompt on this page back to the one this version of the app ships. Your other settings, your listening rules and your decks are not touched.</p>
       <div class="row">
-        <label class="field" style="flex:1 1 260px"><span>Voice</span>
-          <select id="set-speech-voice"></select>
-        </label>
-        <label class="field" style="flex:1 1 200px"><span>Speed <b id="set-speech-rate-val"></b></span>
-          <input type="range" id="set-speech-rate" class="rate">
-        </label>
-        <button class="btn" id="speech-sample" style="align-self:flex-end">Play sample</button>
-      </div>
-      <p class="note"><strong>Azure neural voices</strong> (optional) are Microsoft's natural-sounding voices, the same on every device, read with your own key from an Azure Speech resource. Its free tier covers 500,000 characters a month, and each word is fetched only once: the clip is saved with your data and played from there after that. Like the Gemini key, the Azure key is kept in this browser only. The README says how to make one.</p>
-      <div class="row">
-        <label class="field" style="flex:2 1 240px"><span>Azure Speech key</span>
-          <input type="password" id="set-azure-key" placeholder="KEY 1 from Keys and Endpoint" autocomplete="off" spellcheck="false">
-        </label>
-        <label class="field" style="flex:1 1 140px"><span>Region</span>
-          <input type="text" id="set-azure-region" placeholder="southeastasia" autocomplete="off" spellcheck="false">
-        </label>
-        <button class="btn" id="azure-load" style="align-self:flex-end">Load voices</button>
+        <button class="btn btn--sm btn--danger" id="prompts-reset-all">Reset every prompt</button>
+        <span class="note" id="prompts-reset-note"></span>
       </div>
     </div>
-    <div class="status" id="speech-status"></div>
-  </div>
-
-  <div class="block">
-    <div class="block-head"><h2>Dictation voices</h2><span class="hint" id="voice-hint"></span></div>
-    <div class="block-body">
-      <p class="note">One is drawn at random for each new sentence, so listening practice is not always the same speaker. Untick the ones you would rather not hear. You cannot untick them all, since something has to read the sentence.</p>
-      <div class="row">
-        <button class="btn btn--sm" id="voice-all">Select all</button>
-        <button class="btn btn--sm" id="voice-none">Just one</button>
-      </div>
-      <div class="voice-grid" id="voice-grid"></div>
-    </div>
-  </div>
+  </details>
 
 </div>
 </section>
@@ -619,7 +791,7 @@
             </button>
           </div>
           <div class="speech-panel" id="ty-speech-panel" role="dialog" aria-label="Voice and speed" hidden>
-            <label class="field"><span>Voice</span><select id="ty-voice"></select></label>
+            <label class="field"><span id="ty-voice-label">Voice</span><select id="ty-voice"></select></label>
             <label class="field"><span>Speed <b id="ty-rate-val"></b></span><input type="range" id="ty-rate" class="rate"></label>
             <div class="row">
               <button class="btn btn--sm" id="ty-speech-test">Play sample</button>
@@ -729,7 +901,7 @@
     </div>
     <div class="block-body">
       <p class="note">Lines from your own material, said back in your own voice. Play a line, then say it the way you heard it — the words are given to you, so what is being practised is how they <em>sound</em>: rhythm, where the stress falls, and the sounds of the language itself. <strong>Record a line as many times as you like</strong> and listen back before you move on; nothing is sent until you hand the set in.</p>
-      <p class="note">Sets are drawn from your <strong>flashcards</strong> and from the <strong>sentence bank</strong> — the same bank the Dictation tab fills, so a sentence written there is here the moment it exists, and one you record here stays playable there. Which of the two a set draws on is set in <strong>Settings → Shadowing</strong>.</p>
+      <p class="note">Sets are drawn from your <strong>flashcards</strong> and from the <strong>sentence bank</strong> — the same bank the Dictation tab fills, so a sentence written there is here the moment it exists, and one you record here stays playable there. Which of the two a set draws on is set in <a href="#sec-shadowing" data-open-sec="shadowing"><strong>Settings → Shadowing</strong></a>.</p>
       <div id="sh-gate"></div>
 
       <div id="sh-stage" hidden>
@@ -915,7 +1087,7 @@
             </label>
             <button class="btn" id="wr-use-topic">Use my topic</button>
           </div>
-          <p class="note">A question costs one call on the text model. A topic of your own costs nothing. Either way, a few cards from the ticked decks are drawn for you to try to use, weighted towards your weakest. The filter is the Reading tab's.</p>
+          <p class="note">A question costs one call on the text model. A topic of your own costs nothing. Either way, a few cards from the ticked decks are drawn for you to try to use, weighted towards your weakest. The model that writes the question, and the one that reads your writing, are chosen in <a href="#sec-writing" data-open-sec="writing">Settings → Writing</a>.</p>
         </div>
 
         <div id="wr-summary" hidden>
@@ -938,7 +1110,7 @@
             <summary>Show the text</summary>
             <div class="wr-source-text" id="wr-source-text"></div>
           </details>
-          <div class="term-chips wr-try" id="wr-try"></div>
+          <div class="cv-facts try-list wr-try" id="wr-try" hidden></div>
           <p class="note" id="wr-bounds"></p>
           <textarea id="wr-text" class="wr-text" rows="10" maxlength="5000" spellcheck="false" aria-label="Your writing"></textarea>
           <div class="wr-written" id="wr-written" hidden></div>
@@ -976,7 +1148,7 @@
       <span class="hint" id="tr-pool"></span>
     </div>
     <div class="block-body">
-      <p class="note">Six English sentences to write in the language you are learning, <strong>in your own words</strong>: any natural, correct way of saying the same thing is right, not only the one the bank holds. They come from the <strong>sentence bank</strong> Dictation fills, for the decks ticked in the Flashcards tab, and each practises that sentence's target words. <strong>Check answers</strong> sends the whole set in one call, and the cards move with the verdicts.</p>
+      <p class="note">English sentences to write in the language you are learning (six, unless <a href="#sec-translate" data-open-sec="translate">Settings → Translate</a> says otherwise), <strong>in your own words</strong>: any natural, correct way of saying the same thing is right, not only the one the bank holds. They come from the <strong>sentence bank</strong> Dictation fills, for the decks ticked in the Flashcards tab, and each practises that sentence's target words. <strong>Check answers</strong> sends the whole set in one call, and the cards move with the verdicts.</p>
       <div id="tr-gate"></div>
 
       <div id="tr-stage" hidden>
@@ -1017,7 +1189,7 @@
       <span class="hint" id="cv-pool"></span>
     </div>
     <div class="block-body">
-      <p class="note">Six turns of your own in a short scene, then feedback on how it went. In a <strong>roleplay</strong> the other person plays their part and answers each of your turns; the feedback goes through them one by one, with a more natural way to say each where there is one. In a <strong>find out</strong> they know a few things you were sent to find out, and give one only when you ask about it specifically; the feedback is about whether you listened to the answers. Either way the scene is written around a few of your cards, and they are scored on what you said. <strong>Speak</strong> your turns or type them: a recording is played back before you send it, written down as you said it, mistakes and all, and a roleplay you spoke gets a note on how it sounded.</p>
+      <p class="note">A few turns of your own (six, unless <a href="#sec-conversation" data-open-sec="conversation">Settings → Conversation</a> says otherwise) in a short scene, then feedback on how it went. In a <strong>roleplay</strong> the other person plays their part and answers each of your turns; the feedback goes through them one by one, with a more natural way to say each where there is one. In a <strong>find out</strong> they know a few things you were sent to find out, and give one only when you ask about it specifically; the feedback is about whether you listened to the answers. Either way the scene is written around a few of your cards, listed under it with their meanings while you talk: <strong>try to use them</strong>, since they are scored on what you said. <strong>Speak</strong> your turns or type them: a recording is played back before you send it, written down as you said it, mistakes and all, and a roleplay you spoke gets a note on how it sounded.</p>
       <div id="cv-gate"></div>
 
       <div id="cv-stage" hidden>
@@ -1095,6 +1267,6 @@
 <!-- The Reading tab's word popup: the selection popup's shape, filled by tab-reading.js. -->
 <div class="lookup-pop" id="reading-pop" role="dialog" aria-label="A word from the text" hidden></div>
 
-<script type="module" src="js/app.js?v=2026-09-27.5"></script>
+<script type="module" src="js/app.js?v=2026-09-27.13"></script>
 </body>
 </html>

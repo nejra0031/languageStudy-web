@@ -21,7 +21,8 @@ import { extractJsonArray } from './json-reply.js';
 import { orderBank } from './shadowing.js';
 import { fillTemplate, withFeedbackBlock, feedbackRequestText } from './gemini.js';
 
-/* How many sentences a set asks for. */
+/* How many sentences a set asks for, unless the translateItems setting says
+   otherwise. */
 export const TRANSLATION_ITEMS = 6;
 
 /* The most an answer box takes. A sentence is rarely a fifth of it. */
@@ -36,8 +37,23 @@ export const MAX_ANSWER = 500;
    and steer round them; the only protection is to draw first on sentences
    that have already been typed as a dictation, then on the least shadowed,
    then at random so a set is not the same six every day. A sentence never
-   dictated is still used when nothing else is left. */
-export function orderForTranslation(bank) {
+   dictated is still used when nothing else is left. That is 'dictated', the
+   default.
+
+   The translateOrder setting can turn it round: 'fresh' puts sentences not
+   yet dictated first (a harder set, at the cost of those dictations), and
+   'random' ignores both. */
+export function orderForTranslation(bank, order = 'dictated', random = Math.random) {
+  if (order === 'random') {
+    return (bank || []).map((e) => [random(), e]).sort((a, b) => a[0] - b[0]).map(([, e]) => e);
+  }
+  if (order === 'fresh') {
+    return (bank || []).slice().sort((a, b) => {
+      const typed = (e) => (e.times_practiced > 0 ? 1 : 0);
+      if (typed(a) !== typed(b)) return typed(a) - typed(b);
+      return ((a.times_shadowed || 0) - (b.times_shadowed || 0)) || random() - 0.5;
+    });
+  }
   return orderBank(bank);
 }
 
@@ -46,9 +62,9 @@ export function orderForTranslation(bank) {
    is store.findCard, passed in so this stays a plain function: each target
    word is looked up in the entry's own deck first, and a word no deck has
    any more is dropped from the item's cards, not from the item. */
-export function pickTranslationItems(bank, n = TRANSLATION_ITEMS, findCard = () => null) {
+export function pickTranslationItems(bank, n = TRANSLATION_ITEMS, findCard = () => null, order = 'dictated') {
   const usable = (bank || []).filter((e) => e && String(e.english || '').trim() && String(e.sentence || '').trim());
-  return orderForTranslation(usable).slice(0, Math.max(0, n)).map((entry, index) => ({
+  return orderForTranslation(usable, order).slice(0, Math.max(0, n)).map((entry, index) => ({
     index,
     id: String(index),
     bankId: entry.id || '',
@@ -138,20 +154,22 @@ export function readTranslationGrade(text, items) {
 
      a blank answer   every card wrong, as Show answer is in Typing,
                       whatever the grader said: there is nothing there
-                      that could have been right
+                      that could have been right. With blankWrong off
+                      (the translateBlankWrong setting), nothing: a
+                      sentence skipped is left alone
      ungraded         nothing
      correct          every card right
      incorrect        the cards the grader named wrong; the rest are left
                       alone, since a sentence can be wrong for a reason
                       that has nothing to do with them */
-export function translationScores(results, items, answers) {
+export function translationScores(results, items, answers, { blankWrong = true } = {}) {
   const out = [];
   for (const r of results || []) {
     const it = items[r.index];
     if (!it) continue;
     const blank = !cleanAnswer(answers[r.index]);
     if (blank) {
-      it.cards.forEach((_, card) => out.push({ item: r.index, card, ok: false }));
+      if (blankWrong) it.cards.forEach((_, card) => out.push({ item: r.index, card, ok: false }));
     } else if (!r.graded) {
       continue;
     } else if (r.correct) {

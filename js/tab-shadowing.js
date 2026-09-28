@@ -179,6 +179,13 @@ export function init() {
 
   scope = store.state.settings.shadowScope || 'all';
   setSeg('sh-scope', 'scope', scope);
+  /* The filter can be changed in Settings too; the tab follows. */
+  store.subscribe('settings', (st) => {
+    const next = st.settings.shadowScope || 'all';
+    if (next === scope) return;
+    scope = next;
+    setSeg('sh-scope', 'scope', scope);
+  });
 
   store.subscribe('deck', renderPool);
   store.subscribe('bank', renderPool);
@@ -550,7 +557,7 @@ async function playModel(index) {
   /* A flashcard has no recording — the device's own voice reads it, free and
      offline, the same voice the Typing tab uses. */
   const s = store.state.settings;
-  speech.speak(item.text, speech.languageCode(session.language || s.targetLanguage), { voice: s.speechVoice, rate: s.speechRate });
+  speech.speak(item.text, speech.languageCode(session.language || s.targetLanguage), { voice: speech.voiceSetting(s), rate: s.speechRate });
 }
 
 async function playMine(index) {
@@ -750,7 +757,7 @@ function renderRulesNews() {
       <strong>Your ratings revised the ${escapeHtml(store.state.settings.targetLanguage)} listening rules. They are version ${entry.generation} now${summary ? `: ${summary}` : ''}.</strong>
       ${entry.reason ? `<p class="note">${escapeHtml(entry.reason)}</p>` : ''}
       ${whys.length ? `<details><summary>What changed</summary><ul>${whys.join('')}</ul></details>` : ''}
-      <p class="note">You can read and edit the rules in Settings → Shadowing.</p>
+      <p class="note">You can read and edit the rules in <a href="#sec-shadowing" data-open-sec="shadowing">Settings → Shadowing</a>.</p>
     </div>
     <div class="row"><button class="btn btn--sm" data-act="rules-undo">Undo</button>${dismiss}</div>
     </div>`;

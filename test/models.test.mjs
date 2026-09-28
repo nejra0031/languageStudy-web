@@ -77,58 +77,54 @@ test('rolesUsing names every job a model is doing', () => {
     models: [{ id: 'flash', rpm: 4, rpd: 20 }, { id: 'tts', rpm: 2, rpd: 10 }],
     textModel: 'flash', ttsModel: 'tts', shadowModel: 'flash',
   });
-  /* Notes, Feedback and Conversation are on flash too: a file that never
-     named a model for them gives those jobs its text model. */
-  assert.deepEqual(rolesUsing(s, 'flash'), ['Text', 'Shadowing', 'Notes', 'Feedback', 'Conversation']);
-  assert.deepEqual(rolesUsing(s, 'tts'), ['Speech']);
+  /* Every job split off later is on the model of the job it came from: a
+     file that never named them gives them that model. */
+  assert.deepEqual(rolesUsing(s, 'tts'), ['Dictation speech', 'Reading aloud']);
+  assert.deepEqual(rolesUsing(s, 'flash'), MODEL_ROLES.map((r) => r[1]).filter((l) => l !== 'Dictation speech' && l !== 'Reading aloud'));
   assert.deepEqual(rolesUsing(s, 'idle'), []);
 });
 
-test('a settings file from before the notes job gives it the text model', () => {
+test('a job split off later takes the model of the job it came from', () => {
   const s = withDefaults({
-    models: [{ id: 'my-flash', rpm: 4, rpd: 20 }, { id: 'tts', rpm: 2, rpd: 10 }],
-    textModel: 'my-flash', ttsModel: 'tts', shadowModel: 'my-flash',
+    models: [{ id: 'my-flash', rpm: 4, rpd: 20 }, { id: 'tts', rpm: 2, rpd: 10 }, { id: 'ears', rpm: 2, rpd: 50 }],
+    textModel: 'my-flash', ttsModel: 'tts', shadowModel: 'ears',
   });
-  assert.equal(s.notesModel, 'my-flash');
-  /* Nothing is added to the catalogue behind the user's back: the default
-     notes model is not one this user has. */
-  assert.deepEqual(s.models.map((m) => m.id), ['my-flash', 'tts']);
-});
-
-test('a settings file from before the feedback and conversation jobs gives them the text model', () => {
-  const s = withDefaults({
-    models: [{ id: 'my-flash', rpm: 4, rpd: 20 }, { id: 'tts', rpm: 2, rpd: 10 }, { id: 'lite', rpm: 15, rpd: 500 }],
-    textModel: 'my-flash', ttsModel: 'tts', shadowModel: 'my-flash', notesModel: 'lite',
-  });
-  assert.equal(s.gradeModel, 'my-flash');
+  assert.equal(s.rulesModel, 'my-flash');
+  assert.equal(s.readingModel, 'my-flash');
+  assert.equal(s.readingSpeechModel, 'tts', 'reading aloud was the speech job');
+  assert.equal(s.listenModel, 'ears', 'hearing spoken turns was the shadowing job');
   assert.equal(s.chatModel, 'my-flash');
-  /* The notes model it did name is its own business, and stays. */
-  assert.equal(s.notesModel, 'lite');
-  assert.deepEqual(s.models.map((m) => m.id), ['my-flash', 'tts', 'lite'], 'nothing is added behind the user\'s back');
+  assert.deepEqual(s.models.map((m) => m.id), ['my-flash', 'tts', 'ears'], 'nothing is added behind the user\'s back');
 });
 
-test('a feedback or conversation model that was chosen is kept', () => {
+test('the one feedback job of the first graded-modes build becomes each mode\'s feedback job', () => {
+  const s = withDefaults({
+    models: [{ id: 'flash' }, { id: 'pro' }],
+    textModel: 'flash', gradeModel: 'pro',
+  });
+  assert.equal(s.writingGradeModel, 'pro');
+  assert.equal(s.translateModel, 'pro');
+  assert.equal(s.conversationGradeModel, 'pro');
+  assert.equal(s.writingBriefModel, 'flash');
+  assert.equal(s.gradeModel, undefined, 'read once, not written back');
+});
+
+test('a model chosen for a job is kept', () => {
   const s = withDefaults({
     models: [{ id: 'flash', rpm: 4, rpd: 20 }, { id: 'lite', rpm: 15, rpd: 500 }],
-    textModel: 'flash', gradeModel: 'flash', chatModel: 'lite',
+    textModel: 'flash', chatModel: 'lite', translateModel: 'lite',
   });
   assert.equal(s.chatModel, 'lite');
-  assert.deepEqual(rolesUsing(s, 'lite'), ['Conversation']);
+  assert.deepEqual(rolesUsing(s, 'lite'), ['Translate feedback', 'Conversation replies']);
 });
 
-test('the budget report counts the feedback and conversation models apart from a dictation card', () => {
-  const s = withDefaults({
-    models: [{ id: 'flash', rpm: 0, rpd: 20 }, { id: 'tts', rpm: 0, rpd: 10 }, { id: 'lite', rpm: 0, rpd: 2 }],
-    textModel: 'flash', ttsModel: 'tts', gradeModel: 'flash', chatModel: 'lite',
-  });
-  const lim = new RateLimiter({ now: () => 1000 });
-  lim.calls.lite = [990, 995];
-  const q = lim.report(s);
-  assert.equal(q.chat.model, 'lite');
-  assert.equal(q.chat.leftDay, 0);
-  assert.equal(q.grade.model, 'flash');
-  /* The conversation model is spent, and that must not stop a sentence. */
-  assert.equal(q.canGenerate, true);
+test('every job has a section, and a job falls back only to one listed before it', () => {
+  const seen = new Set();
+  for (const [key, , , section, from] of MODEL_ROLES) {
+    assert.ok(section, `${key} has a section`);
+    if (from && from !== 'gradeModel') assert.ok(seen.has(from), `${key} falls back to ${from}, which comes later`);
+    seen.add(key);
+  }
 });
 
 test('a notes model that was chosen is kept', () => {
@@ -200,4 +196,22 @@ test('a card costs two calls when one model writes and speaks', async () => {
     textModel: 'flash', ttsModel: 'tts', shadowModel: 'flash',
   });
   assert.equal(lim.report(two).cardsLeftToday, 9);
+});
+
+test('every number a mode is given is held to its range, and every filter to the known ones', () => {
+  const s = withDefaults({
+    translateItems: 99, conversationTurns: 1, conversationFacts: '3', writingTerms: 'lots',
+    readingPatternShare: -5, writingScope: 'nonsense', translateOrder: 'backwards', conversationKind: 'debate',
+    translateBlankWrong: false,
+  });
+  assert.equal(s.translateItems, 20);
+  assert.equal(s.conversationTurns, 2);
+  assert.equal(s.conversationFacts, 3);
+  assert.equal(s.writingTerms, 5, 'unreadable is the default');
+  assert.equal(s.readingPatternShare, 0);
+  assert.equal(s.writingScope, 'all');
+  assert.equal(s.translateOrder, 'dictated');
+  assert.equal(s.conversationKind, 'roleplay');
+  assert.equal(s.translateBlankWrong, false);
+  assert.equal(withDefaults(null).translateBlankWrong, true);
 });

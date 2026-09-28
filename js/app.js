@@ -48,6 +48,15 @@ function wireTabs() {
     show(btn.dataset.tab);
   });
 
+  /* A link anywhere that names a Settings section opens it there. */
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest('[data-open-sec]');
+    if (!link) return;
+    e.preventDefault();
+    show('settings');
+    settings.openSection(link.dataset.openSec);
+  });
+
   /* Arrow keys walk the tab strip, as a tablist should. */
   document.querySelector('.tabs').addEventListener('keydown', (e) => {
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;

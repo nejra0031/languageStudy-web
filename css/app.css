@@ -227,7 +227,106 @@ main { padding: 0 0 96px; }
   padding: 1px 4px;
 }
 
+/* ── settings sections ────────────────────────────────────────── */
+
+/* Settings is one accordion: a <details> per section, ruled like a block,
+   with a one-line summary of what it holds beside the title so a closed
+   section still says something. Overlapping by a pixel collapses the rules
+   between neighbours, as the blocks do. */
+.sec-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+.sec-tools input { flex: 1 1 220px; min-width: 0; }
+.sec-none { margin-bottom: 14px; }
+.sec-group {
+  margin: 26px 0 8px;
+  font: 600 10.5px/1 var(--sans);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+.sec-group:first-of-type { margin-top: 6px; }
+.sec-group[hidden], .sec[hidden] { display: none; }
+.sec { border: 1px solid var(--line); background: var(--surface); }
+.sec + .sec { margin-top: -1px; }
+.sec > summary {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 13px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+.sec > summary::-webkit-details-marker, .sec-prompts > summary::-webkit-details-marker { display: none; }
+.sec > summary::before, .sec-prompts > summary::before {
+  content: '▸';
+  flex: none;
+  width: 10px;
+  color: var(--fg-dim);
+  font-size: 11px;
+}
+.sec[open] > summary::before, .sec-prompts[open] > summary::before { content: '▾'; }
+.sec > summary:hover { background: var(--surface-hi); }
+.sec[open] > summary { border-bottom: 1px solid var(--line); background: var(--bg-sunken); }
+.sec-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-warm);
+  flex: none;
+}
+.sec-sum {
+  margin-left: auto;
+  min-width: 0;
+  font: 11px/1.4 var(--mono);
+  color: var(--fg-dim);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sec-body { padding: 16px; }
+.sec-body > * + * { margin-top: 14px; }
+#voice-device > * + *, #voice-azure > * + * { margin-top: 14px; }
+#voice-device[hidden], #voice-azure[hidden] { display: none; }
+.sec-sub {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 22px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font: 600 11px/1.4 var(--sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.sec-body > .sec-sub:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.sec-sub .hint { margin-left: auto; font: 11px/1.4 var(--mono); color: var(--fg-dim); text-transform: none; letter-spacing: 0; }
+.sec-prompts { border: 1px solid var(--line); background: var(--bg-sunken); }
+.sec-prompts > summary {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 10px 12px;
+  cursor: pointer;
+  list-style: none;
+  font: 600 11px/1.4 var(--sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.sec-count { font: 11px/1.4 var(--mono); color: var(--fg-dim); }
+.sec-prompts-body { padding: 4px 12px 14px; }
+.sec-prompts-body > * + * { margin-top: 14px; }
+
+@media (max-width: 560px) {
+  .sec > summary { flex-wrap: wrap; }
+  .sec-sum { margin-left: 22px; flex-basis: 100%; text-align: left; white-space: normal; }
+}
+
 /* ── form controls ────────────────────────────────────────────── */
+
+.field-sub { display: block; margin-top: 4px; font-size: 11.5px; font-style: normal; color: var(--fg-dim); }
 
 .field { display: block; }
 .field > span,
@@ -1213,7 +1312,6 @@ textarea { resize: vertical; font: 13px/1.6 var(--mono); }
   overflow-wrap: anywhere;
 }
 .wr-try { margin-top: 14px; }
-.wr-try .note { margin-right: 4px; }
 #wr-bounds { margin: 12px 0 8px; }
 .wr-text { width: 100%; font-size: 15px; line-height: 1.6; }
 .wr-written {
@@ -1292,6 +1390,12 @@ textarea { resize: vertical; font: 13px/1.6 var(--mono); }
 .cv-facts li { display: flex; gap: 8px; align-items: baseline; color: var(--fg-muted); }
 .cv-facts li.is-ok { color: var(--fg); }
 .cv-facts li.is-ok .wr-mark { color: var(--ok); }
+/* The cards to try to use, in Writing and Conversation: each one's front
+   and its meaning, in plain view. */
+.try-list li { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; }
+.try-front { color: var(--fg-warm); font-weight: 600; }
+.try-back { font-size: 12.5px; color: var(--fg-dim); }
+.try-list[hidden] { display: none; }
 
 /* The chat: the other person on the left, you on the right, each line in a
    ruled box rather than a rounded bubble, as everything here is. */

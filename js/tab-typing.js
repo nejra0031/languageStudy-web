@@ -41,6 +41,13 @@ const tally = { total: 0, right: 0, wrong: 0 };
 export function init() {
   scope = store.state.settings.typingScope || 'all';
   setSeg('ty-scope', 'scope', scope);
+  /* The filter can be changed in Settings too; the tab follows. */
+  store.subscribe('settings', (st) => {
+    const next = st.settings.typingScope || 'all';
+    if (next === scope) return;
+    scope = next;
+    setSeg('ty-scope', 'scope', scope);
+  });
   setSeg('ty-dir', 'dir', store.state.settings.typingDirection);
 
   $('ty-scope').addEventListener('click', (e) => {
@@ -68,6 +75,8 @@ export function init() {
     renderSpeak();
   });
   store.subscribe('settings', renderSpeak);
+  /* The direction can be changed in Settings too. */
+  store.subscribe('settings', (st) => setSeg('ty-dir', 'dir', st.settings.typingDirection));
   speech.onVoicesChanged(renderSpeak);
   speech.onSpoken(renderVoiceNote);
   wireSpeechPanel();
@@ -168,7 +177,7 @@ function next() {
   /* With Read aloud on, a word that is the prompt is heard, not read: it is
      hidden until you choose to see it, or until you answer. Only when it can
      actually be heard — with no voice, hiding it would leave nothing to go on. */
-  const listening = shownSide === 'front' && store.state.settings.typingSpeak && speech.canSpeak(code);
+  const listening = shownSide === 'front' && store.state.settings.typingSpeak && speech.canSpeak(code, store.state.settings.speechSource);
   const askFor = shownSide === 'front' ? 'the meaning' : store.state.settings.targetLanguage;
   const { encounters, correct } = stats(current);
 
@@ -280,7 +289,7 @@ function say(asked = false) {
      change from another tab. Only speak to someone looking at this one. */
   if ($('panel-typing').hidden) return;
   const s = store.state.settings;
-  speech.speak(current.front.replace(/\([^)]*\)/g, ' '), targetCode(), { voice: s.speechVoice, rate: s.speechRate });
+  speech.speak(current.front.replace(/\([^)]*\)/g, ' '), targetCode(), { voice: speech.voiceSetting(s), rate: s.speechRate });
 }
 
 /* A speaker with sound waves when on, struck through when off. Drawn in
@@ -316,7 +325,10 @@ function wireSpeechPanel() {
     if (e.key === 'Escape') { e.preventDefault(); open(false); btn.focus(); }
   });
 
-  $('ty-voice').addEventListener('change', (e) => store.saveSettings({ speechVoice: e.target.value }));
+  /* The picker lists the voices of the source chosen in Settings, and saves
+     the choice to that source, so the other side's pick is kept. */
+  $('ty-voice').addEventListener('change', (e) => store.saveSettings(
+    store.state.settings.speechSource === 'azure' ? { azureVoice: e.target.value } : { speechVoice: e.target.value }));
   rate.addEventListener('input', () => { $('ty-rate-val').textContent = speech.rateLabel(rate.value); });
   rate.addEventListener('change', () => store.saveSettings({ speechRate: speech.clampRate(rate.value) }));
   /* The sample is the card on screen, if there is one — but only once its
@@ -325,7 +337,7 @@ function wireSpeechPanel() {
     const s = store.state.settings;
     const visible = current && (answered || shownSide === 'front');
     const text = visible ? current.front.replace(/\([^)]*\)/g, ' ') : 'Xin chào';
-    speech.speak(text, targetCode(), { voice: s.speechVoice, rate: s.speechRate });
+    speech.speak(text, targetCode(), { voice: speech.voiceSetting(s), rate: s.speechRate });
   });
 }
 
@@ -345,7 +357,7 @@ function renderVoiceNote({ voice, source, blocked }) {
 function renderSpeak() {
   const btn = $('ty-speak');
   const lang = store.state.settings.targetLanguage || 'this language';
-  const voice = speech.canSpeak(targetCode());
+  const voice = speech.canSpeak(targetCode(), store.state.settings.speechSource);
   btn.disabled = !voice;
   const on = voice && !!store.state.settings.typingSpeak;
   btn.setAttribute('aria-pressed', String(on));
@@ -358,8 +370,11 @@ function renderSpeak() {
   /* Keep the panel in step with Settings, which can change the same two. */
   const s = store.state.settings;
   $('ty-speech-opts').disabled = !voice;
-  $('ty-voice').innerHTML = speech.voiceOptions(targetCode(), s.speechVoice || '');
-  $('ty-voice').value = s.speechVoice || '';
+  const azureSide = s.speechSource === 'azure';
+  const chosen = (azureSide ? s.azureVoice : s.speechVoice) || '';
+  $('ty-voice').innerHTML = speech.voiceOptions(targetCode(), chosen, s.speechSource);
+  $('ty-voice').value = chosen;
+  $('ty-voice-label').textContent = azureSide ? 'Azure voice' : 'Device voice';
   const rate = $('ty-rate');
   if (document.activeElement !== rate) rate.value = speech.clampRate(s.speechRate);
   $('ty-rate-val').textContent = speech.rateLabel(rate.value);

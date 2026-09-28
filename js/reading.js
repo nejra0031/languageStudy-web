@@ -39,8 +39,9 @@ export const READING_PRESETS = [
 ];
 
 /* Of the cards in a text, about this share are grammar patterns when the
-   decks have any. A pattern takes a sentence of its own to show, so a text
-   that was mostly patterns would be a grammar drill in paragraphs. */
+   decks have any, unless the readingPatternShare setting says otherwise. A
+   pattern takes a sentence of its own to show, so a text that was mostly
+   patterns would be a grammar drill in paragraphs. */
 export const PATTERN_SHARE = 0.25;
 
 export const MIN_TERMS = 1;
@@ -55,8 +56,11 @@ export function clampTerms(n) {
    every practice tab is, with patterns given their share when there are any
    and words the rest. Whichever kind runs short, the other fills in. A word
    in two ticked decks is asked for once. `draw` is pickWeighted, passed in by
-   the tests. */
-export function pickReadingCards(cards, n, draw = pickWeighted) {
+   the tests. `share` is the patterns' share, from 0 to 1; at 0 a text is all
+   words, and otherwise at least one pattern goes in when there is one.
+   Writing and Conversation draw their cards through this too, at the
+   default share. */
+export function pickReadingCards(cards, n, draw = pickWeighted, share = PATTERN_SHARE) {
   const seen = new Set();
   const pool = [];
   for (const c of cards || []) {
@@ -67,8 +71,8 @@ export function pickReadingCards(cards, n, draw = pickWeighted) {
   const patterns = pool.filter(isPattern);
   const words = pool.filter((c) => !isPattern(c));
   const want = Math.min(clampTerms(n), pool.length);
-  const share = patterns.length ? Math.max(1, Math.round(want * PATTERN_SHARE)) : 0;
-  const nWords = Math.min(words.length, want - Math.min(share, patterns.length));
+  const wantPatterns = patterns.length && share > 0 ? Math.max(1, Math.round(want * share)) : 0;
+  const nWords = Math.min(words.length, want - Math.min(wantPatterns, patterns.length));
   const nPatterns = Math.min(patterns.length, want - nWords);
   return [...draw(patterns, nPatterns), ...draw(words, nWords)];
 }

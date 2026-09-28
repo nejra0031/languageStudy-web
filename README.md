@@ -38,10 +38,11 @@ without knowing anything about any of them.
 The tab strip has two groups: Settings and Flashcards set things up, and
 after a gap come the practice modes.
 
-**Settings** — where your data is saved, your API key, the language, the models, the call
-budget, the prompts, the read-aloud voice, and which Gemini voices may read to you.
-It is also where you turn on [adding a card from selected
-text](#adding-a-card-from-selected-text), which works on every tab.
+**Settings** — every setting, in sections that open and close: first the
+general ones (your data, API keys, models and budget, language, feedback, and
+[adding a card from selected text](#adding-a-card-from-selected-text)), then
+one section per practice mode, holding everything about that mode, its models
+and its prompts included. See [Settings](#settings).
 
 **Flashcards** — a text box containing the deck file exactly as it is stored.
 There is no form over the top of it and no hidden second file: what you read is
@@ -58,8 +59,9 @@ A wrong answer in that language is marked word by word, as in Dictation: which
 words were right, which had the wrong accent, which are not in the answer and
 which are missing.
 
-The word can also be **read aloud** by your device's own voice, free and
-offline; the button beside the speaker picks the voice and the speed, which
+The word can also be **read aloud**, by your device's own voice (free and
+offline) or an Azure voice, as [Settings → Read-aloud voice](#the-read-aloud-voice-and-azure-optional)
+says; the button beside the speaker picks the voice and the speed, which
 helps where the voice is brisk, as Windows voices often are. With that on, a
 word that is the prompt is heard, not shown: in its place is a box to type what
 you hear. *Check* marks your spelling and tones syllable by syllable, a tone
@@ -106,11 +108,11 @@ meaning. See [Reading](#reading).
 texts or your opinion on a question, read by the feedback model and scored
 against your cards. See [Writing](#writing).
 
-**Translate** — six English sentences from the sentence bank to write in the
+**Translate** — English sentences from the sentence bank (six by default) to write in the
 language you are learning, in your own words, checked together in one call.
 See [Translate](#translate).
 
-**Conversation** — six turns of your own in a short scene, a roleplay or a
+**Conversation** — a few turns of your own (six by default) in a short scene, a roleplay or a
 *find out*, with the other side played by the conversation model and
 feedback at the end. See [Conversation](#conversation).
 
@@ -168,7 +170,7 @@ row of its own, which opens the set at that hand-in.
 
 ### The language of the feedback
 
-**Settings → Shadowing → Feedback language and style** says how the notes are
+**Settings → Feedback → Feedback language and style** says how the notes are
 written, in your own words: *English*, *English and Vietnamese*, *English,
 avoid technical terms*, *Vietnamese, with an English summary at the end*.
 Whatever you type goes to the model as your request. The only things it cannot
@@ -290,7 +292,9 @@ of text you get and nothing else: it cannot change how words are marked.
 The cards are drawn the way every practice tab draws them, weighted towards
 your weakest, from the ticked decks and the **Weak / + Developing / All**
 filter. When the decks have [grammar patterns](#the-deck-format), about a
-quarter of the cards are patterns; with none, they are all words.
+quarter of the cards are patterns (**Settings → Reading → Grammar patterns**,
+0% to 50%); with none, they are all words. The same section sets the filter
+the tab starts on and the number of cards a text uses.
 
 **Click a coloured word** (or Tab to it and press Enter) and a small popup
 opens under it with the card's word and a question: *did you understand it?*
@@ -357,19 +361,21 @@ learning and gives it back with feedback, the way a teacher marks a written
 exercise. There are two kinds of task, and both come from what you already
 have:
 
-- **Opinion**: *Write me a question* has the text model write one question,
-  in the language you are learning, around five cards drawn from the ticked
-  decks, weighted towards your weakest. That is one call on the text model.
-  Or type **a topic of your own** and press *Use my topic*, which costs
-  nothing; five cards are drawn for it all the same. The **Weak / +
-  Developing / All** filter is the one the Reading tab uses.
+- **Opinion**: *Write me a question* has the question model write one
+  question, in the language you are learning, around five cards (or as many
+  as **Settings → Writing → Cards to try to use** says) drawn from the ticked
+  decks, weighted towards your weakest. That is one call. Or type **a topic
+  of your own** and press *Use my topic*, which costs nothing; the cards are
+  drawn for it all the same. The **Weak / + Developing / All** filter is
+  Writing's own, and Settings sets the one it starts on.
 - **Summary**: pick one of your [kept Reading texts](#kept-texts-and-reading-them-aloud)
   and summarise it. *Show the text* opens it under the task while you write,
   and the cards that text used are the ones to try to use.
 
-The cards are listed under the task as **Try to use**. The task says how many
-words it wants: an opinion piece is **Settings → Language → Writing words**,
-60 to 120 by default; a summary asks for about two thirds of that, scaled by
+The cards are listed under the task as **Try to use these**, each with its meaning. The task says how many
+words it wants: an opinion piece is **Settings → Writing → Writing words**,
+60 to 120 by default; a summary asks for two thirds of that by default
+(**Summary length**, from 30% to 100%), scaled by
 the length of the text (a long article allows more, a short story less, at
 most 30% either way) and rounded to fives. The counter under the box turns
 red once you are short or over, and **Hand in** is live only inside the
@@ -410,8 +416,9 @@ until the next call.
 
 ## Translate
 
-The Translate tab gives you six English sentences to write in the language you
-are learning. **Any natural, correct way of saying the same thing is right**:
+The Translate tab gives you a set of English sentences to write in the
+language you are learning: six, unless **Settings → Translate → Sentences in a
+set** says otherwise (1 to 20, all checked in one call). **Any natural, correct way of saying the same thing is right**:
 the feedback model judges meaning and grammar, not whether you matched one
 particular answer word for word, which is what a string comparison would have
 to do.
@@ -421,8 +428,10 @@ in the Flashcards tab: a banked sentence's English is the prompt, the sentence
 itself is one right answer, and its target words are the cards it practises.
 So a set costs nothing to make, and the bank is only read, never written. Like
 Shadowing, a set prefers sentences you have already typed as a dictation,
-since checking a set shows every sentence in full. When fewer than six are in
-scope, the tab says so and gives you the set it has; it never writes new
+since checking a set shows every sentence in full; **Which sentences come
+first** in Settings can turn that round (ones not yet dictated, for a harder
+set at the cost of those dictations) or ignore it (random). When fewer than a
+full set are in scope, the tab says so and gives you the set it has; it never writes new
 sentences, which only Dictation's **New sentence** does. **New set** draws
 another.
 
@@ -441,7 +450,9 @@ else:
 - a **correct** answer scores all of its target words right;
 - an **incorrect** one scores wrong only the words the model says you got
   wrong, and leaves the rest alone;
-- a **blank** scores all of its words wrong, as *Show answer* does in Typing;
+- a **blank** scores all of its words wrong, as *Show answer* does in Typing,
+  unless you untick *A blank answer scores its words wrong* in Settings, and
+  then it scores nothing;
 - one that **could not be checked** scores nothing.
 
 A set is not kept, as a Typing session is not: what stays is the scores.
@@ -449,32 +460,40 @@ A set is not kept, as a Typing session is not: what stays is the scores.
 ## Conversation
 
 The Conversation tab is a short conversation in the language you are
-learning: **six turns of your own**, then feedback. There are two kinds.
+learning: **six turns of your own** (or as many as **Settings → Conversation
+→ Your turns** says, from 2 to 12), then feedback. A conversation keeps the
+number it started with. There are two kinds.
 
 - **Roleplay**: a scene with two roles, such as returning shoes to a shop or
   planning a weekend with a friend. The other person plays their part and
-  answers each of your turns. Your sixth turn gets their closing line and the
+  answers each of your turns. Your last turn gets their closing line and the
   feedback from the same call.
-- **Find out**: the other person knows three or four things you were sent to
-  find out, such as when the rubbish is collected. They answer all six of your
+- **Find out**: the other person knows four things you were sent to find out
+  (**Facts in a find out**, 2 to 6), such as when the rubbish is collected.
+  They answer every one of your
   turns, but **give a fact only when you ask about it specifically**; a vague
   "any tips?" gets a friendly answer with nothing in it. A checklist,
   *What you need to find out*, ticks each fact as they give it away. The
   answers stay hidden until the end.
 
 **Start** has the text model write the scene, in the language you are
-learning, around five cards from the ticked decks (the Weak / + Developing /
-All filter is the Reading tab's), with the other person's opening line: one
-call. **A situation you would like** is optional (*at the bakery*); left
+learning, around five cards from the ticked decks (**Cards in a scene**; the
+Weak / + Developing / All filter is Conversation's own), with the other
+person's opening line: one call. Settings also says which kind the tab starts
+on. **A situation you would like** is optional (*at the bakery*); left
 empty, the model chooses, and what you type is kept for next time. The note
 under it says what the conversation costs: one call on the text model, five
-replies (a roleplay) or six (a find out) on the **conversation model**, and
+replies (a roleplay: one fewer than your turns) or six (a find out: one per
+turn) on the **conversation model**, and
 one call on the **feedback model** at the end. If today's budget could not
 finish the conversation, Start is refused before anything is spent, and says
 which model is short.
 
 The scene stays above the chat: the situation, who you are, who you are
-talking to, and in a find out the goal and the checklist. Type your turn and
+talking to, and in a find out the goal and the checklist. Under it, **Try to
+use these in your turns** lists the cards the scene was written around, each
+with its meaning, for the whole conversation: they are the cards the feedback
+judges at the end, on your turns only. Type your turn and
 press **Send** (or Enter; Shift+Enter is a new line). A turn takes 1,000
 characters at most. **End and get feedback** ends the conversation early,
 once you have had a turn, and costs one feedback call.
@@ -852,18 +871,35 @@ Chrome and Edge choose a folder first.
 
 Exporting works whatever the browser can or cannot save.
 
-## Azure neural voices (optional)
+## The read-aloud voice, and Azure (optional)
 
-Words are read aloud by your device's own voice unless you give the app an
-Azure Speech key, which adds Microsoft's neural voices — the same
-natural-sounding voices on every device (HoaiMy and NamMinh for Vietnamese).
-They sit in the same voice list, under *Azure neural voices*.
+Words in Typing, and the flashcard lines in Shadowing, are read by the voice
+set in **Settings → Read-aloud voice**. Its **Read with** switch says which
+kind reads, and only that kind's controls are shown:
+
+- **This device**: your operating system's own voices, free, instant and
+  offline. *Device voice* picks one; *Best available* takes the best
+  installed voice for your language.
+- **Azure neural voices**: Microsoft's natural-sounding voices, the same on
+  every device (HoaiMy and NamMinh for Vietnamese), with your own Azure Speech
+  key. *Azure voice* picks one once the key is in; *First voice* takes the
+  first Azure offers for your language.
+
+**Entering a key does not switch anything by itself**: Azure reads only while
+the switch is on Azure. Each side keeps its own choice, so switching back and
+forth loses neither. The line under the section always says what will read
+and, when it is not what you chose, why: no key yet, a key Azure refused, no
+voice for your language, a voice that is not installed here. Its summary line
+names the voice in use. The Typing tab's voice picker lists the voices of
+whichever side is chosen. A setup from before the switch, with an Azure voice
+picked, starts on Azure with that voice.
 
 To make a key: sign in at [portal.azure.com](https://portal.azure.com),
 **Create a resource**, search **Speech**, and create one with the **Free F0**
 pricing tier and a region near you (Southeast Asia, say). Once it is
 deployed, **Keys and Endpoint** shows *KEY 1* and the *Location/Region*;
-paste both into **Settings → Read-aloud voice**.
+switch **Settings → Read-aloud voice** to *Azure neural voices* and paste both
+there.
 
 The free tier covers 500,000 characters a month. Each word is fetched from
 Azure once, ever: the clip is saved in `voice/` beside the rest of your data,
@@ -891,20 +927,37 @@ never see, you need a server, and this project deliberately does not have one.
 
 ### Models, and the call budget
 
-**Settings → Models** is a list: every Gemini model you use, entered once, each
-with its own calls-per-minute and calls-per-day. **Settings → What each model
-does** then hands out the six jobs — writing the sentence (and the
-Reading tab's texts), speaking it,
-listening to your shadowing (and to your spoken conversation turns), writing a card's notes when you ask for them
-in the [selection form](#adding-a-card-from-selected-text), giving
-**feedback** on writing, translations and conversations, and playing the other
-side of a **conversation** — from that list. A settings file from before the
-notes, feedback or conversation job existed gives it the text model.
+**Settings → Models and budget** is a list: every Gemini model you use, entered
+once, each with its own calls-per-minute and calls-per-day. **Every call the
+app makes is a job of its own**, and each job is given one model from that
+list, in the Settings section of the mode it belongs to (Dictation's two in
+Dictation, Conversation's four in Conversation):
 
-The conversation job suits a flash-lite model with a bigger daily allowance
-than the flash models have: one conversation spends five or six of its calls,
-each a reply of a line or two, and feedback on the whole of it comes from the
-feedback model at the end.
+| Job | What it does |
+|---|---|
+| Dictation | writes dictation sentences |
+| Dictation speech | reads them aloud (a TTS model) |
+| Shadowing | listens to your shadowing recordings |
+| Listening rules | drafts and revises the listening rules |
+| Reading | writes reading texts |
+| Reading aloud | reads a text aloud (a TTS model) |
+| Writing questions | writes a question for an opinion piece |
+| Writing feedback | reads your writing |
+| Translate feedback | checks your translations |
+| Conversation scenes | sets the scene and the opening line |
+| Conversation replies | plays the other side |
+| Conversation feedback | gives the feedback at the end |
+| Conversation listening | writes down spoken turns, and hears how a spoken roleplay sounded |
+| Notes | writes a card's notes in the [selection form](#adding-a-card-from-selected-text) |
+
+So a cheap model can answer conversation turns while a stronger one gives
+feedback, say. A settings file from before a job existed gives it the model of
+the job it was split from: the text model for anything that writes, the speech
+model for reading aloud, the shadowing model for conversation listening.
+
+Conversation replies suit a flash-lite model with a bigger daily allowance
+than the flash models have: one conversation spends five or six of them, each
+a line or two.
 
 The limits belong to the model, not to the job, because that is how Google
 counts them. So `gemini-3.6-flash` is typed once even when it both writes
@@ -934,8 +987,12 @@ key is worse than no card at all.
 
 ### Prompts
 
-All the prompts sent to the API are yours to edit, in **Settings → Prompts**.
-The switch beside each one turns its box from **Edit** to **Preview**: exactly
+All the prompts sent to the API are yours to edit. Each is in the Settings
+section of the mode that sends it, in a **Prompts** panel there, closed until
+you open it: the sentence and speech prompts under Dictation, the notes prompt
+under Add from selected text, and so on. **Reset prompts**, at the end of the
+page, puts all of them back to the defaults at once, after asking once more in
+place. The switch beside each one turns its box from **Edit** to **Preview**: exactly
 what will be sent, filled in with your settings and three of your cards, and
 kept up to date as you type. The preview cannot be edited; switch back to make
 a change. A prompt that has lost something it needs, such as `{terms}`, says so
@@ -1041,7 +1098,7 @@ message. The find-out one holds the facts and their answers (`{facts}`),
 strict rules about giving one only when it is asked for, and asks for
 `"revealed"`, the facts the line gave away, which is what ticks your
 checklist. The **roleplay feedback** prompt is sent when a roleplay ends:
-`{closing}` asks for the closing line too after your sixth turn, and for none
+`{closing}` asks for the closing line too after your last turn, and for none
 after an early end. The **find-out feedback** prompt is sent when a find out
 ends, told what you found out. All five are lessons-web's, with Dutch taken
 out and your cards added.
@@ -1053,6 +1110,30 @@ heard. When a roleplay with spoken turns ends, its feedback prompt is sent
 with a **delivery addendum** added by the app, not editable here: it asks for
 `"deliveryNote"` and lists your language's listening rules, as the shadowing
 prompt's `{rules}` does.
+
+## Settings
+
+Settings is one page of sections that open and close, in three groups:
+
+- **General**: *Your data* (where it is saved, backups, the bundle), *API
+  keys*, *Models and budget* (the model list, which job each is doing, and
+  what has been spent), *Language*, *Feedback* (the feedback language and
+  style every graded mode uses) and *Add from selected text*.
+- **Practice modes**: one section each for Typing, Dictation, Shadowing,
+  Reading, Writing, Translate and Conversation, holding everything about that
+  mode: its options, the model for each of its jobs, and a **Prompts** panel
+  with its prompts.
+- **Reset**: *Reset prompts*.
+
+Each closed section shows a one-line summary of what it holds beside its
+title, such as the word counts and model of Dictation, so the setup can be
+read without opening anything. **Which sections are open is remembered in
+this browser** (not in your data folder or a bundle, since it is not part of
+your setup); a first visit opens API keys. **Expand all** and **Collapse
+all** open or close every section, and **Find a setting** shows only the
+sections whose words match, opened, until the box is cleared. A section that
+needs attention opens itself when the page loads: API keys while there is no
+Gemini key, and a section holding a prompt that has lost something it needs.
 
 ## Running it locally
 

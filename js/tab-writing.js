@@ -22,7 +22,7 @@ import * as storage from './storage.js';
 import { isPattern, inScope, recordResult, SCORE_LABEL } from './deck.js';
 import { pickReadingCards, speakableText, nextDatedId } from './reading.js';
 import {
-  WRITING_TERMS, MAX_TEXT, countWords, wordBounds, wordStatus, writingTitle,
+  MAX_TEXT, countWords, wordBounds, wordStatus, writingTitle,
 } from './writing.js';
 import { escapeHtml, scoreMark } from './text.js';
 import { formatWait } from './gemini.js';
@@ -64,7 +64,7 @@ export function init() {
     if (!btn) return;
     scope = btn.dataset.scope;
     setSeg('wr-scope', 'scope', scope);
-    store.saveSettings({ readingScope: scope });
+    store.saveSettings({ writingScope: scope });
     renderPool();
   });
   $('wr-ask').addEventListener('click', askForQuestion);
@@ -83,7 +83,7 @@ export function init() {
     else if (e.target.closest('[data-act="open"]')) openWriting(id);
   });
 
-  scope = store.state.settings.readingScope || 'all';
+  scope = store.state.settings.writingScope || 'all';
   setSeg('wr-scope', 'scope', scope);
   setSeg('wr-kind', 'kind', kind);
 
@@ -92,7 +92,7 @@ export function init() {
   store.subscribe('writing', renderList);
   store.subscribe('folder', () => { gate(); renderPool(); forgetIfGone(); });
   store.subscribe('settings', (st) => {
-    scope = st.settings.readingScope || 'all';
+    scope = st.settings.writingScope || 'all';
     setSeg('wr-scope', 'scope', scope);
     if (task && !shown) renderBounds();
   });
@@ -181,7 +181,7 @@ function copyCard(card, deck) {
 }
 
 function drawCards() {
-  return pickReadingCards(pool(), WRITING_TERMS).map((c) => copyCard(c));
+  return pickReadingCards(pool(), store.state.settings.writingTerms).map((c) => copyCard(c));
 }
 
 async function askForQuestion() {
@@ -301,9 +301,16 @@ function renderCard() {
   $('wr-source-text').textContent = task.sourceText || '';
   $('wr-source-text').lang = lang;
 
+  /* Each card with its meaning in plain view, as Conversation lists them:
+     a meaning in a tooltip is one a phone never shows. */
   $('wr-try').innerHTML = task.cards.length
-    ? `<span class="note">Try to use:</span>${task.cards.map((c) => `<span class="chip" lang="${escapeHtml(lang)}"${c.back ? ` title="${escapeHtml(c.back)}"` : ''}>${escapeHtml(c.front)}</span>`).join('')}`
+    ? `<div class="cv-facts-head">Try to use these</div>
+      <ul>${task.cards.map((c) => `<li>
+        <span class="try-front" lang="${escapeHtml(lang)}">${escapeHtml(c.front)}</span>
+        <span class="try-back">${c.type === 'pattern' ? 'grammar pattern · ' : ''}${escapeHtml(c.back || '')}</span>
+      </li>`).join('')}</ul>`
     : '';
+  $('wr-try').hidden = !task.cards.length;
 
   const editing = !record;
   $('wr-text').hidden = !editing;
@@ -340,7 +347,7 @@ function renderCount() {
 function renderHandIn() {
   const btn = $('wr-hand-in');
   if (busy) return;
-  const g = store.quotaReport().grade;
+  const g = store.jobUsage('writingGradeModel');
   const ok = task && !shown && wordStatus(countWords($('wr-text').value), bounds()).ok;
   btn.disabled = !ok || g.retryAfter > 0 || !storage.getApiKey();
   /* Why a piece that is the right length cannot go in yet is said beside
@@ -366,7 +373,7 @@ async function handIn() {
   btn.disabled = true;
   $('wr-text').readOnly = true;
   $('wr-busy').hidden = false;
-  $('wr-busy').textContent = `${s.gradeModel} is reading it. This can take half a minute.`;
+  $('wr-busy').textContent = `${s.writingGradeModel} is reading it. This can take half a minute.`;
 
   try {
     const { result, model } = await store.client.gradeWriting({
@@ -622,9 +629,8 @@ function clear() {
 
 function renderQuota() {
   if (!isActive()) return;
-  const q = store.quotaReport();
-  const g = q.grade;
-  const t = q.text;
+  const g = store.jobUsage('writingGradeModel');
+  const t = store.jobUsage('writingBriefModel');
   const el = $('wr-quota');
   const usage = `feedback ${g.usedDay}/${g.rpd || '∞'} in 24h`;
   if (g.retryAfter > 0) {

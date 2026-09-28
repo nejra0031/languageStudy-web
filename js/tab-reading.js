@@ -164,6 +164,13 @@ export function init() {
   const s = store.state.settings;
   scope = s.readingScope || 'all';
   setSeg('rd-scope', 'scope', scope);
+  /* The filter can be changed in Settings too; the tab follows. */
+  store.subscribe('settings', (st) => {
+    const next = st.settings.readingScope || 'all';
+    if (next === scope) return;
+    scope = next;
+    setSeg('rd-scope', 'scope', scope);
+  });
   syncFields();
 
   store.subscribe('deck', () => {
@@ -253,7 +260,7 @@ function renderPool() {
 
 function renderQuota() {
   if (!isActive()) return;
-  const t = store.quotaReport().text;
+  const t = store.jobUsage('readingModel');
   const el = $('rd-quota');
   const usage = `text ${t.usedDay}/${t.rpd || '∞'} in 24h`;
   if (t.retryAfter > 0) {
@@ -271,7 +278,7 @@ function renderQuota() {
 function renderSpeak() {
   const btn = $('rd-speak');
   if (speaking) return;
-  const tts = store.quotaReport().tts;
+  const tts = store.jobUsage('readingSpeechModel');
   btn.disabled = !current || !storage.getApiKey() || tts.retryAfter > 0;
   btn.title = `One call on ${tts.model}: speech ${tts.usedDay}/${tts.rpd || '∞'} in 24h`;
   /* Why the button is greyed out is said in the note, not only in a
@@ -293,7 +300,7 @@ async function generate() {
     return;
   }
   const n = clampTerms($('rd-terms').value);
-  const picked = pickReadingCards(cards, n);
+  const picked = pickReadingCards(cards, n, undefined, store.state.settings.readingPatternShare / 100);
   const request = $('rd-request').value;
   const s = store.state.settings;
 
@@ -303,7 +310,7 @@ async function generate() {
   btn.innerHTML = '<span class="spinner"></span>Writing';
   btn.disabled = true;
   $('rd-writing').hidden = false;
-  $('rd-writing').textContent = `Writing a text around ${picked.length} of your cards with ${s.textModel}. A long text can take a minute.`;
+  $('rd-writing').textContent = `Writing a text around ${picked.length} of your cards with ${s.readingModel}. A long text can take a minute.`;
 
   try {
     const reading = await store.client.writeReading({ cards: picked, request });

@@ -132,3 +132,25 @@ test('an ungraded answer scores nothing, but an ungraded blank is still a blank'
   assert.deepEqual(translationScores(ungraded, items, ['', 'something', '']), []);
   assert.equal(translationScores(ungraded, items, ['', '', '']).length, 2);
 });
+
+/* ── the options ─────────────────────────────────────────────────────── */
+
+test('the order can put sentences not yet dictated first, or ignore dictation', () => {
+  const bank = [entry('typed', { times_practiced: 2 }), entry('new')];
+  assert.equal(orderForTranslation(bank, 'dictated')[0].id, 'typed');
+  assert.equal(orderForTranslation(bank, 'fresh')[0].id, 'new');
+  const flip = [0.9, 0.1];
+  assert.deepEqual(orderForTranslation(bank, 'random', () => flip.shift()).map((e) => e.id), ['new', 'typed']);
+});
+
+test('a set takes as many sentences as asked, up to what the bank has', () => {
+  const bank = Array.from({ length: 12 }, (_, i) => entry(`e${i}`));
+  assert.equal(pickTranslationItems(bank, 10, findCard).length, 10);
+  assert.equal(pickTranslationItems(bank, 20, findCard).length, 12);
+});
+
+test('with blank answers not counted, a blank scores nothing', () => {
+  const results = [{ index: 1, graded: true, correct: false, explanation: '', cards: [1] }];
+  assert.deepEqual(translationScores(results, items, ['', '', ''], { blankWrong: false }), []);
+  assert.equal(translationScores(results, items, ['', '', '']).length, 2, 'counted by default');
+});

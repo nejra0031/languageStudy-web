@@ -215,3 +215,11 @@ test('the Read aloud voice is kept when it is a voice, and otherwise means any',
   assert.equal(withDefaults({ readingVoice: 'Kore' }).readingVoice, 'Kore');
   assert.equal(withDefaults({ readingVoice: 'NotAVoice' }).readingVoice, '', 'a dropped voice falls back to a drawn one');
 });
+
+test('the patterns\' share of a text can be set, and 0 means words only', () => {
+  const cards = [...Array.from({ length: 20 }, (_, i) => word(`w${i}`)), ...Array.from({ length: 10 }, (_, i) => pattern(`p${i} …`))];
+  assert.equal(pickReadingCards(cards, 10, firstN, 0.5).filter((c) => c.type === 'pattern').length, 5);
+  assert.equal(pickReadingCards(cards, 10, firstN, 0).filter((c) => c.type === 'pattern').length, 0);
+  /* With no words left, patterns still fill in. */
+  assert.equal(pickReadingCards(cards.slice(20), 3, firstN, 0).length, 3);
+});

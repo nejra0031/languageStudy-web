@@ -270,7 +270,7 @@ Reply with ONLY this JSON, no other text: {"scenario":"<one or two sentences des
 
 FOR A FIND-OUT:
 The learner has to find out several specific things from the other person by asking, and the other person will not volunteer them. Invent one concrete everyday situation in which one person knows things the other needs to know -- examples: a new neighbour asking about the building, a guest asking their host about the house, a new colleague on their first morning, a tourist at a hotel reception, a parent asking about a school trip.
-- Write 3 or 4 facts the other person knows. Each is specific and can be asked about in one question: a time, a place, a price, a name, a rule. No two facts are about the same thing.
+- Write exactly {factCount} facts the other person knows. Each is specific and can be asked about in one question: a time, a place, a price, a name, a rule. No two facts are about the same thing.
 - "label" names what to find out without giving the answer, e.g. "when the rubbish is collected"; "detail" is the answer, e.g. "Tuesday and Friday mornings, before eight".
 - "goal" is one sentence telling the learner what they were sent to find out, without any of the details.
 - The opening line says hello and sets the scene in one or two short sentences, something that makes it natural for the learner to start asking. It must give away NONE of the facts.
@@ -552,22 +552,46 @@ export function upgradePrompts(prompts) {
 export const DEFAULT_SHADOW_SOUNDS =
   'the six tones (ngang, huyền, sắc, hỏi, ngã, nặng), the unreleased final consonants -c, -ch, -t, -p, -n, -ng, and the vowels ư, ơ and â';
 
-/* The jobs a model can be given, in the order they are shown, each paired
-   with the settings key that names the model doing it. Every part of the app
-   that asks "which models are in use?" walks this list, so adding a job is a
-   line here rather than a search for the others. */
+/* The jobs a model can be given, in the order they are shown, one row each:
+
+     [settings key, label, what it does, Settings section, falls back to]
+
+   Every place the app calls a model is a job of its own, so each practice
+   mode can be given its own model in its own section of Settings: a cheap
+   one for conversation replies, a stronger one for feedback, say. Every
+   part of the app that asks "which models are in use?" walks this list, so
+   adding a job is a line here rather than a search for the others.
+
+   The last column is the job whose model a settings file that predates this
+   one hands it — the model that did this work before it was split off. It
+   is a model this user already has, with limits they chose; the default id
+   might be one their catalogue lacks, and would then be added unlimited.
+   'gradeModel' was the single feedback job before feedback was split by
+   mode; it is read for that and never written back. */
 export const MODEL_ROLES = [
-  ['textModel', 'Text', 'writes sentences and texts'],
-  ['ttsModel', 'Speech', 'reads it aloud'],
-  ['shadowModel', 'Shadowing', 'listens to you'],
-  ['notesModel', 'Notes', 'writes card notes'],
-  ['gradeModel', 'Feedback', 'grades writing, translations and conversations'],
-  ['chatModel', 'Conversation', 'plays the other side'],
+  ['textModel', 'Dictation', 'writes dictation sentences', 'dictation', null],
+  ['ttsModel', 'Dictation speech', 'reads dictation sentences aloud', 'dictation', null],
+  ['shadowModel', 'Shadowing', 'listens to your recordings', 'shadowing', null],
+  ['rulesModel', 'Listening rules', 'drafts and revises the listening rules', 'shadowing', 'textModel'],
+  ['readingModel', 'Reading', 'writes reading texts', 'reading', 'textModel'],
+  ['readingSpeechModel', 'Reading aloud', 'reads a text aloud', 'reading', 'ttsModel'],
+  ['writingBriefModel', 'Writing questions', 'writes a question to answer', 'writing', 'textModel'],
+  ['writingGradeModel', 'Writing feedback', 'reads your writing', 'writing', 'gradeModel'],
+  ['translateModel', 'Translate feedback', 'checks your translations', 'translate', 'gradeModel'],
+  ['sceneModel', 'Conversation scenes', 'sets the scene', 'conversation', 'textModel'],
+  ['chatModel', 'Conversation replies', 'plays the other side', 'conversation', 'textModel'],
+  ['conversationGradeModel', 'Conversation feedback', 'gives the feedback at the end', 'conversation', 'gradeModel'],
+  ['listenModel', 'Conversation listening', 'writes down spoken turns and hears how they sounded', 'conversation', 'shadowModel'],
+  ['notesModel', 'Notes', 'writes card notes', 'lookup', 'textModel'],
 ];
 
-/* The jobs a settings file may predate. One that does not name them gives
-   them its text model, as withDefaults() says why. */
-const LATER_JOBS = ['notesModel', 'gradeModel', 'chatModel'];
+/* The jobs that must return audio. Only Google's TTS models do. */
+export const SPEECH_ROLES = ['ttsModel', 'readingSpeechModel'];
+
+/* The jobs of one Settings section, as MODEL_ROLES rows. */
+export function rolesIn(section) {
+  return MODEL_ROLES.filter((r) => r[3] === section);
+}
 
 /* The catalogue a fresh install starts with: two models, because the default
    text model and the default shadowing model are the same one and a model is
@@ -597,27 +621,14 @@ export const DEFAULT_SETTINGS = {
      of the model and not of the job it is doing — which is the whole reason
      this is a list rather than three sets of numbers. */
   models: DEFAULT_MODELS.map((m) => ({ ...m })),
-  /* Which model does which job. Each names an id in `models`; two jobs may
-     name the same one, and then they share its allowance, exactly as they do
-     at Google's end. */
-  textModel: 'gemini-3.6-flash',
+  /* Which model does which job — see MODEL_ROLES for what each does. Each
+     names an id in `models`; two jobs may name the same one, and then they
+     share its allowance, exactly as they do at Google's end. By default
+     every job that writes or listens is on one flash model, and the two
+     that speak are on the TTS model. */
+  ...Object.fromEntries(MODEL_ROLES.map(([key]) => [key, 'gemini-3.6-flash'])),
   ttsModel: 'gemini-3.1-flash-tts-preview',
-  /* Shadowing is its own job: the call carries ten audio clips and has nothing
-     in common with writing a sentence. It defaults to the same model as the
-     text job, and so by default to the same allowance. */
-  shadowModel: 'gemini-3.6-flash',
-  /* Writes a card's notes, on request, in the selection popup. A settings
-     file from before this job existed gives it the text model instead — see
-     withDefaults(). */
-  notesModel: 'gemini-3.6-flash',
-  /* Grades a piece of writing, a set of translations and a finished
-     conversation: reading someone's work and saying what to change, which
-     is a different job from writing a sentence. */
-  gradeModel: 'gemini-3.6-flash',
-  /* Plays the other side of a conversation, one short reply at a time. A
-     flash-lite model with a bigger daily allowance suits it: a conversation
-     spends five or six of these, and each is a line or two. */
-  chatModel: 'gemini-3.6-flash',
+  readingSpeechModel: 'gemini-3.1-flash-tts-preview',
   termsPerSentence: 3,
   sentenceWords: { min: 8, max: 16 },
   /* How many lines a shadowing set asks for. A set is whatever is actually
@@ -668,6 +679,32 @@ export const DEFAULT_SETTINGS = {
   readingRequest: '',
   readingTerms: 10,
   readingScope: 'all',
+  /* Of the cards a text is written around, the percentage that are grammar
+     patterns when the decks have any (0 to 50). */
+  readingPatternShare: 25,
+  /* Which cards Typing and Dictation draw from: 'weak', 'developing', 'all'
+     or 'accents'. Each tab keeps its own, and so does every mode below. */
+  typingScope: 'all',
+  dictationScope: 'all',
+  /* Writing: the cards an opinion piece is asked to use, the filter they are
+     drawn with, and a summary's length as a percentage of writingWords. */
+  writingTerms: 5,
+  writingScope: 'all',
+  writingSummaryShare: 67,
+  /* Translate: how many sentences a set asks for; which come first
+     ('dictated': already typed as a dictation, 'fresh': not yet, 'random');
+     and whether an answer left blank scores its words wrong. */
+  translateItems: 6,
+  translateOrder: 'dictated',
+  translateBlankWrong: true,
+  /* Conversation: your turns in one, the cards a scene is written around,
+     the filter they are drawn with, how many facts a find-out hides, and
+     which kind the tab starts on. */
+  conversationTurns: 6,
+  conversationTerms: 5,
+  conversationScope: 'all',
+  conversationFacts: 4,
+  conversationKind: 'roleplay',
   /* The voice Read aloud uses on the Reading tab: one of VOICES by name, or
      '' to draw one from the dictation voices, as a dictation sentence does. */
   readingVoice: '',
@@ -676,8 +713,15 @@ export const DEFAULT_SETTINGS = {
   typingDirection: 'random',
   /* Read the word being learnt aloud in Typing, with the browser's own voice. */
   typingSpeak: true,
-  /* Name of the browser voice to read with; '' picks the best installed. */
+  /* What reads words aloud in Typing and Shadowing: 'device' (the
+     operating system's voices, free and offline) or 'azure' (Azure neural
+     voices, with the Azure key kept in localStorage). Each keeps its own
+     choice: speechVoice names a device voice ('' is the best installed),
+     azureVoice an Azure voice by its short name ('' is the first for the
+     language). */
+  speechSource: 'device',
   speechVoice: '',
+  azureVoice: '',
   /* Its speed: 1 is the voice's own pace. See speech.js for the range. */
   speechRate: 1,
   /* Where the user's Azure Speech resource lives; the key itself is kept in
@@ -910,15 +954,18 @@ function mergeLimit(a, b) {
    which is the change this migration exists to make. */
 function modelsFromLegacyLimits(s, loaded) {
   const limits = { ...LEGACY_LIMITS, ...((loaded && loaded.limits) || {}) };
-  const byRole = {
-    textModel: { rpm: limits.textRpm, rpd: limits.textRpd },
-    ttsModel: { rpm: limits.ttsRpm, rpd: limits.ttsRpd },
-    shadowModel: { rpm: limits.shadowRpm, rpd: limits.shadowRpd },
-    notesModel: { rpm: limits.textRpm, rpd: limits.textRpd },
-    gradeModel: { rpm: limits.textRpm, rpd: limits.textRpd },
-    chatModel: { rpm: limits.textRpm, rpd: limits.textRpd },
+  const family = {
+    text: { rpm: limits.textRpm, rpd: limits.textRpd },
+    tts: { rpm: limits.ttsRpm, rpd: limits.ttsRpd },
+    shadow: { rpm: limits.shadowRpm, rpd: limits.shadowRpd },
   };
-  return MODEL_ROLES.map(([key]) => ({ id: s[key], ...byRole[key] }));
+  /* A job split off later carries the limits of the job it was split from. */
+  const rootOf = (key) => {
+    const row = MODEL_ROLES.find((r) => r[0] === key);
+    return row && row[4] && row[4] !== 'gradeModel' ? rootOf(row[4]) : key;
+  };
+  const byRoot = { textModel: family.text, ttsModel: family.tts, shadowModel: family.shadow };
+  return MODEL_ROLES.map(([key]) => ({ id: s[key], ...(byRoot[rootOf(key)] || family.text) }));
 }
 
 /* The catalogue, deduplicated by id and guaranteed to hold every model a job
@@ -967,6 +1014,28 @@ export function rolesUsing(settings, id) {
   return MODEL_ROLES.filter(([key]) => settings[key] === id).map(([, label]) => label);
 }
 
+/* The numbered settings of the practice modes and the range each may take:
+   [key, lowest, highest]. The Settings controls offer the same ranges. */
+export const NUMBER_RANGES = [
+  ['readingPatternShare', 0, 50],
+  ['writingTerms', 1, 10],
+  ['writingSummaryShare', 30, 100],
+  ['translateItems', 1, 20],
+  ['conversationTurns', 2, 12],
+  ['conversationTerms', 1, 10],
+  ['conversationFacts', 2, 6],
+];
+
+/* The card filters every drawing tab offers. Accents is Typing's, Dictation's
+   and Shadowing's only; elsewhere the tab offers the other three. */
+export const SCOPES = ['weak', 'developing', 'all', 'accents'];
+const SCOPE_KEYS = ['typingScope', 'dictationScope', 'shadowScope', 'readingScope', 'writingScope', 'conversationScope'];
+
+export function clampSetting(value, lo, hi, fallback) {
+  const n = Math.round(Number(value));
+  return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : fallback;
+}
+
 /* Whole numbers, at least five words, and a ceiling above the floor: a
    range the word counter can actually be inside. */
 function cleanWritingWords(raw) {
@@ -983,15 +1052,17 @@ function cleanWritingWords(raw) {
    Anything the user's file does not mention keeps its default. */
 export function withDefaults(loaded) {
   const s = { ...DEFAULT_SETTINGS, ...(loaded || {}) };
-  /* A settings file from before the notes, feedback or conversation job
-     gives it the text model: that is a model this user already has, with
-     limits they chose. The default id might be one their catalogue lacks,
-     and would then be added unlimited. */
-  for (const key of LATER_JOBS) {
-    if (loaded && !String(loaded[key] || '').trim() && String(loaded.textModel || '').trim()) {
-      s[key] = loaded.textModel;
+  /* A settings file from before a job existed gives it the model of the job
+     it was split from (the last column of MODEL_ROLES), or the text model
+     when that one is missing too. MODEL_ROLES lists a job after the job it
+     falls back to, so one pass in order settles chains. */
+  if (loaded && String(loaded.textModel || '').trim()) {
+    for (const [key, , , , from] of MODEL_ROLES) {
+      if (!from || String(loaded[key] || '').trim()) continue;
+      s[key] = String(s[from] || loaded[from] || '').trim() || loaded.textModel;
     }
   }
+  delete s.gradeModel;
   /* Every job names a model by id; a blank one falls back to the default
      rather than to nothing, since the catalogue is built from these. */
   for (const [key] of MODEL_ROLES) {
@@ -1030,6 +1101,13 @@ export function withDefaults(loaded) {
   s.readingVoice = VOICE_NAMES.includes(s.readingVoice) ? s.readingVoice : '';
   const terms = Math.round(Number(s.readingTerms));
   s.readingTerms = Number.isFinite(terms) ? Math.max(1, Math.min(40, terms)) : DEFAULT_SETTINGS.readingTerms;
+  /* Every number a mode is given, whole and inside the range its control
+     offers; anything unreadable is the default. */
+  for (const [key, lo, hi] of NUMBER_RANGES) s[key] = clampSetting(s[key], lo, hi, DEFAULT_SETTINGS[key]);
+  for (const key of SCOPE_KEYS) if (!SCOPES.includes(s[key])) s[key] = 'all';
+  if (!['dictated', 'fresh', 'random'].includes(s.translateOrder)) s.translateOrder = DEFAULT_SETTINGS.translateOrder;
+  if (!['roleplay', 'findout'].includes(s.conversationKind)) s.conversationKind = DEFAULT_SETTINGS.conversationKind;
+  s.translateBlankWrong = s.translateBlankWrong !== false;
   s.shadowReviseAfter = Math.max(1, Math.round(Number(s.shadowReviseAfter)) || DEFAULT_SETTINGS.shadowReviseAfter);
   /* Filter the ticked voices through the catalogue so a renamed or dropped
      voice cannot end up in a request. Never leave the pool empty. */
@@ -1040,6 +1118,20 @@ export function withDefaults(loaded) {
      not here, so a deck that is temporarily missing is not forgotten. */
   s.practiceDecks = Array.isArray(s.practiceDecks)
     ? [...new Set(s.practiceDecks.map(String).filter(Boolean))] : [];
+  /* Before the switch, one setting held either kind of voice, an Azure one
+     as "azure:<ShortName>", and choosing one was the only way to use Azure.
+     Such a choice becomes the Azure side's, with the switch on Azure; any
+     other is the device side's. After that the prefix never appears in
+     speechVoice again. */
+  const AZURE = 'azure:';
+  if (String(s.speechVoice || '').startsWith(AZURE)) {
+    s.azureVoice = s.speechVoice.slice(AZURE.length);
+    s.speechVoice = '';
+    if (!loaded || !Object.prototype.hasOwnProperty.call(loaded, 'speechSource')) s.speechSource = 'azure';
+  }
+  s.speechSource = s.speechSource === 'azure' ? 'azure' : 'device';
+  s.speechVoice = String(s.speechVoice || '');
+  s.azureVoice = String(s.azureVoice || '');
   s.lookupEnabled = s.lookupEnabled === true;
   for (const key of ['lookupLearning', 'lookupNative', 'lookupDeck']) s[key] = String(s[key] || '').trim();
   if (!s.lookupNative) s.lookupNative = DEFAULT_SETTINGS.lookupNative;

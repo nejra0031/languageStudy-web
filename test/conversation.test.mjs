@@ -72,7 +72,7 @@ test('a roleplay needs five replies and a find-out six', () => {
 });
 
 test('the calls are counted by model, two jobs on one model on one line', () => {
-  const s = withDefaults({ ...settings, textModel: 'flash', gradeModel: 'flash', chatModel: 'lite', models: [{ id: 'flash' }, { id: 'lite' }] });
+  const s = withDefaults({ ...settings, sceneModel: 'flash', conversationGradeModel: 'flash', chatModel: 'lite', models: [{ id: 'flash' }, { id: 'lite' }] });
   assert.deepEqual(callsNeeded(s, 'roleplay'), [
     { model: 'flash', count: 2, jobs: ['the scene', 'the feedback'] },
     { model: 'lite', count: 5, jobs: ['the replies'] },
@@ -80,7 +80,7 @@ test('the calls are counted by model, two jobs on one model on one line', () => 
 });
 
 test('a conversation that could not be finished today is refused before it starts', () => {
-  const s = withDefaults({ ...settings, textModel: 'flash', gradeModel: 'flash', chatModel: 'lite', models: [{ id: 'flash', rpd: 20 }, { id: 'lite', rpd: 6 }] });
+  const s = withDefaults({ ...settings, sceneModel: 'flash', conversationGradeModel: 'flash', chatModel: 'lite', models: [{ id: 'flash', rpd: 20 }, { id: 'lite', rpd: 6 }] });
   const lim = new RateLimiter({ now: () => 1000 });
   const usage = (m, rpm, rpd) => lim.usage(m, rpm, rpd);
   assert.equal(budgetProblem(s, 'roleplay', usage), null);
@@ -309,4 +309,34 @@ test('the delivery note is read when there is one, and empty is none', () => {
 
 test('a spoken turn\'s recording is named for its conversation and its position', () => {
   assert.equal(clipPath('c_20260927_0001', 3, 'webm'), 'conversation/c_20260927_0001_3.webm');
+});
+
+/* ── the options ─────────────────────────────────────────────────────── */
+
+import { turnsOf } from '../js/conversation.js';
+
+test('a conversation keeps the number of turns it started with', () => {
+  assert.equal(turnsOf({ maxTurns: 9 }), 9);
+  assert.equal(turnsOf({}), 6, 'one from before the setting has six');
+  assert.equal(turnsOf({ maxTurns: 'x' }), 6);
+  const long = { ...roleplay, maxTurns: 10 };
+  assert.match(roleplayReplyRequest(settings, long, cards).system, /This is turn 2 of 10 for the learner\./);
+  assert.match(findOutReplyRequest(settings, { ...findOut, maxTurns: 3 }).system, /The learner has 1 turn\(s\) left after this one\./);
+});
+
+test('the budget counts the replies the set number of turns needs', () => {
+  assert.equal(repliesNeeded('roleplay', 10), 9);
+  assert.equal(repliesNeeded('findout', 10), 10);
+  const s = withDefaults({ ...settings, conversationTurns: 10, sceneModel: 'a', chatModel: 'b', conversationGradeModel: 'a', models: [{ id: 'a' }, { id: 'b' }] });
+  assert.deepEqual(callsNeeded(s, 'findout').map((r) => r.count), [2, 10]);
+});
+
+test('the scene is asked for the set number of facts, and one short is still read', () => {
+  assert.equal(scenarioVars(withDefaults({ conversationFacts: 6 }), 'findout', [], '').factCount, 6);
+  assert.match(withDefaults(null).prompts.scenario, /Write exactly \{factCount\} facts/);
+  const two = { ...findOutScene, facts: findOutScene.facts.slice(0, 2) };
+  assert.equal(readScenario(JSON.stringify(two), 'findout', 2).facts.length, 2);
+  assert.equal(readScenario(JSON.stringify(two), 'findout', 3).facts.length, 2, 'one short of three');
+  assert.equal(readScenario(JSON.stringify(two), 'findout', 4), null, 'two short of four');
+  assert.equal(readScenario(JSON.stringify(findOutScene), 'findout', 6).facts.length, 5, 'all it has, up to six');
 });
