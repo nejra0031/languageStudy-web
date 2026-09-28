@@ -180,6 +180,10 @@ job passed. Contributors' branches take a prefix, `<username>/<topic>`.
 - **API keys live in `localStorage` only** (Gemini's and Azure's). They are
   never written to the data directory, a backup or a bundle, so a folder that is a git clone, or a
   backup mailed to oneself, cannot leak them.
+- **The learner's data never reaches git.** A data folder may be a clone of
+  this repo, so `.gitignore` names `settings.json` and every folder in
+  `DATA_DIRS` (`storage.js`). A new data folder goes in both;
+  `test/gitignore.test.mjs` fails when it is left out of `.gitignore`.
 - **The deck file is the UI.** The Flashcards tab shows exactly what is stored.
   Fields the app does not know are carried through every save untouched, so
   never drop unknown keys, and never add app-internal state to a card (the

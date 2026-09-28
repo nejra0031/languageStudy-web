@@ -1,8 +1,16 @@
 # The app writes user data into whatever folder the user picks. If that folder
-# happens to be a clone of this repo, none of it may ever be committed.
+# happens to be a clone of this repo, none of it may ever be committed: it
+# holds the learner's own voice, their writing and their conversations. This
+# is settings.json and every folder in DATA_DIRS (js/storage.js), and
+# test/gitignore.test.mjs fails if a folder is added there and not here.
 settings.json
 decks/
 audio/
+shadowing/
+voice/
+reading/
+writing/
+conversation/
 *.wav
 *.mp3
 .env
