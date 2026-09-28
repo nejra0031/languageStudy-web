@@ -241,7 +241,11 @@ no trace on GitHub.
   `?v=`. Any change under `js/` or `css/` bumps that version everywhere it
   appears in `index.html` (find and replace). A new module also needs its own
   line in the import map. `test/importmap.test.mjs` fails when either is
-  forgotten.
+  forgotten. After merging `main` into a branch, check the version again: if
+  `main` moved to a new one and the branch touches `js/` or `css/`, bump
+  past both. Two branches that picked the same version merge without a
+  conflict, and would ship different code under a version browsers may
+  already have cached; the test cannot see that, since the lines agree.
 
 ## Conventions
 
