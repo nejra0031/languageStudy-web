@@ -2,7 +2,7 @@
    wants it, the partner's voice coming down, and a recording of the
    microphone for the grader. Browser built-ins only (Web Audio,
    AudioWorklet, MediaRecorder), nothing that touches the network. Ported
-   from durkle's Praat (praat-web/src/live/micStream.ts and playback.ts).
+   from the God-project's Praat (praat-web/src/live/micStream.ts and playback.ts).
 
    Two things recorded from one microphone: the PCM that is streamed, for
    the partner, and a compressed MediaRecorder clip of the whole

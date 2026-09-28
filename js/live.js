@@ -6,7 +6,7 @@
    conversation from Start talking to hand-in is live-session.js, and the
    tab is tab-conversation.js.
 
-   Ported from durkle's Praat (the praat-site branch), which ran the same
+   Ported from the God-project's Praat (the praat-site branch), which ran the same
    conversation through a server. The server was there for two things only:
    to mint a single-use token, so the browser never held Google's key, and
    to grade afterwards. Here the key is the learner's own, already in this

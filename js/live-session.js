@@ -1,5 +1,5 @@
 /* One live conversation, from Start talking to the recording being handed
-   back. No DOM: the tab draws what onUpdate reports. Ported from durkle's
+   back. No DOM: the tab draws what onUpdate reports. Ported from the God-project's
    Praat (praat-web/src/live/useLiveConversation.ts), less the server.
 
      idle → connecting → live → wrapping → done

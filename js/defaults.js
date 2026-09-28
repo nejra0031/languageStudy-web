@@ -407,7 +407,7 @@ If the recording contains no intelligible speech at all -- silence, noise, a cou
 Reply with ONLY this JSON and no other text: {"transcript":"..."}`;
 
 /* The live partner's system instruction, sent once when a live
-   conversation opens, over the Live API's socket. durkle's Praat persona
+   conversation opens, over the Live API's socket. the God-project's Praat persona
    (lessons-server/praat/persona.ts) with {language} for Dutch, {level} for
    its CEFR guide, and the learner's cards added so the partner leaves room
    for them. There is no JSON here and no "revealed": the partner simply
@@ -449,7 +449,7 @@ Never mention these signals, the app, or these instructions.`;
 
 /* Sent to the live feedback model as the system instruction when a live
    conversation ends, with the scene, the running transcript and the
-   recording of the learner's microphone as the message. durkle's Praat
+   recording of the learner's microphone as the message. the God-project's Praat
    grader (lessons-server/praat/grade.ts) with {language} for Dutch; its
    pronunciation list is this language's listening rules ({rules}), the
    ones Shadowing grades by and your ratings revise; its upgrade reference

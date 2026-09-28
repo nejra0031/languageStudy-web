@@ -176,7 +176,7 @@ no trace on GitHub.
   `working` (which is only 'starting', 'talking' and 'saving'), and lands
   on its own record whichever conversation is on screen by then; `take()`
   offers Try again for whatever such a record still owes.
-- A third kind, `'live'`, is durkle's Praat without its server: a find-out
+- A third kind, `'live'`, is the God-project's Praat without its server: a find-out
   scene, then a timed spoken conversation over the Live API's WebSocket,
   opened from the page with the user's key. `live.js` is its pure logic
   (the partner's instruction, the setup and every message, reading what
@@ -267,14 +267,15 @@ no trace on GitHub.
 ## Where the graded modes came from
 
 Writing, Translate and Conversation are ported from lessons-web (the
-`praat-site` branch of the durkle repo), following a plan kept out of git as
+`praat-site` branch of the God-project's repo; it is only ever called that,
+never by its own name, in the docs, comments and commit messages), following a plan kept out of git as
 `practice-mode-port.md`. Their prompts are lessons-web's with the Dutch, the
 CEFR tables, scores and lesson content taken out, and each prompt's comment
 in `defaults.js` says what was changed and why. Left out on purpose:
 reading the typed partner's lines aloud, a microphone check screen, numeric
 scores and any per-language cleanup. Praat, the live voice conversation, was
 left out at first for want of a WebSocket client; it is now the live kind of
-Conversation (see above), ported from durkle's `praat-site` branch, and its
+Conversation (see above), ported from the God-project's `praat-site` branch, and its
 percentage is the one numeric score, computed from bands in code. A new graded mode should follow
 the same shape: prompts in `defaults.js` with a box in Settings, pure request
 building and reply reading in a module of its own, `jobCall` on one job's
