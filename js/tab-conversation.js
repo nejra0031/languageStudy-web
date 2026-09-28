@@ -18,7 +18,7 @@
    open resumes when the tab is shown. Every one is kept and listed; an
    ended one opens read-only.
 
-   A live conversation is a find-out spoken in real time, durkle's Praat
+   A live conversation is a find-out spoken in real time, the God-project's Praat
    without its server: the scene is written the same way, then Start
    talking opens a socket to the Live API and you and the model just
    talk until the time is up. Its recording is kept the moment it ends,

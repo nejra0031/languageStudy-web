@@ -570,7 +570,7 @@ The third kind, **Live**, is a find out spoken in real time **with an AI
 model**, Gemini's Live API, which plays the other role out loud: you and the
 model simply talk, with no button to press between turns, for **1, 2
 or 3 minutes** (chosen beside the kinds, and under **Settings → Conversation
-→ Live conversation length**). It is Praat, from durkle's lessons suite,
+→ Live conversation length**). It is Praat, from the God-project's lessons suite,
 without the server Praat needed: the page talks to Google's **Live API**
 directly, over a WebSocket, with your own key, as every other mode talks to
 Gemini.
