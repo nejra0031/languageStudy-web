@@ -1,0 +1,18 @@
+# Runs the unit tests on every push and pull request. The job name is what
+# the main ruleset requires to pass, so renaming it means updating the rule.
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # node --test expands the glob itself only from Node 21 on.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test "test/*.test.mjs"
