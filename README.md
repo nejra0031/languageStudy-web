@@ -1288,6 +1288,17 @@ push or the merge refused rather than quietly accepted.
    yours and runs the tests again. Pull requests are merged with a merge
    commit, so your commits land on `main` exactly as you wrote them, and the
    branch is deleted afterwards.
+
+   **After updating, check the version.** If `main` moved to a new version
+   while you worked and your branch changes `js/` or `css/`, give your branch
+   a version newer than both, in all of `index.html`, and push again. When
+   you both picked different versions, git reports a conflict on those
+   lines; don't resolve them one by one, replace them all. When you both
+   happened to pick the *same* version, git merges without a word, and that
+   is the case to watch for: the site would ship your code under a version
+   browsers may already hold with the other change's files, which is the
+   stale mix the version exists to prevent. The tests catch versions that
+   disagree, not one that failed to move.
    ```sh
    git switch main && git pull
    git branch -d yourname/writing-hints
