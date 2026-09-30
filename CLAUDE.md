@@ -246,6 +246,13 @@ no trace on GitHub.
   adds goes through `store.addCard`, so its deck is recorded like any other
   card's; an Update changes the meaning, the notes and the pattern mark
   (`deck.setPattern`, which never removes a `type` it did not set) only.
+  Editing one of its two fields translates the other again where
+  `refreshTarget` (`lookup.js`) allows it: never over text the student
+  typed, never for a word the deck has, after a pause and not per
+  keystroke. A selection made by touch (told by the pointer event, never
+  the user agent) is offered as a button docked at the foot of the window
+  and opens the form only when that is pressed, since a form under the
+  selection would cover the next line and the handle being dragged.
 - `shadow-rules.js` is the per-language listening rules the shadowing model
   grades by: seeded once per language, rated note by note, revised from the
   ratings. The ratings are the only signal. A malformed seed or revision
@@ -335,9 +342,13 @@ Unit tests cover the modules without a DOM — `deck.js`, `text.js`,
 `gemini.js`, the model catalogue, `speech.js`, `azure-tts.js`, `zip.js`,
 `bundle.js`, `backup-due.js`, `opus.js`, `convert-audio.js`, `shadowing.js`,
 `shadow-rules.js`, `lookup.js`, `reading.js`, `json-reply.js`, `writing.js`,
-`translation.js`, `conversation.js` and `live.js` with `gemini-live.js` —
+`translation.js`, `conversation.js`, `live.js` with `gemini-live.js`,
+`autosave.js` and `export-html.js` —
 not the tabs, and not `live-audio.js` or `live-session.js`, which need a
-browser's audio. For anything a
+browser's audio. The client's own methods in `gemini.js` (`writeScenario`,
+`partnerReply` and the rest) are not covered either: a name missing from its
+imports passes every test and fails on the first press, so drive the page
+after touching them. For anything a
 user sees, drive the real page. Playwright's WebKit is Safari's engine and works well; some quirks
 cost time the first time:
 
@@ -362,6 +373,17 @@ cost time the first time:
   graded modes without a key; tell the calls apart by their system
   instruction. A `waitForFunction` given an async function passes at once
   (the promise is truthy), so poll `store.state.ready` with `evaluate`.
+  The default budget is four calls a minute, which a scripted conversation
+  spends in seconds and Start then greys out: save `models` with `rpm` and
+  `rpd` 0 first.
+- A live conversation can be driven without a key too: `context.routeWebSocket`
+  on the Live API's address, answering the `setup` message with
+  `{setupComplete: {}}` and `[START]` with an `outputTranscription` and a
+  `turnComplete`. With the fake microphone that is enough to reach the
+  feedback call, and the setup's system instruction is the partner prompt
+  as it was sent.
+- A touch selection is `hasTouch: true`, a `touchscreen.tap` somewhere, then
+  a selection set by script: the popup's chip follows `selectionchange`.
 - Headless browsers have no speech voices. Stub `window.speechSynthesis` and
   `SpeechSynthesisUtterance` with an init script to see what would be said.
 - The repo has no package.json, so Node detects the modules as ESM. Running
