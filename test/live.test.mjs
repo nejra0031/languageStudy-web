@@ -396,3 +396,12 @@ test('the recording is kept beside the conversation, and lengths read as words',
   assert.equal(clock(65), '1:05');
   assert.equal(clock(-3), '0:00');
 });
+
+test('a live partner is told to use every card itself, whichever kind it is', () => {
+  for (const s of [session, roleplay]) {
+    const text = partnerInstruction(settings, s, cards);
+    assert.match(text, /THE LEARNER'S FLASHCARDS:\n1\. "madrugar"/);
+    assert.match(text, /use every one of these at least once in what YOU say/);
+  }
+  assert.match(partnerInstruction(settings, session, cards), /never give away a fact in order to use one/);
+});

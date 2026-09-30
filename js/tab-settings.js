@@ -954,8 +954,8 @@ const PREVIEWS = {
     const r = roleplayReplyRequest(draft, SAMPLE_ROLEPLAY, sample);
     return [`── to ${draft.chatModel}, as the system instruction ──`, r.system, '', '── then, as the message ──', r.user];
   },
-  findOutReply: (draft) => {
-    const r = findOutReplyRequest(draft, SAMPLE_FIND_OUT);
+  findOutReply: (draft, sample) => {
+    const r = findOutReplyRequest(draft, SAMPLE_FIND_OUT, sample);
     return [`── to ${draft.chatModel}, as the system instruction ──`, r.system, '', '── then, as the message ──', r.user];
   },
   conversationGrade: (draft, sample) => {

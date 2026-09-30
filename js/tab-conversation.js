@@ -407,7 +407,7 @@ async function start() {
   btn.disabled = true;
   let made = null;
   try {
-    const { scenario, model } = await store.client.writeScenario({ kind: at, delivery: how, cards, request });
+    const { scenario, model, openingCards } = await store.client.writeScenario({ kind: at, delivery: how, cards, request });
     const record = {
       id: nextDatedId('c', store.state.conversations),
       kind: at,
@@ -418,7 +418,7 @@ async function start() {
       request,
       cards: cards.map((c) => ({ front: c.front, deck: c.deck })),
       scenario,
-      turns: [{ speaker: 'partner', text: scenario.openingLine }],
+      turns: [partnerTurn(scenario.openingLine, openingCards)],
       revealed: [],
       feedback: null,
       deliveryNote: null,
@@ -470,6 +470,15 @@ function startAgain() {
 
 /* ── the turns ───────────────────────────────────────────────────────── */
 
+/* One of the model's lines as a turn. It keeps which of the conversation's
+   cards the line used, when it used any: the next request lists the ones
+   the model has not used yet. */
+function partnerTurn(text, cards) {
+  const turn = { speaker: 'partner', text };
+  if (cards && cards.length) turn.cards = cards;
+  return turn;
+}
+
 /* `s` is the conversation on screen unless a call that came back for
    another says otherwise; only the one on screen can say it was not kept. */
 async function save(s = session) {
@@ -507,7 +516,7 @@ async function answer() {
   try {
     const got = await store.client.partnerReply(s, liveCards(s));
     /* Kept on its own conversation even if another is on screen now. */
-    s.turns.push({ speaker: 'partner', text: got.text });
+    s.turns.push(partnerTurn(got.text, got.cards));
     if (contentOf(s) === 'findout') {
       s.revealed = normaliseIds([...(s.revealed || []), ...got.revealed], s.scenario.facts);
     }
@@ -690,7 +699,7 @@ async function finish({ closing }) {
     const got = await store.client.concludeConversation(s, liveCards(s), { closing, clips });
     /* Applied to its own conversation even if another is on screen now:
        the feedback is kept and the cards scored all the same. */
-    if (closing && got.reply) s.turns.push({ speaker: 'partner', text: got.reply });
+    if (closing && got.reply) s.turns.push(partnerTurn(got.reply, got.replyCards));
     s.feedback = contentOf(s) === 'findout'
       ? { conversation: got.conversation, asking: got.asking, nextTime: got.nextTime, found: got.found, missed: got.missed, cards: got.cards }
       : { turns: got.feedback, cards: got.cards };

@@ -638,7 +638,7 @@
         <textarea id="prompt-preview-scenario" class="prompt-preview" rows="18" readonly spellcheck="false" aria-label="Conversation scene prompt, as it will be sent" hidden></textarea>
       </div>
       <p class="note prompt-warn" id="prompt-warn-scenario" hidden></p>
-      <p class="note">Sent when you press <em>Start</em> on the Conversation tab. Placeholders: <code>{kind}</code>, <em>roleplay</em> or <em>find-out</em>, which says which of its two sections to follow; <code>{request}</code>, the situation you typed; <code>{terms}</code>, your cards, numbered; <code>{language}</code>, <code>{level}</code> and <code>{languageNote}</code>. The reply has to be the JSON object its section describes; one that cannot be read starts nothing.</p>
+      <p class="note">Sent when you press <em>Start</em> on the Conversation tab. Placeholders: <code>{kind}</code>, <em>roleplay</em> or <em>find-out</em>, which says which of its two sections to follow; <code>{request}</code>, the situation you typed; <code>{terms}</code>, your cards, numbered; <code>{language}</code>, <code>{level}</code> and <code>{languageNote}</code>. The reply has to be the JSON object its section describes; one that cannot be read starts nothing. The opening line may use one of your cards, marked as <code>[[number|words]]</code>; the mark is taken out before you see it.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-scenario-reset">Reset to default</button></div>
 
       <div class="field">
@@ -653,7 +653,7 @@
         <textarea id="prompt-preview-roleplayReply" class="prompt-preview" rows="10" readonly spellcheck="false" aria-label="Roleplay reply prompt, as it will be sent" hidden></textarea>
       </div>
       <p class="note prompt-warn" id="prompt-warn-roleplayReply" hidden></p>
-      <p class="note">Sent for each of the model's lines in a roleplay, with the conversation so far as the message. Placeholders: <code>{scenario}</code>, <code>{studentRole}</code> and <code>{llmRole}</code> from the scene; <code>{turn}</code> and <code>{maxTurns}</code>; <code>{terms}</code>, your cards; <code>{language}</code>, <code>{level}</code> and <code>{languageNote}</code>. The reply is used as the line, as plain text.</p>
+      <p class="note">Sent for each of the model's lines in a roleplay, with the conversation so far as the message. Placeholders: <code>{scenario}</code>, <code>{studentRole}</code> and <code>{llmRole}</code> from the scene; <code>{turn}</code> and <code>{maxTurns}</code>; <code>{terms}</code>, your cards; <code>{cardUse}</code>, which tells the model to use your cards in its own lines, lists the ones it has not used yet and asks it to mark each use as <code>[[number|words]]</code>; <code>{language}</code>, <code>{level}</code> and <code>{languageNote}</code>. The reply is used as the line, as plain text, with the marks taken out. A prompt without <code>{cardUse}</code> gets it added at the end.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-roleplayReply-reset">Reset to default</button></div>
 
       <div class="field">
@@ -668,7 +668,7 @@
         <textarea id="prompt-preview-findOutReply" class="prompt-preview" rows="18" readonly spellcheck="false" aria-label="Find-out reply prompt, as it will be sent" hidden></textarea>
       </div>
       <p class="note prompt-warn" id="prompt-warn-findOutReply" hidden></p>
-      <p class="note">Sent for each of the model's lines in a find out, with the conversation so far as the message. Placeholders: <code>{situation}</code>, <code>{studentRole}</code> and <code>{llmRole}</code>; <code>{facts}</code>, the fact sheet with the answers; <code>{left}</code>, your turns left after this one; <code>{remaining}</code>, which facts you have not asked about yet; <code>{language}</code>, <code>{level}</code> and <code>{languageNote}</code>. The reply has to be the JSON it describes: <code>"revealed"</code> is what ticks your checklist.</p>
+      <p class="note">Sent for each of the model's lines in a find out, with the conversation so far as the message. Placeholders: <code>{situation}</code>, <code>{studentRole}</code> and <code>{llmRole}</code>; <code>{facts}</code>, the fact sheet with the answers; <code>{left}</code>, your turns left after this one; <code>{remaining}</code>, which facts you have not asked about yet; <code>{cardUse}</code>, as in a roleplay, with the rule that a card is never a reason to give away a fact; <code>{language}</code>, <code>{level}</code> and <code>{languageNote}</code>. The reply has to be the JSON it describes: <code>"revealed"</code> is what ticks your checklist. A prompt without <code>{cardUse}</code> gets it added at the end.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-findOutReply-reset">Reset to default</button></div>
 
       <div class="field">

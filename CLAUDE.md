@@ -165,7 +165,13 @@ no trace on GitHub.
   text), its closing call (line and feedback in one) and its early end; a
   find-out's replies (with `revealed`, run through `normaliseIds`) and its
   conclusion, where found and missed are worked out in code. Only learner
-  turns are graded. A session stores its number of turns as `maxTurns` when
+  turns are graded. The model uses the cards in its own lines too, as a
+  Reading text does: `cardUseBlock` lists, in each reply request, the cards
+  it has not used yet and how many the line should carry, it marks each use
+  as `[[number|words]]`, and `readMarks` (`reading.js`) takes the marks out
+  and says which were used, kept on the turn as `cards`. A reply prompt
+  without `{cardUse}` gets the block appended (`withCardUse`). A live
+  partner is only told once, in its instruction: speech carries no marks. A session stores its number of turns as `maxTurns` when
   it starts (`turnsOf`), so a change in Settings never moves the end of one
   under way. A spoken turn is recorded with `recorder.js`, written to
   `conversation/<id>_<position>.<ext>` as soon as it stops, transcribed by

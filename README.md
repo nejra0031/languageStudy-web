@@ -509,7 +509,12 @@ The scene stays above the chat: the situation, who you are, who you are
 talking to, and in a find out the goal and the checklist. Under it, **Try to
 use these in your turns** lists the cards the scene was written around, each
 with its meaning, for the whole conversation: they are the cards the feedback
-judges at the end, on your turns only. Type your turn and
+judges at the end, on your turns only. **The model uses them too.** It is
+told to work every one of those cards into its own lines at least once over
+the conversation, a card or two a line, so you hear each used in the scene
+as well as being asked to use it; in a find out, never at the cost of giving
+away a fact. Its lines never count towards your cards. In a live
+conversation it is asked the same, once, at the start. Type your turn and
 press **Send** (or Enter; Shift+Enter is a new line). A turn takes 1,000
 characters at most. **End and get feedback** ends the conversation early,
 once you have had a turn, and costs one feedback call.
@@ -1236,6 +1241,15 @@ checklist. The **roleplay feedback** prompt is sent when a roleplay ends:
 after an early end. The **find-out feedback** prompt is sent when a find out
 ends, told what you found out. All five are lessons-web's, with Dutch taken
 out and your cards added.
+
+Both reply prompts take `{cardUse}`, which the app fills in for each line:
+it tells the model to use every one of your cards at least once in its own
+lines, lists the ones it has not used yet, says how many this line should
+carry, and asks it to mark each use as `[[number|words]]`, the way a
+[Reading](#reading) text is marked. The marks are how the next request knows
+what was used; they are taken out before you see the line. A reply prompt
+you rewrote without `{cardUse}` gets it added at the end. The scene prompt
+asks for the same mark if the opening line uses a card.
 
 The **transcription prompt** is sent to the shadowing model with each spoken
 turn, and takes `{language}`. It asks for exactly what you said, mistakes

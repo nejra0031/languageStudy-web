@@ -9,7 +9,9 @@ import {
   repliesNeeded, roleplayReplyRequest, readRoleplayReply, roleplayGradeRequest, readRoleplayGrade,
   findOutReplyRequest, readFindOutReply, findOutGradeRequest, readFindOutGrade, factStatus, factSheet,
   learnerTurns, awaitingReply, scenarioVars, conversationTitle, MAX_LEARNER_TURNS,
+  partnerUsed, partnerLinesLeft, cardUseBlock, withCardUse, CARD_USE_DONE,
 } from '../js/conversation.js';
+import { readMarks, readingTermListing } from '../js/reading.js';
 import { withDefaults } from '../js/defaults.js';
 import { RateLimiter } from '../js/gemini.js';
 
@@ -36,7 +38,17 @@ const findOutScene = {
 
 test('a roleplay scene reads back, with the opening line unquoted', () => {
   const sc = readScenario(`Here:\n${JSON.stringify(roleplayScene)}`, 'roleplay');
-  assert.deepEqual(sc, { ...roleplayScene, openingLine: 'Buenos días, ¿en qué puedo ayudarle?' });
+  assert.deepEqual(sc, { ...roleplayScene, openingLine: 'Buenos días, ¿en qué puedo ayudarle?', openingCards: [] });
+});
+
+test('a card the opening line used is read from its mark, and the mark is taken out', () => {
+  const marked = { ...roleplayScene, openingLine: '"Buenos días, hoy me tocó [[1|madrugar]]."' };
+  const sc = readScenario(JSON.stringify(marked), 'roleplay', 4, cards);
+  assert.equal(sc.openingLine, 'Buenos días, hoy me tocó madrugar.');
+  assert.deepEqual(sc.openingCards, [0]);
+  const fo = readScenario(JSON.stringify({ ...findOutScene, openingLine: 'Hola, [[2|no solo]] hay luz [[2|sino también]] agua.' }), 'findout', 4, cards);
+  assert.equal(fo.openingLine, 'Hola, no solo hay luz sino también agua.');
+  assert.deepEqual(fo.openingCards, [1]);
 });
 
 test('a find-out scene keeps four facts at most, ids as strings', () => {
@@ -115,9 +127,91 @@ test('the reply request has the scene, the turn and the transcript by role', () 
 });
 
 test('a plain-text reply loses its wrapping quotes and a role label', () => {
-  assert.equal(readRoleplayReply('"Muy bien, gracias."', roleplay), 'Muy bien, gracias.');
-  assert.equal(readRoleplayReply('Dependienta: «Perfecto.»', roleplay), 'Perfecto.');
+  assert.deepEqual(readRoleplayReply('"Muy bien, gracias."', roleplay), { text: 'Muy bien, gracias.', cards: [] });
+  assert.deepEqual(readRoleplayReply('Dependienta: «Perfecto.»', roleplay), { text: 'Perfecto.', cards: [] });
   assert.equal(readRoleplayReply('  ', roleplay), null);
+});
+
+/* ── the other person's own use of the cards ─────────────────────────── */
+
+test('a line\'s marks say which cards it used, and never reach the learner', () => {
+  assert.deepEqual(readRoleplayReply('"Yo también tuve que [[1|madrugar]] hoy."', roleplay, cards),
+    { text: 'Yo también tuve que madrugar hoy.', cards: [0] });
+  assert.deepEqual(readRoleplayReply('Es [[2|no solo]] barato [[2|sino también]] rápido.', roleplay, cards),
+    { text: 'Es no solo barato sino también rápido.', cards: [1] });
+  /* A word used and not marked is found as it is written on the card; a
+     mark with a number no card has, or one left half written, is only text. */
+  assert.deepEqual(readMarks('Hay que madrugar. [[9|vale]] [[1|madrug', cards), { text: 'Hay que madrugar. vale madrug', used: [0] });
+  assert.deepEqual(readMarks('Nada que ver.', cards), { text: 'Nada que ver.', used: [] });
+  assert.deepEqual(readFindOutReply('{"reply":"Suelo [[1|madrugar]], sí.","revealed":[]}', findOutScene.facts, cards),
+    { text: 'Suelo madrugar, sí.', revealed: [], cards: [0] });
+});
+
+test('what the other person has used is the sum of its own turns, never the learner\'s', () => {
+  const s = { turns: [
+    { speaker: 'partner', text: 'a', cards: [1] },
+    { speaker: 'learner', text: 'b', cards: [0] },
+    { speaker: 'partner', text: 'c' },
+    { speaker: 'partner', text: 'd', cards: [1, 2] },
+  ] };
+  assert.deepEqual(partnerUsed(s), [1, 2]);
+  assert.deepEqual(partnerUsed({ turns: [] }), []);
+  assert.deepEqual(partnerUsed(null), []);
+});
+
+test('each request lists the cards not yet used, under their own numbers, and paces them', () => {
+  /* Two learner turns of six: five lines left, the closing line included. */
+  assert.equal(partnerLinesLeft(roleplay), 5);
+  const fresh = cardUseBlock(roleplay, cards);
+  assert.match(fresh, /1\. "madrugar" \(to get up early\)/);
+  assert.match(fresh, /2\. the grammar pattern "no solo … sino también …"/);
+  assert.match(fresh, /You have 5 line\(s\) left, this one included, so use at least 1 of them in this line\./);
+  assert.match(fresh, /\[\[number\|words\]\]/);
+  const some = { ...roleplay, turns: roleplay.turns.map((t, i) => (i === 2 ? { ...t, cards: [0] } : t)) };
+  const later = cardUseBlock(some, cards);
+  assert.doesNotMatch(later, /"madrugar"/, 'a card already used is not asked for again');
+  assert.match(later, /2\. the grammar pattern/, 'and the other keeps its number');
+  const all = { ...roleplay, turns: roleplay.turns.map((t, i) => (i === 2 ? { ...t, cards: [0, 1] } : t)) };
+  assert.equal(cardUseBlock(all, cards), CARD_USE_DONE);
+  assert.equal(cardUseBlock(roleplay, []), '', 'no cards, nothing to say');
+  assert.equal(readingTermListing(cards, new Set([1])).split('\n').length, 1);
+});
+
+test('with few lines left, a line carries two cards, and never more', () => {
+  const five = [1, 2, 3, 4, 5].map((n) => ({ front: `w${n}`, back: `m${n}` }));
+  const last = { ...roleplay, maxTurns: 2 };
+  assert.equal(partnerLinesLeft(last), 1);
+  assert.match(cardUseBlock(last, five), /You have 1 line\(s\) left, this one included, so use at least 2 of them/);
+  assert.match(cardUseBlock({ ...roleplay, maxTurns: 3 }, five), /You have 2 line\(s\) left.*at least 2 of them/);
+  assert.match(cardUseBlock(roleplay, five), /You have 5 line\(s\) left.*at least 1 of them/);
+});
+
+test('both reply requests carry the block, and a find-out puts its facts first', () => {
+  const rp = roleplayReplyRequest(settings, roleplay, cards).system;
+  assert.match(rp, /YOUR OWN USE OF THE LEARNER'S FLASHCARDS/);
+  assert.doesNotMatch(rp, /\{cardUse\}/);
+  assert.doesNotMatch(rp, /NEVER a reason to give away a fact/);
+  const fo = findOutReplyRequest(settings, findOut, cards).system;
+  assert.match(fo, /YOUR OWN USE OF THE LEARNER'S FLASHCARDS/);
+  assert.match(fo, /Using a flashcard is NEVER a reason to give away a fact/);
+  assert.doesNotMatch(findOutReplyRequest(settings, findOut).system, /YOUR OWN USE/, 'with no cards there is nothing to use');
+});
+
+test('a prompt rewritten without {cardUse} still gets the block, at its end', () => {
+  assert.equal(withCardUse('a {cardUse} b'), 'a {cardUse} b');
+  assert.equal(withCardUse('mine'), 'mine\n\n{cardUse}');
+  const custom = withDefaults({ ...settings, prompts: { ...settings.prompts, roleplayReply: 'Just be {llmRole}.' } });
+  const system = roleplayReplyRequest(custom, roleplay, cards).system;
+  assert.match(system, /^Just be Dependienta\.\n\nYOUR OWN USE OF THE LEARNER'S FLASHCARDS/);
+});
+
+test('the closing line is offered the cards still unused, and its marks are read', () => {
+  const closing = roleplayGradeRequest(settings, roleplay, cards, { closing: true }).system;
+  assert.match(closing, /If one fits a natural goodbye, use one of the learner's flashcards you have not yet used in your own lines \(1\. "madrugar", 2\. "no solo … sino también …"\)/);
+  assert.doesNotMatch(roleplayGradeRequest(settings, roleplay, cards, { closing: false }).system, /natural goodbye/, 'an early end writes no line');
+  const got = readRoleplayGrade(JSON.stringify({ reply: '¡Hasta luego, y a [[1|madrugar]]!', feedback: [] }), roleplay, cards, { closing: true });
+  assert.equal(got.reply, '¡Hasta luego, y a madrugar!');
+  assert.deepEqual(got.replyCards, [0]);
 });
 
 test('the grading request numbers every turn and lists the learner\'s by position', () => {
@@ -200,7 +294,7 @@ test('the find-out reply knows the facts, the turns left and what is still unask
 
 test('a find-out reply reads its line and the facts it gave away', () => {
   assert.deepEqual(readFindOutReply('{"reply":"Depende de lo que quieras saber.","revealed":[]}', findOut.scenario.facts),
-    { text: 'Depende de lo que quieras saber.', revealed: [] });
+    { text: 'Depende de lo que quieras saber.', revealed: [], cards: [] });
   assert.deepEqual(readFindOutReply('ok {"reply":"En la entrada.","revealed":["2","7"]}', findOut.scenario.facts).revealed, ['2']);
   assert.equal(readFindOutReply('{"revealed":["2"]}', findOut.scenario.facts), null);
 });

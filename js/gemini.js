@@ -883,26 +883,30 @@ export function createClient({ getSettings, getApiKey, limiter }) {
       temperature: 0.7,
       maxOutputTokens: 4096,
     });
-    const scenario = readScenario(text, scene, s.conversationFacts);
-    if (!scenario) {
+    const read = readScenario(text, scene, s.conversationFacts, cards);
+    if (!read) {
       throw new GeminiError(`${model} replied with something that could not be read as a scene, so nothing was started. Press Start to try again.`);
     }
-    return { scenario, model };
+    /* Which cards the opening line used belongs to that line, the first
+       turn, and not to the scene. */
+    const { openingCards, ...scenario } = read;
+    return { scenario, openingCards, model };
   }
 
   /* The other person's next line, on the conversation model: plain text in
      a roleplay, and in a find-out the line with the ids of the facts it
-     gave away. `cards` are the session's cards as the decks have them. */
+     gave away. `cards` are the session's cards as the decks have them; the
+     line comes back with `cards`, the indices of those it used. */
   async function partnerReply(session, cards) {
     const s = getSettings();
     const findOut = contentOf(session) === 'findout';
-    const { system, user } = findOut ? findOutReplyRequest(s, session) : roleplayReplyRequest(s, session, cards);
+    const { system, user } = findOut ? findOutReplyRequest(s, session, cards) : roleplayReplyRequest(s, session, cards);
     const { text, model } = await jobCall('chatModel', {
       system, parts: [{ text: user }], temperature: 0.6, maxOutputTokens: 2048,
     });
     const got = findOut
-      ? readFindOutReply(text, session.scenario.facts)
-      : (() => { const line = readRoleplayReply(text, session); return line && { text: line, revealed: [] }; })();
+      ? readFindOutReply(text, session.scenario.facts, cards)
+      : (() => { const line = readRoleplayReply(text, session, cards); return line && { ...line, revealed: [] }; })();
     if (!got) throw new GeminiError(`${model} did not reply with a line. Your turn is kept, so you can try again.`);
     return { ...got, model };
   }
