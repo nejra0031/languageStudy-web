@@ -52,6 +52,8 @@ import { createLiveTalk } from './live-session.js';
 import { liveUnsupported } from './live-audio.js';
 import { errorSpot } from './error-spot.js';
 import { createAutosave } from './autosave.js';
+import { wireExport } from './export-row.js';
+import { conversationExport } from './export-html.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -108,6 +110,7 @@ let lastTake = null;
 /* Said with every message until the feedback is in: the recording could
    not be written, so it lasts only as long as the page. */
 let unkept = '';
+let syncExport = () => {};
 
 export function init() {
   $('cv-kind').addEventListener('click', (e) => {
@@ -169,6 +172,11 @@ export function init() {
     if (e.target.closest('[data-act="retry"]') && retry) retry();
   });
   placeError = errorSpot($('cv-error'));
+  /* The conversation on screen as one file to send on, as far as it has
+     got. Not while it is being talked: there is no recording yet. */
+  syncExport = wireExport($('cv-export-row'), () => (session && working !== 'talking' && working !== 'saving' ? {
+    kind: 'conversation', record: session, read: (path) => (path === session.take ? liveBlob(session) : store.readConversationClip(path)), build: conversationExport,
+  } : null));
   $('cv-result').addEventListener('click', (e) => {
     if (e.target.closest('[data-act="ask-again"]')) finish({ closing: false });
     if (e.target.closest('[data-act="play-live"]')) playLive();
@@ -1048,6 +1056,7 @@ function liveResultHtml(s, fb, lang) {
    the list to carry on with. */
 function render() {
   renderBriefing();
+  syncExport();
   $('cv-card').hidden = !session;
   if (session) {
     renderScene();

@@ -664,6 +664,35 @@ Your voice streams to Google as you speak, and the recording goes to Google
 once for the feedback. As with every other call, Google's free tier may use
 what is sent to improve its products.
 
+## Exporting a piece of work
+
+A shadowing set, a reading text, a piece of writing and a conversation each
+have an **Export** button under them, for showing the work to someone else,
+such as a teacher. It saves **one `.html` file**: the task or the scene, what
+you wrote or said, and the feedback, laid out to be read. The person you send
+it to needs nothing for it. It opens by double-click in any browser, on a
+phone or a computer, with no connection; there is nothing to unzip or
+install; and it prints, or saves as a PDF from the print dialog.
+
+- **Include audio** appears when the record has recordings: your takes in a
+  shadowing set, a text read aloud, the spoken turns of a conversation or the
+  recording of a live one. Ticked, they are put inside the file, each with a
+  player where it belongs. Audio makes the file about a third larger than
+  the recordings themselves, so a few minutes of speech is a few megabytes;
+  untick it for a file of a few kilobytes that says it came without them.
+- A piece that is not finished exports as far as it has got: a draft as a
+  draft, an open conversation as not finished. A find out still open does
+  not give away the answers.
+- Writing has no audio, so it has no tickbox. A summary carries the text it
+  is a summary of.
+
+The file is self-contained: no script, and nothing loaded from anywhere.
+Everything in it is text from the record, and none of your settings or keys
+are in it. The recordings are as your browser made them (Ogg, WebM or MP4
+audio), which current browsers play; if one does not play for the person
+you sent it to, another browser will. Translate, Typing and Dictation keep no
+record of a session, so there is nothing of theirs to export.
+
 ## Choosing which decks are in play
 
 The deck menu on the Flashcards page lists every deck you have with a
@@ -1412,6 +1441,8 @@ js/gemini.js          API calls, call budget, WAV wrapping
 js/json-reply.js      reading a grader's JSON reply, and its verdicts on your cards
 js/error-spot.js      where a tab's error goes: in place of what you were waiting on
 js/autosave.js        saving what is being typed, once a second and never per keystroke
+js/export-html.js     a kept record written out as one self-contained .html file
+js/export-row.js      the Export button each record has: reads the recordings, saves the file
 js/opus.js            dictation audio as Ogg Opus, through the browser's encoder
 js/convert-audio.js   turning a bank's older WAV sentences into Ogg, in place
 js/bundle.js          the export/import file format

@@ -133,6 +133,16 @@ no trace on GitHub.
   folder (keeps the audio), and one readable JSON file (decks and settings).
   `backup-due.js` decides when to remind someone using browser storage to
   take one.
+- `export-html.js` writes one kept record (a shadowing set, a reading text,
+  a piece of writing, a conversation) as one self-contained `.html` file for
+  someone else to open: inline styles, recordings as `data:` URIs, **no
+  script and nothing loaded**, and every piece of text escaped, since a
+  record holds what a model wrote. It is pure: `audioPaths` says which
+  recordings a record has, `gatherAudio(paths, read)` turns them into URIs,
+  and one function per kind returns `{filename, html}`. `export-row.js` is
+  the button, the Include audio tickbox and the download, shared by the
+  four tabs, each of which hands it a `job()`: `{kind, record, read, build}`.
+  A new kind of record gets a builder there and a row in `index.html`.
 - `opus.js` wraps WebCodecs' Opus packets in Ogg, so generated audio is saved
   at a twelfth of WAV's size; `convert-audio.js` converts an older bank's WAVs
   in an order that never leaves a sentence without playable audio.

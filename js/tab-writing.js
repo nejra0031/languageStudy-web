@@ -34,6 +34,8 @@ import { formatWait } from './gemini.js';
 import { describe } from './tab-settings.js';
 import { languageCode } from './speech.js';
 import { errorSpot } from './error-spot.js';
+import { wireExport } from './export-row.js';
+import { writingExport } from './export-html.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -60,6 +62,7 @@ const saver = createAutosave(() => (unsaved ? store.saveWriting(unsaved) : null)
 /* A draft being read back when the tab is shown, so two showings of the
    tab do not both resume it. */
 let resuming = false;
+let syncExport = () => {};
 /* The task whose piece is out to be read, if one is. Only that task's box
    is locked meanwhile: a new question, topic or summary can be started, or
    a kept piece opened, and the feedback is still kept and scored when it
@@ -104,6 +107,13 @@ export function init() {
   $('wr-again').addEventListener('click', writeAgain);
   $('wr-error').addEventListener('click', (e) => { if (e.target.closest('[data-act="retry"]')) handIn(); });
   placeError = errorSpot($('wr-error'));
+  /* The piece on screen, a draft or one handed in, as one file to send on.
+     A summary carries the text it is of, when that can still be read. */
+  syncExport = wireExport($('wr-export-row'), () => {
+    const record = shown || draft;
+    const source = task && task.kind === 'summary' && task.sourceText ? { text: task.sourceText } : null;
+    return record && task ? { kind: 'writing', record, build: (r) => writingExport(r, { source }) } : null;
+  });
   $('wr-list').addEventListener('click', (e) => {
     const row = e.target.closest('[data-writing]');
     if (!row) return;
@@ -409,6 +419,7 @@ function bounds() {
 
 function renderCard() {
   const card = $('wr-card');
+  syncExport();
   if (!task) { card.hidden = true; return; }
   card.hidden = false;
   const lang = languageCode(store.state.settings.targetLanguage);

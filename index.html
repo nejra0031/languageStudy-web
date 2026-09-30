@@ -31,6 +31,8 @@
     "./js/gemini.js": "./js/gemini.js?v=2026-09-30.1",
     "./js/gemini-live.js": "./js/gemini-live.js?v=2026-09-30.1",
     "./js/error-spot.js": "./js/error-spot.js?v=2026-09-30.1",
+    "./js/export-html.js": "./js/export-html.js?v=2026-09-30.1",
+    "./js/export-row.js": "./js/export-row.js?v=2026-09-30.1",
     "./js/json-reply.js": "./js/json-reply.js?v=2026-09-30.1",
     "./js/live.js": "./js/live.js?v=2026-09-30.1",
     "./js/live-audio.js": "./js/live-audio.js?v=2026-09-30.1",
@@ -1005,6 +1007,11 @@
               <span class="note">Only the ticked lines go up, in one call. Hand in part of a set now and the rest later, or tick one line to ask about a retake. Nothing is scored; the feedback is prose.</span>
             </div>
             <div id="sh-feedback" style="margin-top:16px" hidden></div>
+            <div class="row export-row" id="sh-export-row" hidden>
+              <button class="btn btn--sm" data-export>Export</button>
+              <label class="export-audio" hidden><input type="checkbox" data-export-audio checked><span>Include audio</span></label>
+              <span class="note" data-export-note></span>
+            </div>
           </div>
         </div>
 
@@ -1102,6 +1109,11 @@
             <span><i class="rd-mark rd-mark--word is-bad">✗</i> not understood</span>
           </div>
           <div class="rd-summary" id="rd-summary"></div>
+          <div class="row export-row" id="rd-export-row" hidden>
+            <button class="btn btn--sm" data-export>Export</button>
+            <label class="export-audio" hidden><input type="checkbox" data-export-audio checked><span>Include audio</span></label>
+            <span class="note" data-export-note></span>
+          </div>
         </div>
       </div>
     </div>
@@ -1185,6 +1197,11 @@
           <div class="row" id="wr-again-row" hidden>
             <button class="btn" id="wr-again">Write again</button>
             <span class="note">A new piece on the same task. This one stays in the list below.</span>
+          </div>
+          <div class="row export-row" id="wr-export-row" hidden>
+            <button class="btn btn--sm" data-export>Export</button>
+            <label class="export-audio" hidden><input type="checkbox" data-export-audio checked><span>Include audio</span></label>
+            <span class="note" data-export-note></span>
           </div>
         </div>
       </div>
@@ -1330,6 +1347,11 @@
           <div class="row" id="cv-done-row" hidden>
             <button class="btn btn--primary" id="cv-again">Start again</button>
             <span class="note">A new scene. This conversation stays in the list below.</span>
+          </div>
+          <div class="row export-row" id="cv-export-row" hidden>
+            <button class="btn btn--sm" data-export>Export</button>
+            <label class="export-audio" hidden><input type="checkbox" data-export-audio checked><span>Include audio</span></label>
+            <span class="note" data-export-note></span>
           </div>
         </div>
       </div>
