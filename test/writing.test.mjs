@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import {
   countWords, wordBounds, wordStatus, readBrief, readWritingGrade, normaliseWritingFeedback,
   writingGradeSystem, writingGradeUser, taskText, briefVars, writingTitle, FALLBACK_INVALID_REASON,
-  TYPICAL_SOURCE_WORDS,
+  TYPICAL_SOURCE_WORDS, draftRecord, isDraft,
 } from '../js/writing.js';
 import { withDefaults, DEFAULT_WRITING_GRADE_PROMPT } from '../js/defaults.js';
 
@@ -201,4 +201,29 @@ test('a summary\'s share of the opinion length can be set', () => {
   const s = withDefaults({ writingWords: { min: 60, max: 120 }, writingSummaryShare: 100 });
   assert.deepEqual(wordBounds(s, 'summary', TYPICAL_SOURCE_WORDS), { min: 60, max: 120 });
   assert.deepEqual(wordBounds(withDefaults({ writingSummaryShare: 50 }), 'summary', 0), { min: 30, max: 60 });
+});
+
+/* ── a piece not handed in yet ───────────────────────────────────────── */
+
+test('a piece is a draft from the moment its task is set', () => {
+  const cards = [{ ...word('đi'), deck: 'default' }, { ...pattern('nếu … thì …'), deck: 'grammar' }];
+  const at = { id: 'w_20260930_0001', created: '2026-09-30', language: 'Vietnamese', level: 'A2' };
+  const opinion = draftRecord({ kind: 'opinion', brief: 'Why?', cards }, at);
+  assert.deepEqual(opinion, {
+    id: 'w_20260930_0001', created: '2026-09-30', kind: 'opinion', brief: 'Why?',
+    cards: [{ front: 'đi', deck: 'default' }, { front: 'nếu … thì …', deck: 'grammar' }],
+    text: '', result: null, ended: false, language: 'Vietnamese', level: 'A2', title: 'Why?',
+  });
+  assert.equal(isDraft(opinion), true);
+  /* A summary keeps which text it is of, not the text. */
+  const summary = draftRecord({ kind: 'summary', brief: '', readingId: 'r_1', readingTitle: 'Cửa hàng', sourceText: 'long', cards: [] }, at);
+  assert.equal(summary.readingId, 'r_1');
+  assert.equal(summary.title, 'Summary of Cửa hàng');
+  assert.equal('sourceText' in summary, false);
+});
+
+test('a piece handed in is not a draft, and nor is one from before drafts existed', () => {
+  assert.equal(isDraft({ ended: true, result: {} }), false);
+  assert.equal(isDraft({ result: { valid: true } }), false, 'no `ended` at all: it was handed in');
+  assert.equal(isDraft(null), false);
 });

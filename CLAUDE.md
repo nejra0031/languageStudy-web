@@ -65,7 +65,21 @@ no trace on GitHub.
   with `'ready'` when the first load is done. Writing and conversations are
   kept by one `keeper()` in the store, the way reading texts are: a file per
   record beside an index, the file written first, held in memory when
-  nothing is being saved.
+  nothing is being saved. A save that changes nothing a list shows leaves
+  the index alone and emits nothing, which is what lets a record be saved
+  as it is typed.
+- **Unfinished work is saved as it is typed**, through the store like
+  everything else, never the tab's own `localStorage`. `autosave.js` is the
+  timing: `createAutosave(save)` gives `touch()`, `flush()` and `cancel()`,
+  and saves at most once a second while something changes, never per
+  keystroke, with no two saves overlapping. A tab flushes it in `onHide`
+  and when the page is hidden. Writing keeps a piece from the moment its
+  task is set, as a draft (`ended: false`, `draftRecord` in `writing.js`);
+  handing in completes that same record, and a record with no `ended` is a
+  piece handed in before drafts. Translate keeps the one set being worked
+  on in `translate/open.json` (`translationDraft`, `restoreDraft`), until
+  it is checked or replaced. Conversation keeps an unsent turn on its
+  session as `draft`. Each resumes what it kept when the tab is shown.
   Practice spans every ticked deck, so a card is written back to its *own*
   deck: `store.deckOf(card)`, `store.saveCardDecks(card)`.
 - `storage.js` is one directory, laid out the same wherever it lives. It picks
@@ -148,16 +162,18 @@ no trace on GitHub.
   applies; the task, level, source, cards and writing are the user message.
   `readWritingGrade` gives feedback, `{valid:false, reason}` (a verdict that
   scores nothing) or null (a failure: the writing stays, Try again sends it
-  again). `tab-writing.js` is the task, the box and the feedback; its
+  again). `tab-writing.js` is the task, the box and the feedback. The piece
+  out to be read is `grading` and its record `gradingRecord`; opened from
+  the list meanwhile, it is that object that goes on screen, locked. Its
   `scoreVerdicts` and `cardsResultHtml` are shared with the other graded
-  modes. Every hand-in is kept in `writing/`.
+  modes. Every piece is kept in `writing/`, a draft included.
 - `translation.js` is Translate's pure logic: a set (`translateItems`, six
   by default) drawn from the bank in `translateOrder`, Shadowing's order by
   default since a checked set shows every sentence, the
   request (every item, blanks included, keyed by id), reading the array
   back (`null` if it is not one; an item without a verdict is ungraded), and
   `translationScores`, which decides what moves. The bank is only read.
-  `tab-translate.js` is the list and the check; a set is not kept.
+  `tab-translate.js` is the list and the check; a checked set is not kept.
 - `conversation.js` is Conversation's pure logic: the budget a conversation
   needs by model (`callsNeeded`, `budgetProblem`, refused before the scene is
   written), reading the scene (`readScenario`, null on anything malformed),

@@ -180,3 +180,31 @@ export function translationScores(results, items, answers, { blankWrong = true }
   }
   return out;
 }
+
+/* ── a set not checked yet ───────────────────────────────────────────── */
+
+/* The set on screen and what has been typed into it, as it is kept while it
+   is open: one file, written as the answers are typed, so a reload brings
+   the same sentences back with the answers in them. A checked set is still
+   not kept; this is only the one being worked on. */
+export function translationDraft(items, answers) {
+  return { items, answers: items.map((_, i) => String(answers[i] || '').slice(0, MAX_ANSWER)) };
+}
+
+/* A kept set read back, or null when it is not one to resume: not a set at
+   all, or one whose sentences the bank no longer has, in which case a new
+   set is drawn as if nothing had been kept. `bank` is the whole bank, not
+   only what is in scope: a set begun before a deck was unticked is still
+   the set that was begun. */
+export function restoreDraft(draft, bank) {
+  if (!draft || !Array.isArray(draft.items) || !draft.items.length || !Array.isArray(draft.answers)) return null;
+  const known = new Set((bank || []).map((e) => e && e.id));
+  const items = [];
+  for (const it of draft.items) {
+    if (!it || typeof it.english !== 'string' || typeof it.sentence !== 'string' || !Array.isArray(it.cards)) return null;
+    if (!it.english.trim() || !it.sentence.trim() || !known.has(it.bankId)) return null;
+    /* Numbered again from 0, which is what the grader's ids are read by. */
+    items.push({ ...it, index: items.length, id: String(items.length) });
+  }
+  return { items, answers: items.map((_, i) => String(draft.answers[i] || '').slice(0, MAX_ANSWER)) };
+}

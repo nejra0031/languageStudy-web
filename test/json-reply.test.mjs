@@ -110,12 +110,13 @@ test('writing and conversations are part of the data layout, so a backup carries
     'writing/manifest.json', 'writing/w_20260927_0001.json',
     'conversation/manifest.json', 'conversation/c_20260927_0001.json',
     'conversation/c_20260927_0001_3.webm', 'conversation/c_20260927_0001_5.mp4',
-    'conversation/c_20260927_0001_1.ogg',
+    'conversation/c_20260927_0001_1.ogg', 'translate/open.json',
   ]) {
     assert.equal(dataPath(path), path, `${path} would be left out of a backup`);
   }
   assert.equal(dataPath('writing/notes.txt'), null, 'only what the app writes');
   assert.equal(dataPath('conversation/.DS_Store'), null);
+  assert.equal(dataPath('translate/open.txt'), null);
 });
 
 test('records are named by date and a count within the day, like reading texts', async () => {

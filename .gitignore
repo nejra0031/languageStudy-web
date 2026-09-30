@@ -11,6 +11,7 @@ voice/
 reading/
 writing/
 conversation/
+translate/
 *.wav
 *.mp3
 .env

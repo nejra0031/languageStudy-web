@@ -51,6 +51,7 @@ import {
 import { createLiveTalk } from './live-session.js';
 import { liveUnsupported } from './live-audio.js';
 import { errorSpot } from './error-spot.js';
+import { createAutosave } from './autosave.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -71,6 +72,11 @@ let scope = 'all';
 let session = null;
 let working = null;
 const out = new Map();
+/* A turn typed and not yet sent is kept on its conversation, as `draft`,
+   and saved as it is typed, so a reload does not lose it. `drafting` is
+   the conversation last typed into, which is the one the save is for. */
+let drafting = null;
+const draftSaver = createAutosave(() => (drafting ? store.saveConversation(drafting) : null));
 /* What Try again does: the call that failed, sent again as it was. */
 let retry = null;
 /* What scoring did to each card, right after it happened; a conversation
@@ -148,7 +154,8 @@ export function init() {
     /* Enter sends, as in any chat; Shift+Enter is a new line. */
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); }
   });
-  $('cv-text').addEventListener('input', renderInput);
+  $('cv-text').addEventListener('input', () => { renderInput(); typed(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) draftSaver.flush(); });
   $('cv-end').addEventListener('click', endEarly);
   $('cv-record').addEventListener('click', toggleRecord);
   $('cv-send-take').addEventListener('click', sendTake);
@@ -225,6 +232,12 @@ export async function onShow() {
    is what it is waiting for. */
 function take(record) {
   if (!session || session.id !== record.id) { forgetTake(); unkept = ''; }
+  /* What was being typed in the conversation being left is saved with it,
+     and the box takes the turn this one was left with. */
+  if (session !== record) {
+    draftSaver.flush();
+    $('cv-text').value = record.draft || '';
+  }
   session = record;
   moves = null;
   saved = null;
@@ -270,6 +283,7 @@ function end(s) {
    browser's recording indicator lit. A take being recorded is abandoned;
    one already recorded stays, waiting to be sent. */
 export function onHide() {
+  draftSaver.flush();
   if (recording) {
     recorder.dispose();
     recording = false;
@@ -458,6 +472,8 @@ async function start() {
 
 function startAgain() {
   if (working) return;
+  draftSaver.flush();
+  $('cv-text').value = '';
   forgetTake();
   session = null;
   moves = null;
@@ -488,6 +504,18 @@ async function save(s = session) {
   }
 }
 
+/* The box changed: the turn being typed belongs to the conversation on
+   screen, and is saved with it shortly. An empty box leaves nothing. */
+function typed() {
+  const s = session;
+  if (!s || s.ended || isLive(s)) return;
+  const text = $('cv-text').value.slice(0, MAX_TURN_TEXT);
+  if (text.trim()) s.draft = text;
+  else delete s.draft;
+  drafting = s;
+  draftSaver.touch();
+}
+
 /* Your turn is saved before anything is sent for it, so a failure keeps
    it. */
 async function send() {
@@ -495,6 +523,9 @@ async function send() {
   const text = $('cv-text').value.replace(/\s+/g, ' ').trim().slice(0, MAX_TURN_TEXT);
   if (!text || learnerTurns(session) >= turnsOf(session)) return;
   $('cv-text').value = '';
+  /* Sent, so no longer a turn waiting to be: the save below writes both. */
+  delete session.draft;
+  draftSaver.cancel();
   await dropTake();
   session.turns.push({ speaker: 'learner', text });
   await save();
@@ -706,6 +737,8 @@ async function finish({ closing }) {
     if (got.deliveryNote) s.deliveryNote = got.deliveryNote;
     s.models = { ...(s.models || {}), feedback: got.model };
     s.ended = true;
+    /* A turn left in the box when it ended was never said. */
+    delete s.draft;
     if (!s.scored) {
       const scored = await scoreVerdicts(got.cards, s.cards);
       s.scored = true;
@@ -1290,7 +1323,9 @@ async function remove(id) {
     return;
   }
   armed = null;
-  if (session && session.id === id) { forgetTake(); session = null; retry = null; showError(''); }
+  /* Nothing still waiting to be saved may write its file back. */
+  if (drafting && drafting.id === id) { draftSaver.cancel(); drafting = null; }
+  if (session && session.id === id) { forgetTake(); session = null; retry = null; showError(''); $('cv-text').value = ''; }
   await store.deleteConversation(id);
   render();
 }

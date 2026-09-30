@@ -413,10 +413,21 @@ and nothing is scored. A reply that cannot be read is a failure, not a grade:
 your writing stays in the box, nothing is kept or scored, and **Try again**
 sends it again. Nothing is retried on its own, since every attempt is a call.
 
-**Write again** starts a new piece on the same task. **Every piece you hand
-in is kept**, with its feedback, and **Your writing**, under the form, lists
-them newest first. Click one to read it again as it was, or to write again on
-its task; **Delete** asks once more in place. The feedback model is its own
+**Your writing is saved as you write it.** A piece is kept from the moment
+its task is set, whether the question was written for you, is a topic of your
+own or is a summary, and what you type is saved about once a second while you
+type, and when you leave the tab. Close the page, or reload it, and the task
+and your text are back when you open Writing again: a question that cost a
+call is never asked for twice. Until it is handed in a piece is a **draft**,
+and says so in the list. Setting a new task leaves a draft you have written
+something to in the list, to carry on with, and drops one you have not.
+Handing in completes the same piece, so there is one row for it, not two.
+
+**Write again** starts a new piece on the same task. **Every piece is
+kept**, a draft as you left it and a piece handed in with its feedback, and
+**Your writing**, under the form, lists them newest first. Click a draft to
+carry on with it, or a piece handed in to read it again as it was, or to
+write again on its task; **Delete** asks once more in place. The feedback model is its own
 job in Settings, so a grading budget that runs out does not stop you writing
 sentences, and while it is spent the note beside *Hand in* says how long
 until the next call.
@@ -463,6 +474,10 @@ else:
 - one that **could not be checked** scores nothing.
 
 A set is not kept, as a Typing session is not: what stays is the scores.
+**The set you are working on is, though, until it is checked.** It is saved
+as you type your answers, so a reload or a closed tab brings back the same
+sentences with your answers in them. Checking it, or drawing a new set, lets
+it go.
 
 ## Conversation
 
@@ -516,7 +531,8 @@ as well as being asked to use it; in a find out, never at the cost of giving
 away a fact. Its lines never count towards your cards. In a live
 conversation it is asked the same, once, at the start. Type your turn and
 press **Send** (or Enter; Shift+Enter is a new line). A turn takes 1,000
-characters at most. **End and get feedback** ends the conversation early,
+characters at most. A turn you have typed and not sent is saved with the
+conversation as you type, so it is still in the box after a reload. **End and get feedback** ends the conversation early,
 once you have had a turn, and costs one feedback call.
 
 ### Speaking your turns
@@ -858,12 +874,13 @@ reading/manifest.json     the index of kept reading texts, and which have audio
 reading/<id>.json         one text: its words, which cards it used, the request
 reading/<id>.ogg          that text read aloud, if it has been (.wav where the
                           browser cannot encode Opus)
-writing/manifest.json     the index of everything handed in on Writing
+writing/manifest.json     the index of everything written on Writing
 writing/<id>.json         one piece: the task, the cards, what you wrote,
-                          and the feedback
+                          and the feedback once it is handed in
 conversation/manifest.json   the index of conversations
 conversation/<id>.json       one conversation: its scene, turns and feedback
 conversation/<id>_<n>.webm   your own voice: the spoken turn at position n
+translate/open.json          the Translate set you are working on, until it is checked
                              (.ogg on Firefox, .mp4 on Safari)
 ```
 
@@ -1394,6 +1411,7 @@ js/shadow-rules.js    shadowing's listening rules: seeding, rating, revising, un
 js/gemini.js          API calls, call budget, WAV wrapping
 js/json-reply.js      reading a grader's JSON reply, and its verdicts on your cards
 js/error-spot.js      where a tab's error goes: in place of what you were waiting on
+js/autosave.js        saving what is being typed, once a second and never per keystroke
 js/opus.js            dictation audio as Ogg Opus, through the browser's encoder
 js/convert-audio.js   turning a bank's older WAV sentences into Ogg, in place
 js/bundle.js          the export/import file format
