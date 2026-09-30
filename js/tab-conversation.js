@@ -141,6 +141,7 @@ export function init() {
   $('cv-chat').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-play]');
     if (btn) playTurn(Number(btn.dataset.play));
+    if (e.target.closest('[data-act="play-live"]')) playLive();
   });
   $('cv-again').addEventListener('click', startAgain);
   $('cv-error').addEventListener('click', (e) => {
@@ -926,6 +927,14 @@ function renderLive() {
   box.classList.toggle('is-live', going);
 }
 
+/* The recording of a live conversation, to play back. It is on disk the
+   moment the talking stops, so it is offered from then on: while the
+   feedback is being written, and when that call failed and the recording
+   is all there is. */
+function playLiveHtml(s) {
+  return `<div class="row"><button class="btn btn--sm" data-act="play-live">▶ Play your recording</button><span class="note">${escapeHtml(minutesLabel(s.talked))}</span></div>`;
+}
+
 /* The written-out conversation with its corrections, the four marks, the
    notes on how it sounded, and the cards. */
 function liveResultHtml(s, fb, lang) {
@@ -942,9 +951,7 @@ function liveResultHtml(s, fb, lang) {
     parts.push('<p class="wr-sub">Too little was said to score.</p>');
   }
   if (fb.overall) parts.push(`<p>${escapeHtml(fb.overall)}</p>`);
-  if (s.take) {
-    parts.push(`<div class="row"><button class="btn btn--sm" data-act="play-live">▶ Play your recording</button><span class="note">${escapeHtml(minutesLabel(s.talked))}</span></div>`);
-  }
+  if (s.take) parts.push(playLiveHtml(s));
   const sc = s.scenario;
   parts.push('<h4>The conversation</h4>');
   parts.push(`<ol class="lv-lines">${(fb.lines || []).map((l) => {
@@ -1081,8 +1088,9 @@ function renderChat() {
 
 /* While talking, the last few turns of the running transcript, and only if
    asked for: reading along is not listening. After, and before the
-   feedback, the whole of it; after the feedback, nothing here, since the
-   feedback writes it out again. */
+   feedback, the whole of it and the recording to play; after the feedback,
+   nothing here, since the feedback writes it out again and has the
+   recording with it. */
 function liveChatHtml(s, lang) {
   if (s.ended) return '';
   const bubble = (t) => `<div class="cv-bubble cv-bubble--${t.speaker === 'learner' ? 'me' : 'them'}">
@@ -1091,6 +1099,7 @@ function liveChatHtml(s, lang) {
     </div>`;
   if (working === 'talking') return showLive && talkView ? talkView.turns.slice(-4).map(bubble).join('') : '';
   const out = (s.turns || []).map(bubble);
+  if (s.take) out.push(playLiveHtml(s));
   if (doing() === 'grading') {
     out.push(`<div class="cv-bubble cv-bubble--them cv-thinking" aria-live="polite">
       <span class="cv-who">Feedback</span>

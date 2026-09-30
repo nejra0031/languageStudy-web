@@ -590,8 +590,11 @@ microphone's echo cancellation keeps the model from hearing its own voice
 back, but headphones are surer.
 
 While you talk, your microphone is also recorded, and the recording is kept
-beside the conversation the moment it ends. Then one call on the **live
-feedback model** listens to it, reads the running transcript, and writes:
+beside the conversation the moment it ends. **Play your recording** is there
+from that moment, under the lines of the conversation: while the feedback is
+being written, and still if the feedback call fails. Then one call on the
+**live feedback model** listens to it, reads the running transcript, and
+writes:
 
 - **the conversation written out**, with your lines taken down from the
   recording as you said them rather than from the transcript (a speech
