@@ -11,9 +11,11 @@
 
 import * as store from './store.js';
 import * as storage from './storage.js';
-import { cleanSelection, sentenceAround, findCard, codeFor, nameFor, hasGap } from './lookup.js';
+import {
+  cleanSelection, sentenceAround, findCard, codeFor, nameFor, hasGap, refreshTarget,
+} from './lookup.js';
 import { isPattern, setPattern } from './deck.js';
-import { translate } from './translate.js';
+import { translate, translateOne } from './translate.js';
 import { escapeHtml } from './text.js';
 
 const $ = (id) => document.getElementById(id);
@@ -34,6 +36,11 @@ let idle = 0;
    popup straight back up. It stays shut for that selection until the
    selection changes or goes. */
 let dismissed = null;
+/* The pause after the last keystroke in a field before the other one is
+   translated again. Google turns a network away when it is asked too often,
+   so a word is looked up once it has been typed, not letter by letter. */
+const REFRESH_AFTER = 700;
+let refreshTimer = 0;
 
 export function init() {
   pop = $('lookup-pop');
@@ -68,12 +75,19 @@ export function init() {
 
   $('lp-close').addEventListener('click', close);
   $('lp-swap').addEventListener('click', swap);
-  $('lp-front').addEventListener('input', () => { oneLine($('lp-front')); followGap(); recheck(); });
-  $('lp-back').addEventListener('input', () => oneLine($('lp-back')));
+  $('lp-front').addEventListener('input', () => { oneLine($('lp-front')); followGap(); recheck(); edited('front'); });
+  $('lp-back').addEventListener('input', () => { oneLine($('lp-back')); edited('back'); });
+  /* Leaving a field, or Enter in it, does not wait out the pause. */
+  $('lp-front').addEventListener('change', () => refresh('front'));
+  $('lp-back').addEventListener('change', () => refresh('back'));
   /* The two fields are boxes that grow, so a phrase can be read whole, but
      a card's word and meaning are each one line: Enter adds none. */
   for (const id of ['lp-front', 'lp-back']) {
-    $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
+    $(id).addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      refresh(id === 'lp-front' ? 'front' : 'back');
+    });
   }
   $('lp-pattern').addEventListener('change', () => { if (open) open.patternSaid = true; });
   $('lp-ask').addEventListener('click', askNotes);
@@ -181,7 +195,15 @@ async function openFor(text, rect, context, where) {
   /* patternSaid: the tickbox has been set by someone who knows — the student
      ticking it, or a stored card saying what it is — and is no longer
      guessed from the word. */
-  open = { where, context, deck, card: null, langs, patternSaid: false };
+  /* auto: which fields hold what a translation or a stored card put there,
+     not what the student typed. Only those are ever filled in again when
+     the other field is edited. asked: the text each field was last
+     translated from, so leaving a field after its pause asks nothing twice. */
+  clearTimeout(refreshTimer);
+  open = {
+    where, context, deck, card: null, langs, patternSaid: false,
+    auto: { front: false, back: false }, asked: { front: '', back: '' },
+  };
 
   $('lp-deck').innerHTML = `into <b>${escapeHtml(deck)}.json</b>`;
   $('lp-front-label').textContent = langs.learningName || 'Word';
@@ -215,6 +237,9 @@ async function openFor(text, rect, context, where) {
     $('lp-front').value = found.front;
     $('lp-back').value = found.back;
     $('lp-back').placeholder = '';
+    /* The side Google wrote is the one a later edit may write again. */
+    open.auto = { front: found.direction === 'reverse', back: found.direction !== 'reverse' };
+    open.asked = { front: found.front, back: found.back };
     fitFields();
     followGap();
     const existing = found.direction === 'reverse' ? findCard(deckCards(), { front: found.front }) : null;
@@ -243,6 +268,9 @@ function fillFrom(card) {
   $('lp-notes').value = card.notes || '';
   $('lp-pattern').checked = isPattern(card);
   open.patternSaid = true;
+  /* The stored meaning is not something the student typed here: if the word
+     is then edited into one the deck does not have, it gives way. */
+  open.auto.back = true;
   fitFields();
   setMode(card);
 }
@@ -294,6 +322,7 @@ export function placeUnder(el, rect) {
 
 function close() {
   token++;
+  clearTimeout(refreshTimer);
   if (open) dismissed = open.where;
   open = null;
   pop.hidden = true;
@@ -318,17 +347,86 @@ function recheck() {
     $('lp-back').value = card.back;
     $('lp-pattern').checked = isPattern(card);
     open.patternSaid = true;
+    open.auto.back = true;
     fitFields();
   }
   setMode(card);
 }
 
 function swap() {
+  if (!open) return;
   const front = $('lp-front');
   const back = $('lp-back');
   [front.value, back.value] = [back.value, front.value];
+  /* What was typed and what was translated change places with the text. */
+  clearTimeout(refreshTimer);
+  open.auto = { front: open.auto.back, back: open.auto.front };
+  open.asked = { front: open.asked.back, back: open.asked.front };
   fitFields();
   recheck();
+}
+
+/* ── keeping the two fields in step ──────────────────────────────────── */
+
+/* A field was typed in: it is the student's now, and once they pause, the
+   other field is translated from it again. */
+function edited(which) {
+  if (!open) return;
+  open.auto[which] = false;
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => refresh(which), REFRESH_AFTER);
+}
+
+/* The other field, translated again from the one just edited, where
+   refreshTarget() says it may be: never over something the student typed,
+   and never for a word the deck already has. The answer is dropped if the
+   popup has moved on, if the edited field no longer holds what was sent, or
+   if the student has typed in the other field meanwhile. One request, and a
+   refusal is said in the status line like any other. */
+async function refresh(which) {
+  clearTimeout(refreshTimer);
+  if (!open) return;
+  const other = which === 'front' ? 'back' : 'front';
+  const from = $(`lp-${which}`);
+  const to = $(`lp-${other}`);
+  const text = from.value.trim();
+  const plan = () => refreshTarget({
+    edited: which,
+    text: from.value,
+    other: to.value,
+    otherAuto: open.auto[other],
+    isCard: !!open.card,
+    learning: open.langs.learning,
+    native: open.langs.native,
+  });
+  const want = plan();
+  if (!want || text === open.asked[which]) return;
+  open.asked[which] = text;
+  const mine = token;
+  status('Asking Google Translate…', '');
+  try {
+    const got = await translateOne(text, want.from, want.to);
+    if (mine !== token || from.value.trim() !== text || !plan()) return;
+    to.value = got;
+    to.placeholder = '';
+    open.auto[other] = true;
+    open.asked[other] = got;
+    fitFields();
+    let said = 'Translated again by Google Translate. Correct it if it is off.';
+    if (other === 'front') {
+      /* The new word may be one the deck has. The button follows it, but
+         the meaning just typed stays: recheck() would put the card's own
+         meaning over it. */
+      followGap();
+      const card = findCard(deckCards(), { front: got });
+      setMode(card);
+      if (card) said = `${card.front} is already in ${open.deck}.json. Update gives it this meaning.`;
+    }
+    status(said, '');
+  } catch (e) {
+    if (mine !== token || from.value.trim() !== text) return;
+    status(e.message || String(e), 'is-warn');
+  }
 }
 
 async function askNotes() {

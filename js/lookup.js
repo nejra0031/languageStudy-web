@@ -137,6 +137,28 @@ export function hasGap(front) {
   return /…|\.{3,}/.test(String(front || ''));
 }
 
+/* ── keeping the two fields in step ──────────────────────────────────── */
+
+/* Which field to translate again after one of them was edited, and which
+   way: {field, from, to}, or null to leave the other field alone. The
+   popup translates once, when it opens; after that a changed word still had
+   the old meaning beside it.
+
+   `edited` is 'front' or 'back', `text` what it now holds, `other` what the
+   other field holds and `otherAuto` whether that came from a translation or
+   a stored card and not from the student's own typing. What the student
+   typed is never written over, so a field they filled in stays as it is.
+   A word the deck already has (`isCard`) shows its stored meaning, and no
+   translation replaces that. A meaning can only be turned back into a word
+   when the language being learnt is known. */
+export function refreshTarget({ edited, text, other, otherAuto, isCard, learning, native }) {
+  if (!String(text || '').trim() || isCard) return null;
+  if (String(other || '').trim() && !otherAuto) return null;
+  if (edited === 'front') return native ? { field: 'back', from: learning || 'auto', to: native } : null;
+  if (edited === 'back') return learning && native ? { field: 'front', from: native, to: learning } : null;
+  return null;
+}
+
 /* ── the selection ───────────────────────────────────────────────────── */
 
 export const MAX_CHARS = 100;

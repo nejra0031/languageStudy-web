@@ -659,7 +659,10 @@ once it is revealed. A small form then opens right under the selection:
 - **the word**, in the language you are learning, and under it **its
   translation**, in your own. Each has a line of its own, the width of the
   form, and grows to fit a longer phrase. Both can be edited, and ⇅ between
-  them swaps them.
+  them swaps them. Edit one and, once you pause, leave the field or press
+  Enter, the other is translated again to match, as long as it is empty or
+  still holds a translation: what you typed yourself is never written over,
+  and a word the deck already has keeps its stored meaning.
 - **Grammar pattern**, a tickbox that makes the card a
   [pattern](#the-deck-format) (`"type": "pattern"`). Select *hễ trời mưa là*,
   edit the word to `hễ … là …`, and the box ticks itself as soon as the word
