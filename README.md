@@ -656,8 +656,10 @@ Turn on **Settings → Add from selected text** and you can select a word or a
 short phrase anywhere on the page, such as a new word in a dictation sentence
 once it is revealed. A small form then opens right under the selection:
 
-- **the word**, in the language you are learning, and **its translation**, in
-  your own. Both can be edited, and ⇄ swaps them.
+- **the word**, in the language you are learning, and under it **its
+  translation**, in your own. Each has a line of its own, the width of the
+  form, and grows to fit a longer phrase. Both can be edited, and ⇅ between
+  them swaps them.
 - **Grammar pattern**, a tickbox that makes the card a
   [pattern](#the-deck-format) (`"type": "pattern"`). Select *hễ trời mưa là*,
   edit the word to `hễ … là …`, and the box ticks itself as soon as the word

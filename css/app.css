@@ -1159,15 +1159,18 @@ textarea { resize: vertical; font: 13px/1.6 var(--mono); }
 }
 .lookup-close:hover { color: var(--fg); }
 .lookup-body { display: grid; gap: 10px; padding: 12px; }
-.lookup-pair {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap: 6px;
-  align-items: end;
+/* The word, then its translation, each on a line of its own and the full
+   width of the popup: side by side they were some 150px each, too narrow to
+   read a phrase in. The swap button sits between the two it swaps. */
+.lookup-pair { display: grid; gap: 4px; }
+.lookup-pair textarea {
+  font: 14px/1.45 var(--sans);
+  resize: none;
+  max-height: 6.4em;
+  overflow-y: auto;
 }
-.lookup-pair input { font-size: 14px; }
 #lp-front { color: var(--fg-warm); }
-.lookup-swap { padding: 7px 8px; line-height: 1; }
+.lookup-swap { justify-self: center; padding: 3px 12px; line-height: 1; }
 .lookup-pattern {
   display: flex;
   align-items: center;

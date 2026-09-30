@@ -45,11 +45,11 @@ export function init() {
     <div class="lookup-body">
       <div class="lookup-pair">
         <label class="field"><span id="lp-front-label">Word</span>
-          <input type="text" id="lp-front" spellcheck="false" autocomplete="off"></label>
+          <textarea id="lp-front" rows="1" spellcheck="false" autocomplete="off"></textarea></label>
         <button type="button" class="btn btn--sm lookup-swap" id="lp-swap"
-                title="Swap the word and the translation" aria-label="Swap the word and the translation">&#8644;</button>
+                title="Swap the word and the translation" aria-label="Swap the word and the translation">&#8645;</button>
         <label class="field"><span id="lp-back-label">Translation</span>
-          <input type="text" id="lp-back" spellcheck="false" autocomplete="off"></label>
+          <textarea id="lp-back" rows="1" spellcheck="false" autocomplete="off"></textarea></label>
       </div>
       <label class="lookup-pattern"><input type="checkbox" id="lp-pattern">
         <span>Grammar pattern</span><em>write each gap as …</em></label>
@@ -68,7 +68,13 @@ export function init() {
 
   $('lp-close').addEventListener('click', close);
   $('lp-swap').addEventListener('click', swap);
-  $('lp-front').addEventListener('input', () => { followGap(); recheck(); });
+  $('lp-front').addEventListener('input', () => { oneLine($('lp-front')); followGap(); recheck(); });
+  $('lp-back').addEventListener('input', () => oneLine($('lp-back')));
+  /* The two fields are boxes that grow, so a phrase can be read whole, but
+     a card's word and meaning are each one line: Enter adds none. */
+  for (const id of ['lp-front', 'lp-back']) {
+    $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
+  }
   $('lp-pattern').addEventListener('change', () => { if (open) open.patternSaid = true; });
   $('lp-ask').addEventListener('click', askNotes);
   $('lp-save').addEventListener('click', save);
@@ -188,6 +194,7 @@ async function openFor(text, rect, context, where) {
   $('lp-ask').disabled = false;
   $('lp-ask').textContent = 'Ask for notes';
   pop.hidden = false;
+  fitFields();
   place(rect);
 
   /* A word already in the deck is shown as it is stored, and costs nothing:
@@ -208,6 +215,7 @@ async function openFor(text, rect, context, where) {
     $('lp-front').value = found.front;
     $('lp-back').value = found.back;
     $('lp-back').placeholder = '';
+    fitFields();
     followGap();
     const existing = found.direction === 'reverse' ? findCard(deckCards(), { front: found.front }) : null;
     if (existing) {
@@ -215,7 +223,7 @@ async function openFor(text, rect, context, where) {
       status(`${found.front} is already in ${deck}.json. Change it and press Update.`, '');
     } else {
       status(found.direction === 'reverse'
-        ? `That was ${langs.nativeName}, so it is the meaning. ⇄ swaps them if not.`
+        ? `That was ${langs.nativeName}, so it is the meaning. ⇅ swaps them if not.`
         : 'Translated by Google Translate. Correct it if it is off.', '');
     }
   } catch (e) {
@@ -235,7 +243,25 @@ function fillFrom(card) {
   $('lp-notes').value = card.notes || '';
   $('lp-pattern').checked = isPattern(card);
   open.patternSaid = true;
+  fitFields();
   setMode(card);
+}
+
+/* Each field is as tall as what is in it, up to a few lines, so a longer
+   phrase is read whole instead of scrolled through sideways. Measured only
+   while the popup is shown: a hidden box has no height to read. */
+function fitFields() {
+  for (const id of ['lp-front', 'lp-back']) {
+    const el = $(id);
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight + 2}px`;
+  }
+}
+
+/* Typed or pasted, a line break in a field becomes a space. */
+function oneLine(el) {
+  if (/[\r\n]/.test(el.value)) el.value = el.value.replace(/\s*[\r\n]+\s*/g, ' ');
+  fitFields();
 }
 
 /* Until it has been said, the tickbox follows the word: a gap written into
@@ -292,6 +318,7 @@ function recheck() {
     $('lp-back').value = card.back;
     $('lp-pattern').checked = isPattern(card);
     open.patternSaid = true;
+    fitFields();
   }
   setMode(card);
 }
@@ -300,6 +327,7 @@ function swap() {
   const front = $('lp-front');
   const back = $('lp-back');
   [front.value, back.value] = [back.value, front.value];
+  fitFields();
   recheck();
 }
 
