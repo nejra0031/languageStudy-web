@@ -7,7 +7,13 @@
    makes — which way round, whether the card exists, what the sentence was —
    are plain functions in lookup.js; the request is translate.js. This file is
    only the DOM and the order things happen in. Off unless turned on in
-   Settings. */
+   Settings.
+
+   A selection made with a mouse or the keyboard opens the form at once. One
+   made by touch is dragged out by its handles with pauses in between, and a
+   form under it would sit on the next line and on the handle, so it gets a
+   button at the foot of the window instead, and the form opens when that
+   is pressed. */
 
 import * as store from './store.js';
 import * as storage from './storage.js';
@@ -41,6 +47,11 @@ let dismissed = null;
    so a word is looked up once it has been typed, not letter by letter. */
 const REFRESH_AFTER = 700;
 let refreshTimer = 0;
+/* A selection made by touch is offered, not opened: `chip` is the button
+   that opens the form for it, and `offered` what it would open for. */
+let chip = null;
+let byTouch = false;
+let offered = null;
 
 export function init() {
   pop = $('lookup-pop');
@@ -93,6 +104,22 @@ export function init() {
   $('lp-ask').addEventListener('click', askNotes);
   $('lp-save').addEventListener('click', save);
 
+  chip = $('lookup-chip');
+  chip.addEventListener('click', openOffered);
+  /* Pressing the button is not a new selection, and should not end one. */
+  chip.addEventListener('mousedown', (e) => e.preventDefault());
+
+  /* Whether the selection is being made by touch. A pointer event says what
+     made it; a browser without them says so with touchstart, and the mouse
+     events it sends after a tap for compatibility's sake are not a mouse. */
+  if (window.PointerEvent) {
+    document.addEventListener('pointerdown', (e) => { byTouch = e.pointerType === 'touch'; }, true);
+  } else {
+    let touched = 0;
+    document.addEventListener('touchstart', () => { byTouch = true; touched = Date.now(); }, { capture: true, passive: true });
+    document.addEventListener('mousedown', () => { if (Date.now() - touched > 1000) byTouch = false; }, true);
+  }
+
   document.addEventListener('mousedown', (e) => {
     pointerDown = true;
     if (open && !pop.contains(e.target)) close();
@@ -111,7 +138,11 @@ export function init() {
     idle = setTimeout(check, 450);
   });
 
-  store.subscribe('settings', (s) => { if (!s.settings.lookupEnabled && open) close(); });
+  store.subscribe('settings', (s) => {
+    if (s.settings.lookupEnabled) return;
+    if (open) close();
+    offer(null);
+  });
 }
 
 /* Fields text is typed into. A focused tickbox or button says nothing about
@@ -123,38 +154,84 @@ const TYPING = 'textarea, [contenteditable]:not([contenteditable="false"]), '
 
 function check() {
   if (!store.state.settings.lookupEnabled || !store.state.ready) return;
+  const found = selected();
+  if (!found) {
+    offer(null);
+    return;
+  }
+  /* The same selection, still standing — open, offered, or closed on
+     purpose: nothing new to do. */
+  if ((open && open.where === found.where) || found.where === dismissed) return;
+  if (offered && offered.where === found.where) return;
+  dismissed = null;
+
+  if (!byTouch) {
+    openFor(found.text, found.rect, found.context, found.where);
+    return;
+  }
+  /* By touch the form does not open by itself. A pause while dragging a
+     handle is enough to get here, and a form under the selection would
+     cover the next line and the handle still being dragged. A form already
+     open for an earlier selection gives way for the same reason. */
+  if (open) {
+    close();
+    dismissed = null;
+  }
+  offer(found);
+}
+
+/* The selection as something a card could be made of: {text, rect, context,
+   where}, or null when there is none, or it is not one to act on. */
+function selected() {
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed || !sel.rangeCount) {
     dismissed = null;
-    return;
+    return null;
   }
   /* A selection inside a text field is someone editing, not reading: the deck
      editor, an answer being typed, a prompt. And never the popup itself. */
   const active = document.activeElement;
-  if (active && active.matches(TYPING)) return;
+  if (active && active.matches(TYPING)) return null;
   const range = sel.getRangeAt(0);
   const node = range.commonAncestorContainer;
   const el = node.nodeType === 1 ? node : node.parentElement;
   /* Nor a word marked in a reading text: that is a card already, and it has
      a popup of its own. */
-  if (!el || el.closest('input, textarea, select, [contenteditable], #lookup-pop, #reading-pop, .rd-mark')) return;
+  if (!el || el.closest('input, textarea, select, [contenteditable], #lookup-pop, #lookup-chip, #reading-pop, .rd-mark')) return null;
 
   const raw = sel.toString();
   const text = cleanSelection(raw);
   if (!text) {
     dismissed = null;
-    return;
+    return null;
   }
   const rect = range.getBoundingClientRect();
-  if (!rect.width && !rect.height) return;
-
-  /* The same selection, still standing — open, or closed on purpose: nothing
-     new to do. */
+  if (!rect.width && !rect.height) return null;
   const where = `${text}|${Math.round(rect.left + window.scrollX)}|${Math.round(rect.top + window.scrollY)}`;
-  if ((open && open.where === where) || where === dismissed) return;
-  dismissed = null;
+  return { text, rect, context: contextOf(el, range, raw), where };
+}
 
-  openFor(text, rect, contextOf(el, range, raw), where);
+/* The button a touch selection gets instead of the form: docked at the foot
+   of the window, clear of the text, the selection handles and the browser's
+   own Copy menu. It keeps what was selected, in page coordinates, so the
+   form can still open for it if the tap on the button ends the selection. */
+function offer(found) {
+  offered = found && {
+    text: found.text,
+    context: found.context,
+    where: found.where,
+    left: found.rect.left + window.scrollX,
+    bottom: found.rect.bottom + window.scrollY,
+  };
+  chip.hidden = !offered;
+  if (offered) chip.textContent = `Add “${offered.text}” as a card`;
+}
+
+function openOffered() {
+  const o = offered;
+  if (!o) return;
+  offer(null);
+  openFor(o.text, { left: o.left - window.scrollX, bottom: o.bottom - window.scrollY }, o.context, o.where);
 }
 
 /* The sentence the selection sits in, read from the nearest block around it.

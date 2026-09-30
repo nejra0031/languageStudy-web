@@ -687,6 +687,14 @@ is checked. The form stays shut when you select inside a text box, such as the
 deck editor or an answer you are typing, or when the selection runs past eight
 words. Escape, ×, or a click anywhere else closes it.
 
+On a touchscreen the form does not open by itself. Selecting there means
+dragging the handles, and a form under the selection would cover the next line
+and the handle you are dragging. A button appears at the bottom of the window
+instead, **Add “…” as a card**, out of the way of the text and of the
+browser's own Copy menu; it follows the selection as you change it, and
+pressing it opens the form. Moving the selection while the form is open closes
+the form and brings the button back.
+
 Settings has three choices besides the switch. **Language you are learning**
 follows the target language unless you pick another. **Your language** is
 English to start with. **Add new cards to** is the deck new cards go into, and

@@ -1137,6 +1137,24 @@ textarea { resize: vertical; font: 13px/1.6 var(--mono); }
   box-shadow: 0 10px 28px rgba(0, 0, 0, .35);
 }
 .lookup-pop[hidden] { display: none; }
+/* What a selection made by touch gets instead of the form: one button at
+   the foot of the window, where it covers no text, no selection handle and
+   not the browser's own Copy menu. It keeps clear of a phone's home bar. */
+.lookup-chip {
+  position: fixed;
+  z-index: 30;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  max-width: calc(100vw - 32px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .35);
+  user-select: none;
+  -webkit-user-select: none;
+}
+.lookup-chip[hidden] { display: none; }
 .lookup-head {
   display: flex;
   align-items: center;
