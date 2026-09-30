@@ -3,7 +3,8 @@
    and no network — the tab is tab-conversation.js and the calls are in
    gemini.js.
 
-   Two kinds, both ported from lessons-web and both a few typed turns long:
+   A conversation is two choices. What it is about, its `kind`, both ported
+   from lessons-web:
 
      'roleplay'  a scene with two roles. The other person answers each of
                  your turns; your sixth turn gets their closing line and the
@@ -13,20 +14,39 @@
                  six of your turns, say which facts they gave away, and the
                  feedback comes after.
 
+   And how it is held, its `delivery`:
+
+     'turns'     a few turns of your own, typed or spoken one at a time,
+                 which is what the two descriptions above are of.
+     'live'      spoken in real time over the Live API, for a set time
+                 rather than a number of turns. See live.js.
+
+   Either kind can be held either way. Live was once a third kind, a
+   find-out held live, and records from then say kind: 'live' with no
+   delivery. They are read through contentOf() and isLive() and never
+   rewritten, so nothing else compares `kind` or `delivery` directly.
+
    With no lessons to hold the scenes, one call on the text model writes the
    scene around a few of your cards, and the opening line with it.
 
    A session is one JSON record, saved after every turn:
 
-     {id, kind, created, title, language, level, request,
+     {id, kind, delivery, created, title, language, level, request,
       cards: [{front, deck}], scenario,
-      turns: [{speaker: 'partner'|'learner', text}],
+      turns: [{speaker: 'partner'|'learner', text, cards?}],
       revealed: [fact ids], feedback, deliveryNote, ended, scored}
 
    turns[0] is always the other person's opening line. Only the learner's
-   turns are graded, and only they count for the cards. */
+   turns are graded, and only they count for the cards.
 
-import { readingTermListing } from './reading.js';
+   The other person uses the cards too, so the learner hears each one and
+   is not only asked to produce it. It marks each use in its line as
+   [[number|words]], the way a Reading text is marked; the marks are taken
+   out before the line is shown or kept, and the turn keeps which cards it
+   used, as `cards`, indices into the session's cards. Each request then
+   lists the ones it has not used yet. See cardUseBlock(). */
+
+import { readingTermListing, readMarks } from './reading.js';
 import { extractTrailingJson, cardVerdicts } from './json-reply.js';
 import { fillTemplate, withFeedbackBlock, feedbackRequestText } from './gemini.js';
 import { normalize } from './text.js';
@@ -34,8 +54,21 @@ import { modelLimits } from './defaults.js';
 import { attachableClips, toBase64 } from './shadowing.js';
 import { rulesFor, formatRulesBlock } from './shadow-rules.js';
 
-export const KINDS = ['roleplay', 'findout', 'live'];
-const KIND_NAMES = { roleplay: 'roleplay', findout: 'find-out', live: 'live conversation' };
+export const KINDS = ['roleplay', 'findout'];
+export const DELIVERIES = ['turns', 'live'];
+const KIND_NAMES = { roleplay: 'roleplay', findout: 'find-out' };
+
+/* What a conversation is about: 'roleplay' or 'findout'. Takes a session,
+   an index row or a bare kind. The old third kind was a find-out. */
+export function contentOf(session) {
+  const kind = typeof session === 'string' ? session : session && session.kind;
+  return kind === 'findout' || kind === 'live' ? 'findout' : 'roleplay';
+}
+
+/* Whether it is held live, by its delivery or by the old kind. */
+export function isLive(session) {
+  return !!session && (session.delivery === 'live' || session.kind === 'live');
+}
 /* Your turns in a conversation, unless the conversationTurns setting says
    otherwise. A conversation keeps the number it started with, as maxTurns,
    so a change in Settings never moves the end of one already under way. */
@@ -73,8 +106,9 @@ export function repliesNeeded(kind, turns = MAX_LEARNER_TURNS) {
    since they draw on one allowance. Spoken turns add a listening call each,
    and are not counted here: whether a turn is spoken is decided turn by
    turn. A live conversation is the scene, one live session, counted as one
-   call on the live model however long it runs, and the feedback. */
-export function callsNeeded(settings, kind) {
+   call on the live model however long it runs, and the feedback, whichever
+   kind it is. `delivery` is 'turns' or 'live'. */
+export function callsNeeded(settings, kind, delivery = 'turns') {
   const out = [];
   const add = (job, label, count) => {
     const model = settings[job];
@@ -82,12 +116,12 @@ export function callsNeeded(settings, kind) {
     if (hit) { hit.count += count; hit.jobs.push(label); } else out.push({ model, count, jobs: [label] });
   };
   add('sceneModel', 'the scene', 1);
-  if (kind === 'live') {
+  if (isLive({ kind, delivery })) {
     add('liveModel', 'the live conversation', 1);
     add('liveGradeModel', 'the feedback', 1);
     return out;
   }
-  add('chatModel', 'the replies', repliesNeeded(kind, settings.conversationTurns || MAX_LEARNER_TURNS));
+  add('chatModel', 'the replies', repliesNeeded(contentOf(kind), settings.conversationTurns || MAX_LEARNER_TURNS));
   add('conversationGradeModel', 'the feedback', 1);
   return out;
 }
@@ -99,12 +133,13 @@ export function callsNeeded(settings, kind) {
    preflight if its model is blocked right now. A model short on its day is
    refused here, before a call is spent on a scene that could not be
    finished. */
-export function budgetProblem(settings, kind, usage) {
-  for (const need of callsNeeded(settings, kind)) {
+export function budgetProblem(settings, kind, usage, delivery = 'turns') {
+  const what = isLive({ kind, delivery }) ? 'live conversation' : KIND_NAMES[contentOf(kind)];
+  for (const need of callsNeeded(settings, kind, delivery)) {
     const { rpm, rpd } = modelLimits(settings, need.model);
     const u = usage(need.model, rpm, rpd);
     if (u.leftDay !== null && u.leftDay < need.count) {
-      return `${need.model} has ${u.leftDay} call${u.leftDay === 1 ? '' : 's'} left today, and a ${KIND_NAMES[kind] || 'roleplay'} needs ${need.count} on it (${need.jobs.join(', ')}).`;
+      return `${need.model} has ${u.leftDay} call${u.leftDay === 1 ? '' : 's'} left today, and a ${what} needs ${need.count} on it (${need.jobs.join(', ')}).`;
     }
   }
   return null;
@@ -115,7 +150,7 @@ export function budgetProblem(settings, kind, usage) {
 export function scenarioVars(settings, kind, cards, request) {
   return {
     factCount: settings.conversationFacts || 4,
-    kind: kind === 'findout' ? 'find-out' : 'roleplay',
+    kind: KIND_NAMES[contentOf(kind)],
     language: settings.targetLanguage,
     level: settings.learnerLevel,
     languageNote: settings.languageNote || '',
@@ -138,17 +173,22 @@ export function unquote(line) {
    than the `factCount` asked for (and never fewer than two). Ids are made
    strings and must be unique; facts beyond the count are dropped.
    `detail` is kept on the session, for the other person and for the end,
-   and the tab does not show it until then. */
-export function readScenario(reply, kind, factCount = 4) {
+   and the tab does not show it until then. The opening line comes back
+   without its marks, and `openingCards` says which of `cards` it used; that
+   belongs to the first turn, not to the scene, and the caller moves it
+   there. */
+export function readScenario(reply, kind, factCount = 4, cards = []) {
   const p = extractTrailingJson(reply);
   if (!p || typeof p !== 'object') return null;
   const studentRole = text(p.studentRole, MAX_ROLE);
   const llmRole = text(p.llmRole, MAX_ROLE);
-  const openingLine = unquote(text(p.openingLine, MAX_LINE));
+  const opening = readMarks(unquote(text(p.openingLine, MAX_LINE)), cards);
+  const openingLine = opening.text;
+  const openingCards = opening.used;
   if (!studentRole || !llmRole || !openingLine) return null;
-  if (kind !== 'findout') {
+  if (contentOf(kind) !== 'findout') {
     const scenario = text(p.scenario, MAX_SCENE);
-    return scenario ? { scenario, studentRole, llmRole, openingLine } : null;
+    return scenario ? { scenario, studentRole, llmRole, openingLine, openingCards } : null;
   }
   const situation = text(p.situation, MAX_SCENE);
   const goal = text(p.goal, MAX_SCENE);
@@ -166,7 +206,7 @@ export function readScenario(reply, kind, factCount = 4) {
     if (facts.length === factCount) break;
   }
   if (facts.length < Math.max(2, factCount - 1)) return null;
-  return { situation, studentRole, llmRole, goal, facts, openingLine };
+  return { situation, studentRole, llmRole, goal, facts, openingLine, openingCards };
 }
 
 /* ── the turns ───────────────────────────────────────────────────────── */
@@ -180,7 +220,7 @@ export function learnerTurns(session) {
    are written down as they are spoken, and whoever spoke last, spoke last. */
 export function awaitingReply(session) {
   const turns = (session && session.turns) || [];
-  return !session.ended && session.kind !== 'live' && turns.length > 0 && turns[turns.length - 1].speaker === 'learner';
+  return !session.ended && !isLive(session) && turns.length > 0 && turns[turns.length - 1].speaker === 'learner';
 }
 
 /* Ends with a full stop unless it already ends a sentence, so a scene
@@ -195,6 +235,67 @@ function roleOf(session, turn) {
   return turn.speaker === 'learner' ? sc.studentRole : sc.llmRole;
 }
 
+/* ── the other person's own use of the cards ─────────────────────────── */
+
+/* Which of the session's cards the other person has used in its own lines
+   so far, as indices, in order. */
+export function partnerUsed(session) {
+  const used = new Set();
+  for (const t of (session && session.turns) || []) {
+    if (t.speaker === 'learner') continue;
+    for (const i of Array.isArray(t.cards) ? t.cards : []) used.add(i);
+  }
+  return [...used].sort((a, b) => a - b);
+}
+
+/* How many lines the other person still has, the one being asked for
+   included: an answer to each of the learner's turns left, and in a
+   roleplay the closing line in place of the last answer. */
+export function partnerLinesLeft(session) {
+  return Math.max(1, turnsOf(session) - learnerTurns(session) + 1);
+}
+
+/* What the other person is told about using the cards itself. It writes
+   one short line a request, so "every card at least once" is spread over
+   the conversation: each request lists the cards it has not used yet and
+   says how many of them this line should carry, enough to get through them
+   all in the lines it has left and never more than two, which is as many as
+   a line or two of speech holds without being bent round them. The marks
+   are how the next request knows what was used. */
+export const CARD_USE_BLOCK = `YOUR OWN USE OF THE LEARNER'S FLASHCARDS. Across this conversation you must use every one of the learner's numbered words and grammar patterns at least once in what YOU say, naturally and in the sense given, so that the learner hears each one used as well as being asked to use it. You have not used these yet:
+{unused}
+You have {linesLeft} line(s) left, this one included, so use at least {atLeast} of them in this line. A word may be inflected or conjugated as your sentence needs; a grammar pattern keeps its fixed words, in order, with its gaps filled by your own words. Your line must still be something your character would say at this point.
+Mark every use by wrapping the words as they appear in your line in [[number|words]], with the item's number from the list, e.g. [[4|went]]. For a grammar pattern, mark each fixed part on its own with the same number and leave the words in its gaps unmarked, e.g. [[7|not only]] cheap [[7|but also]] fast. The marks are taken out before the learner reads the line, so put nothing else in double brackets.`;
+
+export const CARD_USE_DONE = 'YOUR OWN USE OF THE LEARNER\'S FLASHCARDS. You have already used every one of them in your own lines, so there is nothing to work in now: just say your line.';
+
+/* In a find-out the facts come first: a card is never worth a fact. */
+export const CARD_USE_FACTS = 'Using a flashcard is NEVER a reason to give away a fact. Work it into something you would say anyway; if one only fits by revealing something the learner has not asked about, leave it for a later line.';
+
+/* The block for one request: '' with no cards, since there is then nothing
+   to say. `cards` are the session's cards as the decks have them. */
+export function cardUseBlock(session, cards, { guardFacts = false } = {}) {
+  if (!cards || !cards.length) return '';
+  const used = new Set(partnerUsed(session));
+  const unused = cards.map((_, i) => i).filter((i) => !used.has(i));
+  if (!unused.length) return CARD_USE_DONE;
+  const linesLeft = partnerLinesLeft(session);
+  const block = fillTemplate(CARD_USE_BLOCK, {
+    unused: readingTermListing(cards, new Set(unused)),
+    linesLeft,
+    atLeast: Math.min(unused.length, 2, Math.ceil(unused.length / linesLeft)),
+  });
+  return guardFacts ? `${block}\n${CARD_USE_FACTS}` : block;
+}
+
+/* A reply prompt without {cardUse}, one customised before it existed or
+   rewritten since, gets the block at its end, so a rewritten prompt cannot
+   drop it. */
+export function withCardUse(template) {
+  const t = String(template || '');
+  return t.includes('{cardUse}') ? t : `${t}\n\n{cardUse}`;
+}
+
 /* ── roleplay ────────────────────────────────────────────────────────── */
 
 /* The other person's next line: the scene, the roles and the turn in the
@@ -202,7 +303,8 @@ function roleOf(session, turn) {
    the session's cards as the decks have them, {front, back, type}. */
 export function roleplayReplyRequest(settings, session, cards) {
   const sc = session.scenario;
-  const system = fillTemplate(settings.prompts.roleplayReply, {
+  const system = fillTemplate(withCardUse(settings.prompts.roleplayReply), {
+    cardUse: cardUseBlock(session, cards),
     llmRole: sc.llmRole,
     studentRole: sc.studentRole,
     scenario: sentence(sc.scenario),
@@ -218,22 +320,34 @@ export function roleplayReplyRequest(settings, session, cards) {
 }
 
 /* Plain text, so the whole reply is the line: wrapping quotes and a role
-   label the model put in front of it are taken off. Null when nothing is
-   left. */
-export function readRoleplayReply(reply, session) {
+   label the model put in front of it are taken off, and so are its marks.
+   {text, cards}, the line and which of `cards` it used, or null when
+   nothing is left. */
+export function readRoleplayReply(reply, session, cards = []) {
   let line = unquote(String(reply || '').replace(/^```\w*|```$/g, ''));
   const role = session && session.scenario && session.scenario.llmRole;
   if (role) {
     const label = new RegExp(`^\\**${role.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\**\\s*:\\s*`, 'i');
     line = unquote(line.replace(label, ''));
   }
-  return line ? line.slice(0, MAX_LINE) : null;
+  const read = readMarks(line, cards);
+  return read.text ? { text: read.text.slice(0, MAX_LINE), cards: read.used } : null;
 }
 
 /* The closing call. With `closing`, the prompt also asks for the other
    person's last line; without, the learner ended early and there is none. */
 export const CLOSING_LINE = 'This is the final turn of the conversation, so do this first: stay strictly in character as the "{llmRole}" and write your character\'s final line of spoken dialogue, in natural, idiomatic {language} -- no quotes, no stage directions, no meta-commentary. Keep it short (one or two sentences) and bring the conversation to a polite, natural close. Put it in "reply".';
 export const NO_CLOSING_LINE = 'The learner ended the conversation early. Do not write a closing line, and leave "reply" out.';
+
+/* The closing line is a goodbye, so a card the other person has not used
+   yet is offered to it, not required of it. */
+function closingCardUse(session, cards) {
+  if (!cards || !cards.length) return '';
+  const used = new Set(partnerUsed(session));
+  const left = cards.map((c, i) => ({ c, n: i + 1 })).filter(({ n }) => !used.has(n - 1));
+  if (!left.length) return '';
+  return ` If one fits a natural goodbye, use one of the learner's flashcards you have not yet used in your own lines (${left.map(({ c, n }) => `${n}. "${c.front}"`).join(', ')}) and mark it in the line as [[number|words]]; never force one in.`;
+}
 
 export function roleplayGradeRequest(settings, session, cards, { closing }) {
   const sc = session.scenario;
@@ -246,7 +360,7 @@ export function roleplayGradeRequest(settings, session, cards, { closing }) {
     languageNote: settings.languageNote || '',
     feedback: feedbackRequestText(settings.feedbackRequest),
   };
-  vars.closing = fillTemplate(closing ? CLOSING_LINE : NO_CLOSING_LINE, vars);
+  vars.closing = fillTemplate(closing ? CLOSING_LINE : NO_CLOSING_LINE, vars) + (closing ? closingCardUse(session, cards) : '');
   const system = fillTemplate(withFeedbackBlock(settings.prompts.conversationGrade), vars);
   const transcript = session.turns.map((t, i) => `${i}. ${roleOf(session, t)}: ${t.text}`).join('\n');
   const mine = session.turns
@@ -291,9 +405,10 @@ export function readRoleplayGrade(reply, session, cards, { closing }) {
     deliveryNote: typeof p.deliveryNote === 'string' && p.deliveryNote.trim() ? p.deliveryNote.trim().slice(0, 1500) : null,
   };
   if (closing) {
-    const line = unquote(text(p.reply, MAX_LINE));
-    if (!line) return null;
-    out.reply = line;
+    const line = readMarks(unquote(text(p.reply, MAX_LINE)), cards);
+    if (!line.text) return null;
+    out.reply = line.text;
+    out.replyCards = line.used;
   }
   return out;
 }
@@ -325,11 +440,12 @@ export function normaliseIds(value, facts) {
   return out;
 }
 
-export function findOutReplyRequest(settings, session) {
+export function findOutReplyRequest(settings, session, cards = []) {
   const sc = session.scenario;
   const known = normaliseIds(session.revealed, sc.facts);
   const remaining = sc.facts.filter((f) => !known.includes(String(f.id)));
-  const system = fillTemplate(settings.prompts.findOutReply, {
+  const system = fillTemplate(withCardUse(settings.prompts.findOutReply), {
+    cardUse: cardUseBlock(session, cards, { guardFacts: true }),
     situation: sc.situation,
     llmRole: sc.llmRole,
     studentRole: sc.studentRole,
@@ -346,14 +462,15 @@ export function findOutReplyRequest(settings, session) {
   return { system, user: `The conversation so far:\n${transcript}\n\nSay what you say next.` };
 }
 
-/* {text, revealed} or null. What the other person says they gave away is
-   taken at their word: "found" is self-reported, and the checklist follows
-   it. */
-export function readFindOutReply(reply, facts) {
+/* {text, revealed, cards} or null. What the other person says they gave
+   away is taken at their word: "found" is self-reported, and the checklist
+   follows it. Which of `cards` the line used is read from its marks, which
+   are taken out of it. */
+export function readFindOutReply(reply, facts, cards = []) {
   const p = extractTrailingJson(reply);
-  const line = p && typeof p === 'object' ? unquote(text(p.reply, MAX_LINE)) : '';
-  if (!line) return null;
-  return { text: line, revealed: normaliseIds(p.revealed, facts) };
+  const line = readMarks(p && typeof p === 'object' ? unquote(text(p.reply, MAX_LINE)) : '', cards);
+  if (!line.text) return null;
+  return { text: line.text, revealed: normaliseIds(p.revealed, facts), cards: line.used };
 }
 
 /* Which fact labels were found and which never asked about, from what the
@@ -415,8 +532,7 @@ export function readFindOutGrade(reply, session, cards) {
 
 export function conversationTitle(session) {
   const sc = session.scenario || {};
-  const findOut = session.kind === 'findout' || session.kind === 'live';
-  return String((findOut ? sc.goal || sc.situation : sc.scenario) || '').trim();
+  return String((contentOf(session) === 'findout' ? sc.goal || sc.situation : sc.scenario) || '').trim();
 }
 
 /* ── spoken turns ────────────────────────────────────────────────────── */

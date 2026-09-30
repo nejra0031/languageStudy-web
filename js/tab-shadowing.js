@@ -42,6 +42,8 @@ import { RATINGS, totalOf, languageKey, noteGeneration } from './shadow-rules.js
 import { describe } from './tab-settings.js';
 import * as speech from './speech.js';
 import { errorSpot } from './error-spot.js';
+import { wireExport } from './export-row.js';
+import { shadowingExport } from './export-html.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -50,6 +52,7 @@ let session = null;
 /* index -> { url, mime }. The take just made, so playback is instant and does
    not go back to disk for something that is already in hand. */
 const takes = new Map();
+let syncExport = () => {};
 /* Every object URL this tab has minted, so none of them leaks. A page left
    open through ten re-recorded lines would otherwise hold every discarded
    take for as long as the tab lives. */
@@ -96,6 +99,18 @@ const recorder = createRecorder({ onChange: (s) => { micDenied = s.micDenied; } 
 
 export function init() {
   placeError = errorSpot($('sh-error'));
+  /* The set on screen as one file to send on. A take just made is read
+     from the one in hand, as playback is; the rest from the store. */
+  syncExport = wireExport($('sh-export-row'), () => session && {
+    kind: 'shadowing',
+    record: session,
+    read: async (path) => {
+      const item = session.items.find((i) => i.file === path);
+      const held = item && takes.get(item.index);
+      return held && held.blob ? held.blob : storage.readBlob(path);
+    },
+    build: shadowingExport,
+  });
   $('sh-scope').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-scope]');
     if (!btn) return;
@@ -803,6 +818,7 @@ function render() {
   renderHistory();
   renderRulesNews();
 
+  syncExport();
   if (!session) {
     $('sh-card').hidden = true;
     if ($('sh-idle').hidden) {

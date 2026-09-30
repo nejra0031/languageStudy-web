@@ -111,10 +111,10 @@ against your cards. See [Writing](#writing).
 language you are learning, in your own words, checked together in one call.
 See [Translate](#translate).
 
-**Conversation** — a few turns of your own (six by default) in a short scene, a roleplay or a
-*find out*, with the other side played by an AI model and
-feedback at the end; or a **live** conversation with the model, spoken in
-real time for one to three minutes. See [Conversation](#conversation).
+**Conversation** — a short scene, a roleplay or a *find out*, with the other
+side played by an AI model and feedback at the end. Either is held turn by
+turn, a few turns of your own (six by default), or **live**, spoken in real
+time for one to three minutes. See [Conversation](#conversation).
 
 **Errors show where you were waiting.** When something you asked for fails
 — a sentence, a text, a question, a check, a reply, the feedback — the error
@@ -413,10 +413,21 @@ and nothing is scored. A reply that cannot be read is a failure, not a grade:
 your writing stays in the box, nothing is kept or scored, and **Try again**
 sends it again. Nothing is retried on its own, since every attempt is a call.
 
-**Write again** starts a new piece on the same task. **Every piece you hand
-in is kept**, with its feedback, and **Your writing**, under the form, lists
-them newest first. Click one to read it again as it was, or to write again on
-its task; **Delete** asks once more in place. The feedback model is its own
+**Your writing is saved as you write it.** A piece is kept from the moment
+its task is set, whether the question was written for you, is a topic of your
+own or is a summary, and what you type is saved about once a second while you
+type, and when you leave the tab. Close the page, or reload it, and the task
+and your text are back when you open Writing again: a question that cost a
+call is never asked for twice. Until it is handed in a piece is a **draft**,
+and says so in the list. Setting a new task leaves a draft you have written
+something to in the list, to carry on with, and drops one you have not.
+Handing in completes the same piece, so there is one row for it, not two.
+
+**Write again** starts a new piece on the same task. **Every piece is
+kept**, a draft as you left it and a piece handed in with its feedback, and
+**Your writing**, under the form, lists them newest first. Click a draft to
+carry on with it, or a piece handed in to read it again as it was, or to
+write again on its task; **Delete** asks once more in place. The feedback model is its own
 job in Settings, so a grading budget that runs out does not stop you writing
 sentences, and while it is spent the note beside *Hand in* says how long
 until the next call.
@@ -463,16 +474,26 @@ else:
 - one that **could not be checked** scores nothing.
 
 A set is not kept, as a Typing session is not: what stays is the scores.
+**The set you are working on is, though, until it is checked.** It is saved
+as you type your answers, so a reload or a closed tab brings back the same
+sentences with your answers in them. Checking it, or drawing a new set, lets
+it go.
 
 ## Conversation
 
 The Conversation tab is a short conversation in the language you are
-learning: **six turns of your own** (or as many as **Settings → Conversation
-→ Your turns** says, from 2 to 12), then feedback. A conversation keeps the
-number it started with. **You are always talking to an AI model**, never to
+learning, then feedback. **You are always talking to an AI model**, never to
 a person: a Gemini model plays the other role in the scene, and the chat
-labels its lines with that role (*Shop assistant*, *Neighbour*). There are
-two kinds, and a third, spoken live, below.
+labels its lines with that role (*Shop assistant*, *Neighbour*).
+
+Two choices make a conversation, each with its own control at the top of the
+tab, so there are four conversations to have. **What it is**, a roleplay or a
+find out, is the first. **How it is held** is the second: **turn by turn**,
+**six turns of your own** (or as many as **Settings → Conversation → Your
+turns** says, from 2 to 12; a conversation keeps the number it started with),
+typed or spoken one at a time; or **live**, spoken in real time, which is
+[its own section below](#live-conversations). What follows here is a
+conversation held turn by turn. The two kinds:
 
 - **Roleplay**: a scene with two roles, such as returning shoes to a shop or
   planning a weekend with a friend. The model plays the other role and
@@ -490,7 +511,7 @@ two kinds, and a third, spoken live, below.
 learning, around five cards from the ticked decks (**Cards in a scene**; the
 Weak / + Developing / All filter is Conversation's own), with the model's
 opening line in its role: one call. Settings also says which kind the tab starts
-on. **A situation you would like** is optional (*at the bakery*); left
+on, and whether turn by turn or live. **A situation you would like** is optional (*at the bakery*); left
 empty, the model chooses, and what you type is kept for next time. The note
 under it says what the conversation costs: one call on the text model, five
 replies (a roleplay: one fewer than your turns) or six (a find out: one per
@@ -503,9 +524,15 @@ The scene stays above the chat: the situation, who you are, who you are
 talking to, and in a find out the goal and the checklist. Under it, **Try to
 use these in your turns** lists the cards the scene was written around, each
 with its meaning, for the whole conversation: they are the cards the feedback
-judges at the end, on your turns only. Type your turn and
+judges at the end, on your turns only. **The model uses them too.** It is
+told to work every one of those cards into its own lines at least once over
+the conversation, a card or two a line, so you hear each used in the scene
+as well as being asked to use it; in a find out, never at the cost of giving
+away a fact. Its lines never count towards your cards. In a live
+conversation it is asked the same, once, at the start. Type your turn and
 press **Send** (or Enter; Shift+Enter is a new line). A turn takes 1,000
-characters at most. **End and get feedback** ends the conversation early,
+characters at most. A turn you have typed and not sent is saved with the
+conversation as you type, so it is still in the box after a reload. **End and get feedback** ends the conversation early,
 once you have had a turn, and costs one feedback call.
 
 ### Speaking your turns
@@ -566,22 +593,27 @@ more in place.
 
 ### Live conversations
 
-The third kind, **Live**, is a find out spoken in real time **with an AI
-model**, Gemini's Live API, which plays the other role out loud: you and the
-model simply talk, with no button to press between turns, for **1, 2
-or 3 minutes** (chosen beside the kinds, and under **Settings → Conversation
-→ Live conversation length**). It is Praat, from the God-project's lessons suite,
-without the server Praat needed: the page talks to Google's **Live API**
-directly, over a WebSocket, with your own key, as every other mode talks to
-Gemini.
+Pick **Live** beside **Turn by turn** and the conversation, a roleplay or a
+find out, is spoken in real time **with an AI model**, Gemini's Live API,
+which plays the other role out loud: you and the model simply talk, with no
+button to press between turns, for **1, 2 or 3 minutes** (chosen beside the
+two controls, and under **Settings → Conversation → Live conversation
+length**). It is Praat, from the God-project's lessons suite, without the
+server Praat needed: the page talks to Google's **Live API** directly, over a
+WebSocket, with your own key, as every other mode talks to Gemini. Praat was
+a find out; a roleplay held live is the same conversation with nothing to
+find out.
 
-**Start** writes the scene as for a find out (the situation, the two roles,
-what you were sent to find out, and your cards). **Start talking** then asks
-for the microphone and opens the conversation. The model speaks first; you
+**Start** writes the scene exactly as for a conversation held turn by turn:
+the situation, the two roles, your cards, and for a find out what you were
+sent to find out. **Start talking** then asks for the microphone and opens
+the conversation. The model speaks first (in a roleplay, with the opening
+line the scene was written with, or the same thing in its own words); you
 answer out loud, and it hears you as you speak and answers with a generated
 voice, drawn from the dictation voices. You can talk over it, and it stops.
-It gives each fact only when you ask about it specifically, never corrects
-you, and never leaves the language. Fifteen seconds before the end it is
+In a find out it gives each fact only when you ask about it specifically; in
+a roleplay it holds nothing back and plays its part. Either way it never
+corrects you, and never leaves the language. Fifteen seconds before the end it is
 told to round off, and when the time is up its last sentence is let finish
 and the conversation closes. **End now** ends it sooner. **Show what's being
 said** shows the last few lines of the running transcript; it is off by
@@ -590,8 +622,11 @@ microphone's echo cancellation keeps the model from hearing its own voice
 back, but headphones are surer.
 
 While you talk, your microphone is also recorded, and the recording is kept
-beside the conversation the moment it ends. Then one call on the **live
-feedback model** listens to it, reads the running transcript, and writes:
+beside the conversation the moment it ends. **Play your recording** is there
+from that moment, under the lines of the conversation: while the feedback is
+being written, and still if the feedback call fails. Then one call on the
+**live feedback model** listens to it, reads the running transcript, and
+writes:
 
 - **the conversation written out**, with your lines taken down from the
   recording as you said them rather than from the transcript (a speech
@@ -600,7 +635,8 @@ feedback model** listens to it, reads the running transcript, and writes:
   ways to say something, one step above your level;
 - **how you sounded**: up to five notes on sounds, judged by your language's
   [listening rules](#listening-rules-and-how-they-learn);
-- **what you found out**: the checklist ticks, and shows every answer;
+- in a find out, **what you found out**: the checklist ticks, and shows
+  every answer;
 - **a percentage**, *How Vietnamese you sounded* (in your language), made of
   four marks from 0 to 4 with a reason each: pronunciation (35%), grammar
   (25%), flow (20%) and word choice (20%). The marks are asked for, against
@@ -627,6 +663,35 @@ have them, and where one is missing the tab says so before anything is spent.
 Your voice streams to Google as you speak, and the recording goes to Google
 once for the feedback. As with every other call, Google's free tier may use
 what is sent to improve its products.
+
+## Exporting a piece of work
+
+A shadowing set, a reading text, a piece of writing and a conversation each
+have an **Export** button under them, for showing the work to someone else,
+such as a teacher. It saves **one `.html` file**: the task or the scene, what
+you wrote or said, and the feedback, laid out to be read. The person you send
+it to needs nothing for it. It opens by double-click in any browser, on a
+phone or a computer, with no connection; there is nothing to unzip or
+install; and it prints, or saves as a PDF from the print dialog.
+
+- **Include audio** appears when the record has recordings: your takes in a
+  shadowing set, a text read aloud, the spoken turns of a conversation or the
+  recording of a live one. Ticked, they are put inside the file, each with a
+  player where it belongs. Audio makes the file about a third larger than
+  the recordings themselves, so a few minutes of speech is a few megabytes;
+  untick it for a file of a few kilobytes that says it came without them.
+- A piece that is not finished exports as far as it has got: a draft as a
+  draft, an open conversation as not finished. A find out still open does
+  not give away the answers.
+- Writing has no audio, so it has no tickbox. A summary carries the text it
+  is a summary of.
+
+The file is self-contained: no script, and nothing loaded from anywhere.
+Everything in it is text from the record, and none of your settings or keys
+are in it. The recordings are as your browser made them (Ogg, WebM or MP4
+audio), which current browsers play; if one does not play for the person
+you sent it to, another browser will. Translate, Typing and Dictation keep no
+record of a session, so there is nothing of theirs to export.
 
 ## Choosing which decks are in play
 
@@ -656,8 +721,13 @@ Turn on **Settings → Add from selected text** and you can select a word or a
 short phrase anywhere on the page, such as a new word in a dictation sentence
 once it is revealed. A small form then opens right under the selection:
 
-- **the word**, in the language you are learning, and **its translation**, in
-  your own. Both can be edited, and ⇄ swaps them.
+- **the word**, in the language you are learning, and under it **its
+  translation**, in your own. Each has a line of its own, the width of the
+  form, and grows to fit a longer phrase. Both can be edited, and ⇅ between
+  them swaps them. Edit one and, once you pause, leave the field or press
+  Enter, the other is translated again to match, as long as it is empty or
+  still holds a translation: what you typed yourself is never written over,
+  and a word the deck already has keeps its stored meaning.
 - **Grammar pattern**, a tickbox that makes the card a
   [pattern](#the-deck-format) (`"type": "pattern"`). Select *hễ trời mưa là*,
   edit the word to `hễ … là …`, and the box ticks itself as soon as the word
@@ -681,6 +751,14 @@ punctuation but not accents: *tien loi* is not *tiện lợi*. Only the chosen d
 is checked. The form stays shut when you select inside a text box, such as the
 deck editor or an answer you are typing, or when the selection runs past eight
 words. Escape, ×, or a click anywhere else closes it.
+
+On a touchscreen the form does not open by itself. Selecting there means
+dragging the handles, and a form under the selection would cover the next line
+and the handle you are dragging. A button appears at the bottom of the window
+instead, **Add “…” as a card**, out of the way of the text and of the
+browser's own Copy menu; it follows the selection as you change it, and
+pressing it opens the form. Moving the selection while the form is open closes
+the form and brings the button back.
 
 Settings has three choices besides the switch. **Language you are learning**
 follows the target language unless you pick another. **Your language** is
@@ -825,12 +903,13 @@ reading/manifest.json     the index of kept reading texts, and which have audio
 reading/<id>.json         one text: its words, which cards it used, the request
 reading/<id>.ogg          that text read aloud, if it has been (.wav where the
                           browser cannot encode Opus)
-writing/manifest.json     the index of everything handed in on Writing
+writing/manifest.json     the index of everything written on Writing
 writing/<id>.json         one piece: the task, the cards, what you wrote,
-                          and the feedback
+                          and the feedback once it is handed in
 conversation/manifest.json   the index of conversations
 conversation/<id>.json       one conversation: its scene, turns and feedback
 conversation/<id>_<n>.webm   your own voice: the spoken turn at position n
+translate/open.json          the Translate set you are working on, until it is checked
                              (.ogg on Firefox, .mp4 on Safari)
 ```
 
@@ -1172,16 +1251,25 @@ wrong. The reply has to be a JSON array with one object per `"id"`, so a
 reply that drops or reorders a sentence cannot move a grade onto the wrong
 one; a reply that is not an array is a failure.
 
-The two **live** prompts belong to [live conversations](#live-conversations).
-The **live conversation prompt** goes to the live model once, when the
-conversation opens, and takes the scene's `{situation}`, `{studentRole}`,
+The three **live** prompts belong to [live conversations](#live-conversations).
+The **live find-out prompt** goes to the live model once, when a live find
+out opens, and takes the scene's `{situation}`, `{studentRole}`,
 `{llmRole}` and `{facts}` (with their answers), `{terms}`, `{language}`,
-`{level}` and `{languageNote}`. The page sends `[START]` to open the
-conversation and `[TIME]` fifteen seconds before the end, whatever the prompt
+`{level}` and `{languageNote}`. The **live roleplay prompt** is the same
+persona without the facts, sent when a live roleplay opens: it takes
+`{scenario}` and `{openingLine}`, the line the scene was written with, in
+place of `{situation}` and `{facts}`. The page sends `[START]` to open the
+conversation and `[TIME]` fifteen seconds before the end, whatever a prompt
 says, so keep the lines that say what they mean. The **live feedback prompt**
 goes to the live feedback model with the scene, the transcript, your cards
 and the recording, and takes `{rules}`, `{language}`, `{languageNote}` and
-`{feedback}`. Both are Praat's, with Dutch taken out and your cards added.
+`{feedback}`; one prompt grades both kinds, and a roleplay's message says
+there were no facts. The find-out and feedback prompts are Praat's, with
+Dutch taken out and your cards added.
+
+A prompt you never edited follows the app: when a default changes, a stored
+prompt that is still the old default word for word becomes the new one. A
+prompt you changed is left exactly as you wrote it.
 
 The five conversation prompts are sent from the [Conversation](#conversation)
 tab. The **scene prompt** goes to the text model when you press Start. It
@@ -1199,6 +1287,15 @@ checklist. The **roleplay feedback** prompt is sent when a roleplay ends:
 after an early end. The **find-out feedback** prompt is sent when a find out
 ends, told what you found out. All five are lessons-web's, with Dutch taken
 out and your cards added.
+
+Both reply prompts take `{cardUse}`, which the app fills in for each line:
+it tells the model to use every one of your cards at least once in its own
+lines, lists the ones it has not used yet, says how many this line should
+carry, and asks it to mark each use as `[[number|words]]`, the way a
+[Reading](#reading) text is marked. The marks are how the next request knows
+what was used; they are taken out before you see the line. A reply prompt
+you rewrote without `{cardUse}` gets it added at the end. The scene prompt
+asks for the same mark if the opening line uses a card.
 
 The **transcription prompt** is sent to the shadowing model with each spoken
 turn, and takes `{language}`. It asks for exactly what you said, mistakes
@@ -1343,6 +1440,9 @@ js/shadow-rules.js    shadowing's listening rules: seeding, rating, revising, un
 js/gemini.js          API calls, call budget, WAV wrapping
 js/json-reply.js      reading a grader's JSON reply, and its verdicts on your cards
 js/error-spot.js      where a tab's error goes: in place of what you were waiting on
+js/autosave.js        saving what is being typed, once a second and never per keystroke
+js/export-html.js     a kept record written out as one self-contained .html file
+js/export-row.js      the Export button each record has: reads the recordings, saves the file
 js/opus.js            dictation audio as Ogg Opus, through the browser's encoder
 js/convert-audio.js   turning a bank's older WAV sentences into Ogg, in place
 js/bundle.js          the export/import file format
@@ -1354,6 +1454,7 @@ js/fs-opfs.js         backend — private browser storage (everywhere)
 js/store.js           shared state
 js/tab-*.js           one per tab
 js/defaults.js        settings, prompts and the starter deck
+js/retired-prompts.js prompt defaults that were replaced, so an unedited one upgrades
 test/                 node --test
 ```
 

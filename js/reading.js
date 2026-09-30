@@ -79,16 +79,19 @@ export function pickReadingCards(cards, n, draw = pickWeighted, share = PATTERN_
 
 /* One numbered line per card. The number is what the model marks a use
    with, so it is the card's place in this list, from 1. A pattern says in
-   words what it is, for the reason buildTermListing() in gemini.js gives. */
-export function readingTermListing(cards) {
+   words what it is, for the reason buildTermListing() in gemini.js gives.
+   With `only`, a Set of indices, just those cards are listed, each still
+   under its own number: a conversation lists the cards not yet used. */
+export function readingTermListing(cards, only = null) {
   return (cards || []).map((c, i) => {
+    if (only && !only.has(i)) return null;
     const n = i + 1;
     if (isPattern(c)) {
       return `${n}. the grammar pattern "${c.front}"` + (c.back ? `, meaning "${c.back}"` : '')
         + ': use this construction, in this meaning. Each … (or capital letter) is a gap for your own words.';
     }
     return `${n}. "${c.front}"` + (c.back ? ` (${c.back})` : '');
-  }).join('\n');
+  }).filter((line) => line !== null).join('\n');
 }
 
 /* An empty request still asks for something: the first preset. */
@@ -192,6 +195,23 @@ export function readReading(reply, cards = []) {
   for (const runs of paragraphs) for (const r of runs) if (r.item !== undefined) used.add(r.item);
   markUnmarked(paragraphs, cards, used);
   return { title, paragraphs, used: [...used].sort((a, b) => a - b) };
+}
+
+/* One line of a conversation, where the model marks its uses of a card the
+   same way: {text, used}, the line as the learner reads it, with the marks
+   taken out, and the indices of the cards it used, from 0. A card it used
+   and forgot to mark is found as in a text, and what is left of a mark it
+   got wrong is taken out too, so no bracket ever reaches the learner. */
+export function readMarks(line, cards = []) {
+  const runs = runsOf(String(line || '').normalize('NFC'), cards.length);
+  const used = new Set();
+  for (const r of runs) if (r.item !== undefined) used.add(r.item);
+  markUnmarked([runs], cards, used);
+  const text = runs.map((r) => r.text).join('')
+    .replace(/\[\[\s*\d+\s*[|:]\s*|\[\[|\]\]/g, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+  return { text, used: [...used].sort((a, b) => a - b) };
 }
 
 /* ── keeping texts ───────────────────────────────────────────────────── */

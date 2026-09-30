@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   readTranslation, translateUrl, resolveDirection, sameLanguage, findCard,
-  cleanSelection, sentenceAround, codeFor, nameFor, LANGUAGES, hasGap,
+  cleanSelection, sentenceAround, codeFor, nameFor, LANGUAGES, hasGap, refreshTarget,
 } from '../js/lookup.js';
 
 /* ── the reply ───────────────────────────────────────────────────────── */
@@ -159,4 +159,46 @@ test('a gap written as an ellipsis is what makes a pattern', () => {
 test('a pattern is found in the deck whichever way its gaps are written', () => {
   const deck = [{ front: 'hễ … là …', back: 'whenever … then …', type: 'pattern' }];
   assert.equal(findCard(deck, { front: 'hễ ... là ...' }), deck[0]);
+});
+
+/* ── keeping the two fields in step ──────────────────────────────────── */
+
+const langs = { learning: 'vi', native: 'en' };
+
+test('an edited word has its translation looked up again', () => {
+  assert.deepEqual(
+    refreshTarget({ edited: 'front', text: 'tiện lợi', other: 'old meaning', otherAuto: true, isCard: false, ...langs }),
+    { field: 'back', from: 'vi', to: 'en' },
+  );
+  /* An empty meaning is filled in whoever emptied it. */
+  assert.deepEqual(
+    refreshTarget({ edited: 'front', text: 'tiện lợi', other: '  ', otherAuto: false, isCard: false, ...langs }),
+    { field: 'back', from: 'vi', to: 'en' },
+  );
+});
+
+test('an edited meaning has its word looked up again, the other way round', () => {
+  assert.deepEqual(
+    refreshTarget({ edited: 'back', text: 'window', other: 'old word', otherAuto: true, isCard: false, ...langs }),
+    { field: 'front', from: 'en', to: 'vi' },
+  );
+});
+
+test('what the student typed is never written over', () => {
+  assert.equal(refreshTarget({ edited: 'front', text: 'tiện lợi', other: 'handy', otherAuto: false, isCard: false, ...langs }), null);
+  assert.equal(refreshTarget({ edited: 'back', text: 'window', other: 'cửa sổ', otherAuto: false, isCard: false, ...langs }), null);
+});
+
+test('a word the deck has keeps its stored meaning, and an empty field asks nothing', () => {
+  assert.equal(refreshTarget({ edited: 'front', text: 'xin', other: 'please', otherAuto: true, isCard: true, ...langs }), null);
+  assert.equal(refreshTarget({ edited: 'front', text: '   ', other: 'please', otherAuto: true, isCard: false, ...langs }), null);
+});
+
+test('with no language to learn set, the word is detected and a meaning cannot be turned back', () => {
+  const none = { learning: '', native: 'en' };
+  assert.deepEqual(
+    refreshTarget({ edited: 'front', text: 'tiện lợi', other: '', otherAuto: true, isCard: false, ...none }),
+    { field: 'back', from: 'auto', to: 'en' },
+  );
+  assert.equal(refreshTarget({ edited: 'back', text: 'window', other: '', otherAuto: true, isCard: false, ...none }), null);
 });

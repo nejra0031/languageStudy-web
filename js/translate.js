@@ -27,6 +27,12 @@ async function ask(text, sl, tl) {
   return read;
 }
 
+/* One field of the popup translated again after the other was edited: one
+   request, in a direction already known, so nothing has to be detected. */
+export async function translateOne(text, from, to) {
+  return (await ask(text, from, to)).text;
+}
+
 /* The selection as a card: `front` in the language being learnt, `back` in
    the student's own. Selected text in their own language costs a second
    request, because the first one was asked the wrong way round — Google has

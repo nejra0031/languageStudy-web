@@ -244,3 +244,41 @@ export function writingTitle(record) {
   if (record.kind === 'summary') return `Summary of ${record.readingTitle || 'a reading text'}`;
   return String(record.brief || '').trim();
 }
+
+/* ── a piece not handed in yet ───────────────────────────────────────── */
+
+/* The record a piece starts as, written the moment its task is set: the
+   task, no text yet, no feedback, and `ended: false`, which is what marks
+   it as a draft. Writing fills in `text`; handing in fills in `result` and
+   the model and sets `ended`. So a question that cost a call, and whatever
+   has been written to it, are on disk from the start, and a reload or a
+   closed tab loses neither.
+
+   `task` is the tab's: {kind, brief, readingId, readingTitle, cards}. A
+   summary keeps the id of its text and not the text, as a handed-in summary
+   does; the source is read again when the draft is opened. A piece handed
+   in before drafts existed has no `ended` at all, and is not one. */
+export function draftRecord(task, { id, created, language, level }) {
+  const record = {
+    id,
+    created,
+    kind: task.kind,
+    brief: task.brief || '',
+    cards: (task.cards || []).map((c) => ({ front: c.front, deck: c.deck })),
+    text: '',
+    result: null,
+    ended: false,
+    language,
+    level,
+  };
+  if (task.kind === 'summary') {
+    record.readingId = task.readingId;
+    record.readingTitle = task.readingTitle;
+  }
+  record.title = writingTitle(record);
+  return record;
+}
+
+export function isDraft(record) {
+  return !!record && record.ended === false;
+}

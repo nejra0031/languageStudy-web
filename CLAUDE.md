@@ -65,7 +65,21 @@ no trace on GitHub.
   with `'ready'` when the first load is done. Writing and conversations are
   kept by one `keeper()` in the store, the way reading texts are: a file per
   record beside an index, the file written first, held in memory when
-  nothing is being saved.
+  nothing is being saved. A save that changes nothing a list shows leaves
+  the index alone and emits nothing, which is what lets a record be saved
+  as it is typed.
+- **Unfinished work is saved as it is typed**, through the store like
+  everything else, never the tab's own `localStorage`. `autosave.js` is the
+  timing: `createAutosave(save)` gives `touch()`, `flush()` and `cancel()`,
+  and saves at most once a second while something changes, never per
+  keystroke, with no two saves overlapping. A tab flushes it in `onHide`
+  and when the page is hidden. Writing keeps a piece from the moment its
+  task is set, as a draft (`ended: false`, `draftRecord` in `writing.js`);
+  handing in completes that same record, and a record with no `ended` is a
+  piece handed in before drafts. Translate keeps the one set being worked
+  on in `translate/open.json` (`translationDraft`, `restoreDraft`), until
+  it is checked or replaced. Conversation keeps an unsent turn on its
+  session as `draft`. Each resumes what it kept when the tab is shown.
   Practice spans every ticked deck, so a card is written back to its *own*
   deck: `store.deckOf(card)`, `store.saveCardDecks(card)`.
 - `storage.js` is one directory, laid out the same wherever it lives. It picks
@@ -84,7 +98,11 @@ no trace on GitHub.
   on `base`.
 - `defaults.js` holds every default: settings, prompts, the Gemini voice
   list and the starter deck. Settings from disk are merged over it, so a new
-  key needs only a default here.
+  key needs only a default here. A prompt is the exception: `settings.json`
+  keeps each prompt's text, so a changed default reaches nobody unless the
+  default it replaces is added to `retired-prompts.js`, word for word as it
+  shipped. `upgradePrompts` then swaps a stored prompt that still equals it
+  for the new default, and leaves an edited one alone.
 - `gemini.js` talks to the Gemini API from the page with the user's key, and
   counts calls per model locally before any request goes out. Every call
   site is a job of its own in `MODEL_ROLES` (`defaults.js`): key, label, what
@@ -115,6 +133,16 @@ no trace on GitHub.
   folder (keeps the audio), and one readable JSON file (decks and settings).
   `backup-due.js` decides when to remind someone using browser storage to
   take one.
+- `export-html.js` writes one kept record (a shadowing set, a reading text,
+  a piece of writing, a conversation) as one self-contained `.html` file for
+  someone else to open: inline styles, recordings as `data:` URIs, **no
+  script and nothing loaded**, and every piece of text escaped, since a
+  record holds what a model wrote. It is pure: `audioPaths` says which
+  recordings a record has, `gatherAudio(paths, read)` turns them into URIs,
+  and one function per kind returns `{filename, html}`. `export-row.js` is
+  the button, the Include audio tickbox and the download, shared by the
+  four tabs, each of which hands it a `job()`: `{kind, record, read, build}`.
+  A new kind of record gets a builder there and a row in `index.html`.
 - `opus.js` wraps WebCodecs' Opus packets in Ogg, so generated audio is saved
   at a twelfth of WAV's size; `convert-audio.js` converts an older bank's WAVs
   in an order that never leaves a sentence without playable audio.
@@ -144,16 +172,18 @@ no trace on GitHub.
   applies; the task, level, source, cards and writing are the user message.
   `readWritingGrade` gives feedback, `{valid:false, reason}` (a verdict that
   scores nothing) or null (a failure: the writing stays, Try again sends it
-  again). `tab-writing.js` is the task, the box and the feedback; its
+  again). `tab-writing.js` is the task, the box and the feedback. The piece
+  out to be read is `grading` and its record `gradingRecord`; opened from
+  the list meanwhile, it is that object that goes on screen, locked. Its
   `scoreVerdicts` and `cardsResultHtml` are shared with the other graded
-  modes. Every hand-in is kept in `writing/`.
+  modes. Every piece is kept in `writing/`, a draft included.
 - `translation.js` is Translate's pure logic: a set (`translateItems`, six
   by default) drawn from the bank in `translateOrder`, Shadowing's order by
   default since a checked set shows every sentence, the
   request (every item, blanks included, keyed by id), reading the array
   back (`null` if it is not one; an item without a verdict is ungraded), and
   `translationScores`, which decides what moves. The bank is only read.
-  `tab-translate.js` is the list and the check; a set is not kept.
+  `tab-translate.js` is the list and the check; a checked set is not kept.
 - `conversation.js` is Conversation's pure logic: the budget a conversation
   needs by model (`callsNeeded`, `budgetProblem`, refused before the scene is
   written), reading the scene (`readScenario`, null on anything malformed),
@@ -161,7 +191,13 @@ no trace on GitHub.
   text), its closing call (line and feedback in one) and its early end; a
   find-out's replies (with `revealed`, run through `normaliseIds`) and its
   conclusion, where found and missed are worked out in code. Only learner
-  turns are graded. A session stores its number of turns as `maxTurns` when
+  turns are graded. The model uses the cards in its own lines too, as a
+  Reading text does: `cardUseBlock` lists, in each reply request, the cards
+  it has not used yet and how many the line should carry, it marks each use
+  as `[[number|words]]`, and `readMarks` (`reading.js`) takes the marks out
+  and says which were used, kept on the turn as `cards`. A reply prompt
+  without `{cardUse}` gets the block appended (`withCardUse`). A live
+  partner is only told once, in its instruction: speech carries no marks. A session stores its number of turns as `maxTurns` when
   it starts (`turnsOf`), so a change in Settings never moves the end of one
   under way. A spoken turn is recorded with `recorder.js`, written to
   `conversation/<id>_<position>.<ext>` as soon as it stops, transcribed by
@@ -176,9 +212,20 @@ no trace on GitHub.
   `working` (which is only 'starting', 'talking' and 'saving'), and lands
   on its own record whichever conversation is on screen by then; `take()`
   offers Try again for whatever such a record still owes.
-- A third kind, `'live'`, is the God-project's Praat without its server: a find-out
-  scene, then a timed spoken conversation over the Live API's WebSocket,
-  opened from the page with the user's key. `live.js` is its pure logic
+- A conversation is two choices: its `kind` ('roleplay' or 'findout', what
+  it is about) and its `delivery` ('turns' or 'live', how it is held), and
+  every combination exists. Live was once a third kind, a find-out held
+  live, and records and index rows from then say `kind: 'live'` with no
+  delivery; they are never rewritten. So nothing compares `kind` or
+  `delivery` directly: `contentOf(session)` and `isLive(session)` in
+  `conversation.js` read both shapes, and `withDefaults` maps a stored
+  `conversationKind: 'live'` to find-out and live.
+- A live conversation is the God-project's Praat without its server: the scene,
+  then a timed spoken conversation over the Live API's WebSocket,
+  opened from the page with the user's key. Praat was a find-out; a live
+  roleplay has its own partner prompt (`liveRoleplayPartner`, no facts, and
+  it opens on the scene's written opening line) and is graded by the same
+  prompt, whose message says there were no facts. `live.js` is its pure logic
   (the partner's instruction, the setup and every message, reading what
   comes back, `createTranscript`, `liveGradeRequest`, `readLiveGrade`, and
   `liveScore`, which computes the percentage from four 0-4 bands, never
@@ -199,6 +246,13 @@ no trace on GitHub.
   adds goes through `store.addCard`, so its deck is recorded like any other
   card's; an Update changes the meaning, the notes and the pattern mark
   (`deck.setPattern`, which never removes a `type` it did not set) only.
+  Editing one of its two fields translates the other again where
+  `refreshTarget` (`lookup.js`) allows it: never over text the student
+  typed, never for a word the deck has, after a pause and not per
+  keystroke. A selection made by touch (told by the pointer event, never
+  the user agent) is offered as a button docked at the foot of the window
+  and opens the form only when that is pressed, since a form under the
+  selection would cover the next line and the handle being dragged.
 - `shadow-rules.js` is the per-language listening rules the shadowing model
   grades by: seeded once per language, rated note by note, revised from the
   ratings. The ratings are the only signal. A malformed seed or revision
@@ -288,9 +342,13 @@ Unit tests cover the modules without a DOM — `deck.js`, `text.js`,
 `gemini.js`, the model catalogue, `speech.js`, `azure-tts.js`, `zip.js`,
 `bundle.js`, `backup-due.js`, `opus.js`, `convert-audio.js`, `shadowing.js`,
 `shadow-rules.js`, `lookup.js`, `reading.js`, `json-reply.js`, `writing.js`,
-`translation.js`, `conversation.js` and `live.js` with `gemini-live.js` —
+`translation.js`, `conversation.js`, `live.js` with `gemini-live.js`,
+`autosave.js` and `export-html.js` —
 not the tabs, and not `live-audio.js` or `live-session.js`, which need a
-browser's audio. For anything a
+browser's audio. The client's own methods in `gemini.js` (`writeScenario`,
+`partnerReply` and the rest) are not covered either: a name missing from its
+imports passes every test and fails on the first press, so drive the page
+after touching them. For anything a
 user sees, drive the real page. Playwright's WebKit is Safari's engine and works well; some quirks
 cost time the first time:
 
@@ -315,6 +373,17 @@ cost time the first time:
   graded modes without a key; tell the calls apart by their system
   instruction. A `waitForFunction` given an async function passes at once
   (the promise is truthy), so poll `store.state.ready` with `evaluate`.
+  The default budget is four calls a minute, which a scripted conversation
+  spends in seconds and Start then greys out: save `models` with `rpm` and
+  `rpd` 0 first.
+- A live conversation can be driven without a key too: `context.routeWebSocket`
+  on the Live API's address, answering the `setup` message with
+  `{setupComplete: {}}` and `[START]` with an `outputTranscription` and a
+  `turnComplete`. With the fake microphone that is enough to reach the
+  feedback call, and the setup's system instruction is the partner prompt
+  as it was sent.
+- A touch selection is `hasTouch: true`, a `touchscreen.tap` somewhere, then
+  a selection set by script: the popup's chip follows `selectionchange`.
 - Headless browsers have no speech voices. Stub `window.speechSynthesis` and
   `SpeechSynthesisUtterance` with an init script to see what would be said.
 - The repo has no package.json, so Node detects the modules as ESM. Running

@@ -7,13 +7,21 @@
    makes — which way round, whether the card exists, what the sentence was —
    are plain functions in lookup.js; the request is translate.js. This file is
    only the DOM and the order things happen in. Off unless turned on in
-   Settings. */
+   Settings.
+
+   A selection made with a mouse or the keyboard opens the form at once. One
+   made by touch is dragged out by its handles with pauses in between, and a
+   form under it would sit on the next line and on the handle, so it gets a
+   button at the foot of the window instead, and the form opens when that
+   is pressed. */
 
 import * as store from './store.js';
 import * as storage from './storage.js';
-import { cleanSelection, sentenceAround, findCard, codeFor, nameFor, hasGap } from './lookup.js';
+import {
+  cleanSelection, sentenceAround, findCard, codeFor, nameFor, hasGap, refreshTarget,
+} from './lookup.js';
 import { isPattern, setPattern } from './deck.js';
-import { translate } from './translate.js';
+import { translate, translateOne } from './translate.js';
 import { escapeHtml } from './text.js';
 
 const $ = (id) => document.getElementById(id);
@@ -34,6 +42,16 @@ let idle = 0;
    popup straight back up. It stays shut for that selection until the
    selection changes or goes. */
 let dismissed = null;
+/* The pause after the last keystroke in a field before the other one is
+   translated again. Google turns a network away when it is asked too often,
+   so a word is looked up once it has been typed, not letter by letter. */
+const REFRESH_AFTER = 700;
+let refreshTimer = 0;
+/* A selection made by touch is offered, not opened: `chip` is the button
+   that opens the form for it, and `offered` what it would open for. */
+let chip = null;
+let byTouch = false;
+let offered = null;
 
 export function init() {
   pop = $('lookup-pop');
@@ -45,11 +63,11 @@ export function init() {
     <div class="lookup-body">
       <div class="lookup-pair">
         <label class="field"><span id="lp-front-label">Word</span>
-          <input type="text" id="lp-front" spellcheck="false" autocomplete="off"></label>
+          <textarea id="lp-front" rows="1" spellcheck="false" autocomplete="off"></textarea></label>
         <button type="button" class="btn btn--sm lookup-swap" id="lp-swap"
-                title="Swap the word and the translation" aria-label="Swap the word and the translation">&#8644;</button>
+                title="Swap the word and the translation" aria-label="Swap the word and the translation">&#8645;</button>
         <label class="field"><span id="lp-back-label">Translation</span>
-          <input type="text" id="lp-back" spellcheck="false" autocomplete="off"></label>
+          <textarea id="lp-back" rows="1" spellcheck="false" autocomplete="off"></textarea></label>
       </div>
       <label class="lookup-pattern"><input type="checkbox" id="lp-pattern">
         <span>Grammar pattern</span><em>write each gap as …</em></label>
@@ -68,10 +86,39 @@ export function init() {
 
   $('lp-close').addEventListener('click', close);
   $('lp-swap').addEventListener('click', swap);
-  $('lp-front').addEventListener('input', () => { followGap(); recheck(); });
+  $('lp-front').addEventListener('input', () => { oneLine($('lp-front')); followGap(); recheck(); edited('front'); });
+  $('lp-back').addEventListener('input', () => { oneLine($('lp-back')); edited('back'); });
+  /* Leaving a field, or Enter in it, does not wait out the pause. */
+  $('lp-front').addEventListener('change', () => refresh('front'));
+  $('lp-back').addEventListener('change', () => refresh('back'));
+  /* The two fields are boxes that grow, so a phrase can be read whole, but
+     a card's word and meaning are each one line: Enter adds none. */
+  for (const id of ['lp-front', 'lp-back']) {
+    $(id).addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      refresh(id === 'lp-front' ? 'front' : 'back');
+    });
+  }
   $('lp-pattern').addEventListener('change', () => { if (open) open.patternSaid = true; });
   $('lp-ask').addEventListener('click', askNotes);
   $('lp-save').addEventListener('click', save);
+
+  chip = $('lookup-chip');
+  chip.addEventListener('click', openOffered);
+  /* Pressing the button is not a new selection, and should not end one. */
+  chip.addEventListener('mousedown', (e) => e.preventDefault());
+
+  /* Whether the selection is being made by touch. A pointer event says what
+     made it; a browser without them says so with touchstart, and the mouse
+     events it sends after a tap for compatibility's sake are not a mouse. */
+  if (window.PointerEvent) {
+    document.addEventListener('pointerdown', (e) => { byTouch = e.pointerType === 'touch'; }, true);
+  } else {
+    let touched = 0;
+    document.addEventListener('touchstart', () => { byTouch = true; touched = Date.now(); }, { capture: true, passive: true });
+    document.addEventListener('mousedown', () => { if (Date.now() - touched > 1000) byTouch = false; }, true);
+  }
 
   document.addEventListener('mousedown', (e) => {
     pointerDown = true;
@@ -91,7 +138,11 @@ export function init() {
     idle = setTimeout(check, 450);
   });
 
-  store.subscribe('settings', (s) => { if (!s.settings.lookupEnabled && open) close(); });
+  store.subscribe('settings', (s) => {
+    if (s.settings.lookupEnabled) return;
+    if (open) close();
+    offer(null);
+  });
 }
 
 /* Fields text is typed into. A focused tickbox or button says nothing about
@@ -103,38 +154,84 @@ const TYPING = 'textarea, [contenteditable]:not([contenteditable="false"]), '
 
 function check() {
   if (!store.state.settings.lookupEnabled || !store.state.ready) return;
+  const found = selected();
+  if (!found) {
+    offer(null);
+    return;
+  }
+  /* The same selection, still standing — open, offered, or closed on
+     purpose: nothing new to do. */
+  if ((open && open.where === found.where) || found.where === dismissed) return;
+  if (offered && offered.where === found.where) return;
+  dismissed = null;
+
+  if (!byTouch) {
+    openFor(found.text, found.rect, found.context, found.where);
+    return;
+  }
+  /* By touch the form does not open by itself. A pause while dragging a
+     handle is enough to get here, and a form under the selection would
+     cover the next line and the handle still being dragged. A form already
+     open for an earlier selection gives way for the same reason. */
+  if (open) {
+    close();
+    dismissed = null;
+  }
+  offer(found);
+}
+
+/* The selection as something a card could be made of: {text, rect, context,
+   where}, or null when there is none, or it is not one to act on. */
+function selected() {
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed || !sel.rangeCount) {
     dismissed = null;
-    return;
+    return null;
   }
   /* A selection inside a text field is someone editing, not reading: the deck
      editor, an answer being typed, a prompt. And never the popup itself. */
   const active = document.activeElement;
-  if (active && active.matches(TYPING)) return;
+  if (active && active.matches(TYPING)) return null;
   const range = sel.getRangeAt(0);
   const node = range.commonAncestorContainer;
   const el = node.nodeType === 1 ? node : node.parentElement;
   /* Nor a word marked in a reading text: that is a card already, and it has
      a popup of its own. */
-  if (!el || el.closest('input, textarea, select, [contenteditable], #lookup-pop, #reading-pop, .rd-mark')) return;
+  if (!el || el.closest('input, textarea, select, [contenteditable], #lookup-pop, #lookup-chip, #reading-pop, .rd-mark')) return null;
 
   const raw = sel.toString();
   const text = cleanSelection(raw);
   if (!text) {
     dismissed = null;
-    return;
+    return null;
   }
   const rect = range.getBoundingClientRect();
-  if (!rect.width && !rect.height) return;
-
-  /* The same selection, still standing — open, or closed on purpose: nothing
-     new to do. */
+  if (!rect.width && !rect.height) return null;
   const where = `${text}|${Math.round(rect.left + window.scrollX)}|${Math.round(rect.top + window.scrollY)}`;
-  if ((open && open.where === where) || where === dismissed) return;
-  dismissed = null;
+  return { text, rect, context: contextOf(el, range, raw), where };
+}
 
-  openFor(text, rect, contextOf(el, range, raw), where);
+/* The button a touch selection gets instead of the form: docked at the foot
+   of the window, clear of the text, the selection handles and the browser's
+   own Copy menu. It keeps what was selected, in page coordinates, so the
+   form can still open for it if the tap on the button ends the selection. */
+function offer(found) {
+  offered = found && {
+    text: found.text,
+    context: found.context,
+    where: found.where,
+    left: found.rect.left + window.scrollX,
+    bottom: found.rect.bottom + window.scrollY,
+  };
+  chip.hidden = !offered;
+  if (offered) chip.textContent = `Add “${offered.text}” as a card`;
+}
+
+function openOffered() {
+  const o = offered;
+  if (!o) return;
+  offer(null);
+  openFor(o.text, { left: o.left - window.scrollX, bottom: o.bottom - window.scrollY }, o.context, o.where);
 }
 
 /* The sentence the selection sits in, read from the nearest block around it.
@@ -175,7 +272,15 @@ async function openFor(text, rect, context, where) {
   /* patternSaid: the tickbox has been set by someone who knows — the student
      ticking it, or a stored card saying what it is — and is no longer
      guessed from the word. */
-  open = { where, context, deck, card: null, langs, patternSaid: false };
+  /* auto: which fields hold what a translation or a stored card put there,
+     not what the student typed. Only those are ever filled in again when
+     the other field is edited. asked: the text each field was last
+     translated from, so leaving a field after its pause asks nothing twice. */
+  clearTimeout(refreshTimer);
+  open = {
+    where, context, deck, card: null, langs, patternSaid: false,
+    auto: { front: false, back: false }, asked: { front: '', back: '' },
+  };
 
   $('lp-deck').innerHTML = `into <b>${escapeHtml(deck)}.json</b>`;
   $('lp-front-label').textContent = langs.learningName || 'Word';
@@ -188,6 +293,7 @@ async function openFor(text, rect, context, where) {
   $('lp-ask').disabled = false;
   $('lp-ask').textContent = 'Ask for notes';
   pop.hidden = false;
+  fitFields();
   place(rect);
 
   /* A word already in the deck is shown as it is stored, and costs nothing:
@@ -208,6 +314,10 @@ async function openFor(text, rect, context, where) {
     $('lp-front').value = found.front;
     $('lp-back').value = found.back;
     $('lp-back').placeholder = '';
+    /* The side Google wrote is the one a later edit may write again. */
+    open.auto = { front: found.direction === 'reverse', back: found.direction !== 'reverse' };
+    open.asked = { front: found.front, back: found.back };
+    fitFields();
     followGap();
     const existing = found.direction === 'reverse' ? findCard(deckCards(), { front: found.front }) : null;
     if (existing) {
@@ -215,7 +325,7 @@ async function openFor(text, rect, context, where) {
       status(`${found.front} is already in ${deck}.json. Change it and press Update.`, '');
     } else {
       status(found.direction === 'reverse'
-        ? `That was ${langs.nativeName}, so it is the meaning. ⇄ swaps them if not.`
+        ? `That was ${langs.nativeName}, so it is the meaning. ⇅ swaps them if not.`
         : 'Translated by Google Translate. Correct it if it is off.', '');
     }
   } catch (e) {
@@ -235,7 +345,28 @@ function fillFrom(card) {
   $('lp-notes').value = card.notes || '';
   $('lp-pattern').checked = isPattern(card);
   open.patternSaid = true;
+  /* The stored meaning is not something the student typed here: if the word
+     is then edited into one the deck does not have, it gives way. */
+  open.auto.back = true;
+  fitFields();
   setMode(card);
+}
+
+/* Each field is as tall as what is in it, up to a few lines, so a longer
+   phrase is read whole instead of scrolled through sideways. Measured only
+   while the popup is shown: a hidden box has no height to read. */
+function fitFields() {
+  for (const id of ['lp-front', 'lp-back']) {
+    const el = $(id);
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight + 2}px`;
+  }
+}
+
+/* Typed or pasted, a line break in a field becomes a space. */
+function oneLine(el) {
+  if (/[\r\n]/.test(el.value)) el.value = el.value.replace(/\s*[\r\n]+\s*/g, ' ');
+  fitFields();
 }
 
 /* Until it has been said, the tickbox follows the word: a gap written into
@@ -268,6 +399,7 @@ export function placeUnder(el, rect) {
 
 function close() {
   token++;
+  clearTimeout(refreshTimer);
   if (open) dismissed = open.where;
   open = null;
   pop.hidden = true;
@@ -292,15 +424,86 @@ function recheck() {
     $('lp-back').value = card.back;
     $('lp-pattern').checked = isPattern(card);
     open.patternSaid = true;
+    open.auto.back = true;
+    fitFields();
   }
   setMode(card);
 }
 
 function swap() {
+  if (!open) return;
   const front = $('lp-front');
   const back = $('lp-back');
   [front.value, back.value] = [back.value, front.value];
+  /* What was typed and what was translated change places with the text. */
+  clearTimeout(refreshTimer);
+  open.auto = { front: open.auto.back, back: open.auto.front };
+  open.asked = { front: open.asked.back, back: open.asked.front };
+  fitFields();
   recheck();
+}
+
+/* ── keeping the two fields in step ──────────────────────────────────── */
+
+/* A field was typed in: it is the student's now, and once they pause, the
+   other field is translated from it again. */
+function edited(which) {
+  if (!open) return;
+  open.auto[which] = false;
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => refresh(which), REFRESH_AFTER);
+}
+
+/* The other field, translated again from the one just edited, where
+   refreshTarget() says it may be: never over something the student typed,
+   and never for a word the deck already has. The answer is dropped if the
+   popup has moved on, if the edited field no longer holds what was sent, or
+   if the student has typed in the other field meanwhile. One request, and a
+   refusal is said in the status line like any other. */
+async function refresh(which) {
+  clearTimeout(refreshTimer);
+  if (!open) return;
+  const other = which === 'front' ? 'back' : 'front';
+  const from = $(`lp-${which}`);
+  const to = $(`lp-${other}`);
+  const text = from.value.trim();
+  const plan = () => refreshTarget({
+    edited: which,
+    text: from.value,
+    other: to.value,
+    otherAuto: open.auto[other],
+    isCard: !!open.card,
+    learning: open.langs.learning,
+    native: open.langs.native,
+  });
+  const want = plan();
+  if (!want || text === open.asked[which]) return;
+  open.asked[which] = text;
+  const mine = token;
+  status('Asking Google Translate…', '');
+  try {
+    const got = await translateOne(text, want.from, want.to);
+    if (mine !== token || from.value.trim() !== text || !plan()) return;
+    to.value = got;
+    to.placeholder = '';
+    open.auto[other] = true;
+    open.asked[other] = got;
+    fitFields();
+    let said = 'Translated again by Google Translate. Correct it if it is off.';
+    if (other === 'front') {
+      /* The new word may be one the deck has. The button follows it, but
+         the meaning just typed stays: recheck() would put the card's own
+         meaning over it. */
+      followGap();
+      const card = findCard(deckCards(), { front: got });
+      setMode(card);
+      if (card) said = `${card.front} is already in ${open.deck}.json. Update gives it this meaning.`;
+    }
+    status(said, '');
+  } catch (e) {
+    if (mine !== token || from.value.trim() !== text) return;
+    status(e.message || String(e), 'is-warn');
+  }
 }
 
 async function askNotes() {

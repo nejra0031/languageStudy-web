@@ -238,7 +238,7 @@ function renderSummaries() {
     reading: [SCOPE_LABEL[s.readingScope], plural(s.readingTerms, 'card'), `${s.readingPatternShare}% patterns`, s.readingModel],
     writing: [SCOPE_LABEL[s.writingScope], `${s.writingWords.min}–${s.writingWords.max} words`, plural(s.writingTerms, 'card'), s.writingGradeModel],
     translate: [plural(s.translateItems, 'sentence'), ORDER_LABEL[s.translateOrder], s.translateModel],
-    conversation: [plural(s.conversationTurns, 'turn'), plural(s.conversationTerms, 'card'), plural(s.conversationFacts, 'fact'), `replies ${s.chatModel}`, `live ${s.liveSeconds / 60} min`],
+    conversation: [`${s.conversationKind === 'findout' ? 'find out' : 'roleplay'}, ${s.conversationDelivery === 'live' ? 'live' : 'turn by turn'}`, plural(s.conversationTurns, 'turn'), plural(s.conversationTerms, 'card'), plural(s.conversationFacts, 'fact'), `replies ${s.chatModel}`, `live ${s.liveSeconds / 60} min`],
   };
   for (const [name, parts] of Object.entries(lines)) {
     const el = $(`sum-${name}`);
@@ -251,7 +251,8 @@ function renderSummaries() {
    the range in NUMBER_RANGES, which is what the control then shows; so an
    out-of-range number snaps back rather than being refused. Several of
    these are also set on their tab (a filter, the direction, the kind of
-   conversation), and each is one setting, whichever place changes it. */
+   conversation and how it is held), and each is one setting, whichever
+   place changes it. */
 const MODE_FIELDS = [
   ['set-typing-scope', 'typingScope', 'select'],
   ['set-typing-direction', 'typingDirection', 'select'],
@@ -268,6 +269,7 @@ const MODE_FIELDS = [
   ['set-translate-order', 'translateOrder', 'select'],
   ['set-translate-blank', 'translateBlankWrong', 'check'],
   ['set-conversation-kind', 'conversationKind', 'select'],
+  ['set-conversation-delivery', 'conversationDelivery', 'select'],
   ['set-conversation-scope', 'conversationScope', 'select'],
   ['set-conversation-turns', 'conversationTurns', 'int'],
   ['set-conversation-terms', 'conversationTerms', 'int'],
@@ -820,7 +822,7 @@ function render() {
 const PROMPT_VIEWS = [
   'sentence', 'speech', 'shadowing', 'notes', 'reading', 'writingBrief', 'writingGrade', 'translationGrade',
   'scenario', 'roleplayReply', 'findOutReply', 'conversationGrade', 'findOutGrade', 'transcribe',
-  'livePartner', 'liveGrade',
+  'livePartner', 'liveRoleplayPartner', 'liveGrade',
 ];
 
 /* A conversation to preview the conversation prompts with: two turns of
@@ -844,6 +846,13 @@ const SAMPLE_FIND_OUT = {
     facts: [1, 2, 3].map((n) => ({ id: String(n), label: `<fact ${n}>`, detail: `<its answer>` })),
   },
   revealed: ['1'],
+};
+/* The same two, held live: what the live prompts are previewed with. */
+const SAMPLE_LIVE_FIND_OUT = { ...SAMPLE_FIND_OUT, delivery: 'live' };
+const SAMPLE_LIVE_ROLEPLAY = {
+  ...SAMPLE_ROLEPLAY,
+  delivery: 'live',
+  scenario: { ...SAMPLE_ROLEPLAY.scenario, openingLine: '<their opening line>' },
 };
 
 /* Every prompt box works the same way: typing redraws the preview, leaving
@@ -945,8 +954,8 @@ const PREVIEWS = {
     const r = roleplayReplyRequest(draft, SAMPLE_ROLEPLAY, sample);
     return [`── to ${draft.chatModel}, as the system instruction ──`, r.system, '', '── then, as the message ──', r.user];
   },
-  findOutReply: (draft) => {
-    const r = findOutReplyRequest(draft, SAMPLE_FIND_OUT);
+  findOutReply: (draft, sample) => {
+    const r = findOutReplyRequest(draft, SAMPLE_FIND_OUT, sample);
     return [`── to ${draft.chatModel}, as the system instruction ──`, r.system, '', '── then, as the message ──', r.user];
   },
   conversationGrade: (draft, sample) => {
@@ -963,12 +972,18 @@ const PREVIEWS = {
   },
   livePartner: (draft, sample) => [
     `── to ${draft.liveModel}, as the system instruction when the conversation opens ──`,
-    partnerInstruction(draft, SAMPLE_FIND_OUT, sample),
+    partnerInstruction(draft, SAMPLE_LIVE_FIND_OUT, sample),
+    '',
+    `(then ${START_CUE} to open it, your voice as you talk, and ${TIME_CUE} ${WRAP_UP_SECONDS} seconds before the end)`,
+  ],
+  liveRoleplayPartner: (draft, sample) => [
+    `── to ${draft.liveModel}, as the system instruction when a live roleplay opens ──`,
+    partnerInstruction(draft, SAMPLE_LIVE_ROLEPLAY, sample),
     '',
     `(then ${START_CUE} to open it, your voice as you talk, and ${TIME_CUE} ${WRAP_UP_SECONDS} seconds before the end)`,
   ],
   liveGrade: (draft, sample) => {
-    const r = liveGradeRequest(draft, SAMPLE_FIND_OUT, sample, { mime: 'audio/webm', base64: '…' });
+    const r = liveGradeRequest(draft, SAMPLE_LIVE_FIND_OUT, sample, { mime: 'audio/webm', base64: '…' });
     return [`── to ${draft.liveGradeModel}, as the system instruction ──`, r.system, '', '── then, as the message ──', r.parts[0].text, '(then the recording of your microphone)'];
   },
 };
@@ -1037,7 +1052,10 @@ function renderPreview() {
     warnings.findOutGrade.push('The find-out feedback prompt no longer asks for "conversation" in its JSON, so no reply can be read.');
   }
   if (!draft.prompts.livePartner.includes('{facts}') || !draft.prompts.livePartner.includes(START_CUE)) {
-    warnings.livePartner.push(`The live conversation prompt needs {facts}, or the model knows nothing to be found out, and ${START_CUE}, or it is never told what the signal that opens the conversation means.`);
+    warnings.livePartner.push(`The live find-out prompt needs {facts}, or the model knows nothing to be found out, and ${START_CUE}, or it is never told what the signal that opens the conversation means.`);
+  }
+  if (!draft.prompts.liveRoleplayPartner.includes(START_CUE)) {
+    warnings.liveRoleplayPartner.push(`The live roleplay prompt needs ${START_CUE}, or the model is never told what the signal that opens the conversation means.`);
   }
   if (!draft.prompts.liveGrade.includes('"transcript"') || !draft.prompts.liveGrade.includes('"bands"')) {
     warnings.liveGrade.push('The live feedback prompt no longer asks for "transcript" and "bands" in its JSON. A reply without "transcript" cannot be read, and without "bands" there is no score.');

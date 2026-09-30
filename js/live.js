@@ -14,9 +14,14 @@
    page opens the socket itself and grades like any other mode. Nothing
    Praat did needs a backend.
 
-   A live conversation is a Conversation of kind 'live': its scene is a
-   find-out scene, written by the scene model around a few of your cards,
-   and it is kept in the same list. Its record adds, once it has been had:
+   A live conversation is a Conversation whose delivery is 'live': a
+   roleplay or a find-out, its scene written by the scene model around a
+   few of your cards as for one held turn by turn, and kept in the same
+   list. Praat was a find-out, and that was the only live kind at first;
+   a record from then says kind: 'live' (see contentOf() and isLive() in
+   conversation.js). A live roleplay differs in the partner's instruction,
+   which has no facts to guard, and in the message the grader is sent,
+   which lists none. Its record adds, once it has been had:
 
      seconds   how long it was set to run
      voice     the partner's voice
@@ -33,6 +38,7 @@ import { extractTrailingJson, cardVerdicts } from './json-reply.js';
 import { readingTermListing } from './reading.js';
 import { rulesFor, formatRulesBlock } from './shadow-rules.js';
 import { AUDIO_BUDGET_BYTES, toBase64 } from './shadowing.js';
+import { contentOf } from './conversation.js';
 
 /* The two signals the page sends the partner as text. The partner prompt
    names them; these are what is actually sent, whatever it says. */
@@ -61,12 +67,17 @@ export function partnerFacts(facts) {
   return (facts || []).map((f) => `- ${f.label}: ${f.detail}`).join('\n');
 }
 
-/* The partner's system instruction, filled. `cards` are the session's
-   cards as the decks have them, {front, back, type}. */
+/* The partner's system instruction, filled: the find-out's or the
+   roleplay's, by what the conversation is. Each prompt uses the
+   placeholders it needs of these. `cards` are the session's cards as the
+   decks have them, {front, back, type}. */
 export function partnerInstruction(settings, session, cards) {
   const sc = session.scenario || {};
-  return fillTemplate(settings.prompts.livePartner, {
+  const prompt = contentOf(session) === 'findout' ? settings.prompts.livePartner : settings.prompts.liveRoleplayPartner;
+  return fillTemplate(prompt, {
     situation: sc.situation || '',
+    scenario: sc.scenario || '',
+    openingLine: sc.openingLine || '',
     llmRole: sc.llmRole || '',
     studentRole: sc.studentRole || '',
     language: settings.targetLanguage,
@@ -211,19 +222,23 @@ export function liveGradeRequest(settings, session, cards, clip) {
     feedback: feedbackRequestText(settings.feedbackRequest),
   });
   const sc = session.scenario || {};
+  const findOut = contentOf(session) === 'findout';
   const facts = (sc.facts || []).map((f) => `- id "${f.id}": ${f.label} -- ${f.detail}`).join('\n');
+  /* A roleplay has a scene and no goal or facts; the grader is told so,
+     so that it does not go looking for any. */
+  const task = findOut
+    ? `Their goal: ${sc.goal || ''}\nThe facts to find out:\n${facts}`
+    : 'This was a roleplay: there were no facts to find out.';
   const turns = session.turns || [];
   const transcript = turns.length
     ? turns.map((t, i) => `${i + 1}. ${t.speaker === 'learner' ? 'LEARNER' : 'PARTNER'}: ${t.text}`).join('\n')
     : '(the automatic transcript is empty -- rely on the recording)';
   const text = `<situation>
-Situation: ${sc.situation || ''}
+Situation: ${(findOut ? sc.situation : sc.scenario) || ''}
 The partner played: ${sc.llmRole || ''}
 The learner played: ${sc.studentRole || ''}
 The learner's level: ${settings.learnerLevel}
-Their goal: ${sc.goal || ''}
-The facts to find out:
-${facts}
+${task}
 </situation>
 
 <transcript>

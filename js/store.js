@@ -667,6 +667,10 @@ function keeper({ dir, key, topic }) {
       else held.set(record.id, record);
       const row = recordRow(record);
       const at = state[key].findIndex((r) => r.id === record.id);
+      /* A record saved as it is typed, a draft or an unsent turn, changes
+         nothing a list shows. Its row is then left alone: the index is
+         not written again, and nobody is told of a change there was not. */
+      if (at !== -1 && JSON.stringify(state[key][at]) === JSON.stringify(row)) return ok;
       if (at === -1) state[key].unshift(row);
       else state[key][at] = row;
       await saveIndex();
@@ -720,7 +724,8 @@ function keeper({ dir, key, topic }) {
 
 /* What a list needs to draw a record without opening its file. `title` is
    whatever the tab put on the record to name it by; `ended` is there only
-   for a record that can be left open, as a conversation can. */
+   for a record that can be left open, as a conversation can, and
+   `delivery` only for one that says how it was held. */
 function recordRow(record) {
   const row = {
     id: record.id,
@@ -731,12 +736,16 @@ function recordRow(record) {
     decks: [...new Set((record.cards || []).map((c) => c && c.deck).filter(Boolean))],
   };
   if (Object.prototype.hasOwnProperty.call(record, 'ended')) row.ended = !!record.ended;
+  if (record.delivery) row.delivery = record.delivery;
   return row;
 }
 
 const writings = keeper({ dir: 'writing', key: 'writings', topic: 'writing' });
 const conversations = keeper({ dir: 'conversation', key: 'conversations', topic: 'conversation' });
 
+/* A piece of writing is kept from the moment its task is set, as a draft
+   (`ended: false`), and saved as it is written; handing it in completes
+   the same record. */
 export const saveWriting = (record) => writings.save(record);
 export const loadWriting = (id) => writings.load(id);
 export const deleteWriting = (id) => writings.remove(id);
@@ -751,6 +760,27 @@ export const removeConversationClip = (path) => conversations.removeBlob(path);
 export const saveConversation = (record) => conversations.save(record);
 export const loadConversation = (id) => conversations.load(id);
 export const deleteConversation = (id) => conversations.remove(id);
+
+/* ── the translation set being worked on ─────────────────────────────── */
+
+/* One file: the set on the Translate tab and what has been typed into it,
+   so a reload brings it back. It is not a record of anything: a checked set
+   is not kept, and this goes when the set is checked or replaced. Without a
+   store there is no reload to survive, the set is in the tab, and these do
+   nothing. */
+const TRANSLATE_FILE = 'translate/open.json';
+
+export async function saveTranslateDraft(draft) {
+  return state.persistent ? storage.writeJson(TRANSLATE_FILE, draft) : false;
+}
+
+export async function loadTranslateDraft() {
+  return state.persistent ? storage.readJson(TRANSLATE_FILE) : null;
+}
+
+export async function clearTranslateDraft() {
+  if (state.persistent) await storage.remove(TRANSLATE_FILE);
+}
 
 /* ── the listening rules ─────────────────────────────────────────────── */
 

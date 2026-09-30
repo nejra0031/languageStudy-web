@@ -12,15 +12,18 @@
    Afterwards the answers lock, each row says whether it was right, shows
    one correct answer where it was not, and plays the banked audio; the
    cards move as translation.js decides. A set is not kept, as a Typing
-   session is not: what stays is the scores. The logic that has no DOM is
-   translation.js. */
+   session is not: what stays is the scores. The one being worked on is,
+   though, until it is checked: it is saved as its answers are typed
+   (autosave.js), so a reload brings back the same sentences with the
+   answers in them. The logic that has no DOM is translation.js. */
 
 import * as store from './store.js';
 import * as storage from './storage.js';
 import { recordResult, SCORE_LABEL } from './deck.js';
 import {
-  MAX_ANSWER, pickTranslationItems, translationScores, cleanAnswer,
+  MAX_ANSWER, pickTranslationItems, translationScores, cleanAnswer, translationDraft, restoreDraft,
 } from './translation.js';
+import { createAutosave } from './autosave.js';
 import { escapeHtml, scoreMark } from './text.js';
 import { formatWait } from './gemini.js';
 import { describe } from './tab-settings.js';
@@ -41,6 +44,12 @@ let saved = null;
    check still scores that set's cards when it comes back, and is shown only
    if that set is still the one on screen. */
 let checking = null;
+/* Saves the set on screen and its answers while they are being typed. A
+   set that has been checked, or is out to be checked, is not one to bring
+   back with a reload, so it is not saved. `restoring` is a kept set being
+   read back, so two showings of the tab do not both draw. */
+const saver = createAutosave(() => (items.length && !results ? store.saveTranslateDraft(translationDraft(items, answers)) : null));
+let restoring = false;
 /* The one sentence playing, and its URL when this tab made it. */
 let player = null;
 let playerUrl = null;
@@ -55,8 +64,11 @@ export function init() {
     const input = e.target.closest('input[data-i]');
     if (!input) return;
     answers[Number(input.dataset.i)] = input.value;
+    saver.touch();
     renderCheck();
   });
+  /* A page being hidden may be a page being closed. */
+  document.addEventListener('visibilitychange', () => { if (document.hidden) saver.flush(); });
   list.addEventListener('keydown', (e) => {
     const input = e.target.closest('input[data-i]');
     if (!input || e.key !== 'Enter') return;
@@ -81,18 +93,28 @@ export function init() {
   render();
 }
 
-export function onShow() {
+export async function onShow() {
   gate();
   renderPool();
   /* The first set is drawn when the tab is first looked at, once the store
      has been read: it costs nothing, and an empty tab asking to be told to
-     draw one would be a click for no reason. */
-  if (!items.length && store.state.ready) drawSet();
+     draw one would be a click for no reason. A set left half answered, by
+     a reload or a closed tab, comes back instead, answers and all. */
+  if (!items.length && !restoring && store.state.ready) {
+    restoring = true;
+    try {
+      const kept = restoreDraft(await store.loadTranslateDraft(), store.state.manifest);
+      if (!items.length) drawSet(kept);
+    } finally {
+      restoring = false;
+    }
+  }
   render();
 }
 
 export function onHide() {
   stopPlayer();
+  saver.flush();
 }
 
 function isActive() {
@@ -133,11 +155,20 @@ function renderPool() {
 
 /* ── the set ─────────────────────────────────────────────────────────── */
 
-function drawSet() {
+/* A new set from the bank, or `kept`, the set that was being worked on.
+   A new one has nothing typed in it, so what was kept of the old one goes;
+   the new one is kept from its first keystroke. */
+function drawSet(kept = null) {
   stopPlayer();
   const s = store.state.settings;
-  items = pickTranslationItems(inScope(), s.translateItems, store.findCard, s.translateOrder);
-  answers = items.map(() => '');
+  if (kept) {
+    ({ items, answers } = kept);
+  } else {
+    saver.cancel();
+    store.clearTranslateDraft();
+    items = pickTranslationItems(inScope(), s.translateItems, store.findCard, s.translateOrder);
+    answers = items.map(() => '');
+  }
   results = null;
   moves = null;
   saved = null;
@@ -248,6 +279,10 @@ async function check() {
   const set = items;
   const typed = answers.map(cleanAnswer);
   checking = set;
+  /* What was typed is on disk before the call, so a check that fails, or a
+     page closed while it is out, keeps the answers. */
+  saver.touch();
+  saver.flush();
   showError('');
   const btn = $('tr-check');
   btn.innerHTML = '<span class="spinner"></span>Checking';
@@ -258,7 +293,11 @@ async function check() {
     /* Scored whether or not a new set has been drawn meanwhile: the
        answers were given, and the cards should move with them. */
     const scored = await score(set, got, typed);
+    /* Checked: it is no longer a set being worked on. If a new set has been
+       drawn meanwhile, that one is the kept one now, and stays. */
     if (items !== set) return;
+    saver.cancel();
+    store.clearTranslateDraft();
     results = got;
     moves = scored.moves;
     saved = scored.saved;

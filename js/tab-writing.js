@@ -13,22 +13,29 @@
    a failure: the writing stays in the box and Try again sends it again.
    Nothing is retried behind your back, since every attempt is a call.
 
-   Every piece handed in is kept, with its feedback, and listed under the
-   form. Opening one shows it as it was; Write again starts a new piece on
-   the same task. The logic that has no DOM is writing.js. */
+   A piece is kept from the moment its task is set, as a draft, and saved
+   as it is written (autosave.js), so a question that cost a call and the
+   text written to it survive a reload; the newest draft is back on screen
+   when the tab is shown. Handing in completes that same record. Every
+   piece is listed under the form: a draft opens to carry on with, a piece
+   handed in opens as it was, and Write again starts a new piece on the same
+   task. The logic that has no DOM is writing.js. */
 
 import * as store from './store.js';
 import * as storage from './storage.js';
 import { isPattern, inScope, recordResult, SCORE_LABEL } from './deck.js';
 import { pickReadingCards, speakableText, nextDatedId } from './reading.js';
 import {
-  MAX_TEXT, countWords, wordBounds, wordStatus, writingTitle,
+  MAX_TEXT, countWords, wordBounds, wordStatus, writingTitle, draftRecord, isDraft,
 } from './writing.js';
+import { createAutosave } from './autosave.js';
 import { escapeHtml, scoreMark } from './text.js';
 import { formatWait } from './gemini.js';
 import { describe } from './tab-settings.js';
 import { languageCode } from './speech.js';
 import { errorSpot } from './error-spot.js';
+import { wireExport } from './export-row.js';
+import { writingExport } from './export-html.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -45,12 +52,27 @@ let task = null;
 let shown = null;
 let moves = null;
 let saved = null;
+/* The piece being written: its record, a draft until it is handed in. It
+   is written to the store when its task is set and again as its text
+   changes, through `saver`, which saves whichever draft was last typed
+   in. */
+let draft = null;
+let unsaved = null;
+const saver = createAutosave(() => (unsaved ? store.saveWriting(unsaved) : null));
+/* A draft being read back when the tab is shown, so two showings of the
+   tab do not both resume it. */
+let resuming = false;
+let syncExport = () => {};
 /* The task whose piece is out to be read, if one is. Only that task's box
    is locked meanwhile: a new question, topic or summary can be started, or
    a kept piece opened, and the feedback is still kept and scored when it
    comes back, and shown if its task is still the one on screen. One
-   hand-in at a time. */
+   hand-in at a time. `gradingRecord` is that piece's record: opened from
+   the list meanwhile, it is this object that goes on screen, locked, and
+   not a copy from disk that could be typed into and saved over the
+   feedback. */
 let grading = null;
+let gradingRecord = null;
 let asking = false;
 /* The row whose Delete has been pressed once, and the timer that stands it
    down again. */
@@ -77,11 +99,21 @@ export function init() {
   $('wr-use-topic').addEventListener('click', useTopic);
   $('wr-topic').addEventListener('keydown', (e) => { if (e.key === 'Enter') useTopic(); });
   $('wr-start-summary').addEventListener('click', startSummary);
-  $('wr-text').addEventListener('input', renderCount);
+  $('wr-text').addEventListener('input', () => { renderCount(); typed(); });
+  /* A page being hidden may be a page being closed: what is waiting to be
+     saved is saved now. */
+  document.addEventListener('visibilitychange', () => { if (document.hidden) saver.flush(); });
   $('wr-hand-in').addEventListener('click', handIn);
   $('wr-again').addEventListener('click', writeAgain);
   $('wr-error').addEventListener('click', (e) => { if (e.target.closest('[data-act="retry"]')) handIn(); });
   placeError = errorSpot($('wr-error'));
+  /* The piece on screen, a draft or one handed in, as one file to send on.
+     A summary carries the text it is of, when that can still be read. */
+  syncExport = wireExport($('wr-export-row'), () => {
+    const record = shown || draft;
+    const source = task && task.kind === 'summary' && task.sourceText ? { text: task.sourceText } : null;
+    return record && task ? { kind: 'writing', record, build: (r) => writingExport(r, { source }) } : null;
+  });
   $('wr-list').addEventListener('click', (e) => {
     const row = e.target.closest('[data-writing]');
     if (!row) return;
@@ -103,6 +135,7 @@ export function init() {
     setSeg('wr-scope', 'scope', scope);
     if (task && !shown) renderBounds();
   });
+  store.subscribe('ready', () => { if (isActive()) onShow(); });
   store.subscribe('quota', renderQuota);
   setInterval(renderQuota, 1000);
   gate();
@@ -110,11 +143,28 @@ export function init() {
   renderList();
 }
 
-export function onShow() {
+export async function onShow() {
   gate();
   renderPool();
   renderChooser();
   renderList();
+  /* A piece left unfinished, by a reload or a closed tab, is back where it
+     was: the newest draft, with its task and what was written. */
+  if (task || resuming || !store.state.ready) return;
+  const row = (store.state.writings || []).find((r) => r.ended === false);
+  if (!row) return;
+  resuming = true;
+  try {
+    const record = await store.loadWriting(row.id);
+    if (record && isDraft(record) && !task) await showDraft(record, { scroll: false });
+  } finally {
+    resuming = false;
+  }
+}
+
+/* Leaving the tab saves what was being typed. */
+export function onHide() {
+  saver.flush();
 }
 
 function isActive() {
@@ -280,16 +330,85 @@ function unlockBox() {
   $('wr-hand-in').textContent = 'Hand in';
 }
 
-function setTask(next) {
+function lockBox() {
+  const btn = $('wr-hand-in');
+  btn.innerHTML = '<span class="spinner"></span>Reading your writing';
+  btn.disabled = true;
+  $('wr-text').readOnly = true;
+  $('wr-busy').hidden = false;
+  $('wr-busy').textContent = `${store.state.settings.writingGradeModel} is reading it. This can take half a minute.`;
+}
+
+/* A task is set: a piece starts, and is kept from now, before a word of
+   it is written, so a question that cost a call is not lost with the page. */
+async function setTask(next, { scroll = true } = {}) {
+  await leaveDraft({ replaced: true });
   unlockBox();
+  const s = store.state.settings;
   task = next;
   shown = null;
   moves = null;
   saved = null;
+  draft = draftRecord(next, {
+    id: nextDatedId('w', store.state.writings),
+    created: new Date().toISOString().slice(0, 10),
+    language: s.targetLanguage,
+    level: s.learnerLevel,
+  });
+  const mine = draft;
   $('wr-text').value = '';
   renderCard();
-  $('wr-card').scrollIntoView({ block: 'start', behavior: 'smooth' });
+  if (scroll) $('wr-card').scrollIntoView({ block: 'start', behavior: 'smooth' });
   $('wr-text').focus({ preventScroll: true });
+  const kept = await store.saveWriting(mine);
+  if (!kept && draft === mine) {
+    showError(`This piece could not be written to ${storage.label()}. Reconnect the data folder in Settings; it will be lost on reload.`, false, $('wr-count-row'));
+  }
+}
+
+/* The box changed: the draft has the text, and it is saved shortly. */
+function typed() {
+  if (!draft || shown || busy()) return;
+  draft.text = $('wr-text').value.slice(0, MAX_TEXT);
+  unsaved = draft;
+  saver.touch();
+}
+
+/* The draft on screen is being left, for a new task or for another piece.
+   What was typed is saved first. One that is being replaced by a new task
+   and has nothing written to it is deleted: a row for every question asked
+   and never answered would bury the pieces worth finding. One that is only
+   being left to look at another piece stays, empty or not, to come back
+   to. The piece out to be read is not touched. */
+async function leaveDraft({ replaced = false } = {}) {
+  const d = draft;
+  draft = null;
+  if (!d || d === gradingRecord) return;
+  if (replaced && !String(d.text || '').trim()) {
+    if (unsaved === d) { saver.cancel(); unsaved = null; }
+    await store.deleteWriting(d.id);
+    return;
+  }
+  await saver.flush();
+}
+
+/* A draft put on screen to carry on with, from the list or on resuming. */
+async function showDraft(record, { scroll = true } = {}) {
+  const out = record === gradingRecord;
+  task = out ? grading : await taskOf(record);
+  draft = record;
+  shown = null;
+  moves = null;
+  saved = null;
+  $('wr-text').value = record.text || '';
+  unlockBox();
+  if (out) lockBox();
+  renderCard();
+  renderList();
+  if (task.missingSource) {
+    showError('The reading text this piece summarises has since been deleted, so it cannot be handed in as a summary. Pick another text above.', false, $('wr-count-row'));
+  }
+  if (scroll) $('wr-card').scrollIntoView({ block: 'start', behavior: 'smooth' });
 }
 
 /* ── the task and the writing ────────────────────────────────────────── */
@@ -300,6 +419,7 @@ function bounds() {
 
 function renderCard() {
   const card = $('wr-card');
+  syncExport();
   if (!task) { card.hidden = true; return; }
   card.hidden = false;
   const lang = languageCode(store.state.settings.targetLanguage);
@@ -370,7 +490,7 @@ function renderHandIn() {
   const btn = $('wr-hand-in');
   if (busy()) return;
   const g = store.jobUsage('writingGradeModel');
-  const ok = task && !shown && wordStatus(countWords($('wr-text').value), bounds()).ok;
+  const ok = task && !shown && !task.missingSource && wordStatus(countWords($('wr-text').value), bounds()).ok;
   btn.disabled = !ok || !!grading || g.retryAfter > 0 || !storage.getApiKey();
   /* Why a piece that is the right length cannot go in yet is said beside
      the button, not only in a tooltip, which a phone never shows. */
@@ -386,41 +506,36 @@ function renderHandIn() {
 /* ── handing in ──────────────────────────────────────────────────────── */
 
 async function handIn() {
-  if (grading || !task || shown) return;
+  if (grading || !task || shown || !draft || task.missingSource) return;
   const text = $('wr-text').value.slice(0, MAX_TEXT);
   if (!wordStatus(countWords(text), bounds()).ok) return;
   const s = store.state.settings;
   const at = task;
+  const record = draft;
 
   grading = at;
+  gradingRecord = record;
   showError('');
   const btn = $('wr-hand-in');
-  btn.innerHTML = '<span class="spinner"></span>Reading your writing';
-  btn.disabled = true;
-  $('wr-text').readOnly = true;
-  $('wr-busy').hidden = false;
-  $('wr-busy').textContent = `${s.writingGradeModel} is reading it. This can take half a minute.`;
+  lockBox();
 
   try {
+    /* The text as it is handed in is on disk before the call, so a call
+       that fails, or a page closed while it is out, keeps it. */
+    record.text = text;
+    if (unsaved === record) saver.cancel();
+    await store.saveWriting(record);
     const { result, model } = await store.client.gradeWriting({
       kind: at.kind, brief: at.brief, sourceText: at.sourceText, cards: at.cards, text,
     });
-    const record = {
-      id: nextDatedId('w', store.state.writings),
-      created: new Date().toISOString().slice(0, 10),
-      kind: at.kind,
-      brief: at.brief,
-      cards: at.cards.map((c) => ({ front: c.front, deck: c.deck })),
-      text,
-      result,
-      model,
-      language: s.targetLanguage,
-      level: s.learnerLevel,
-    };
-    if (at.kind === 'summary') {
-      record.readingId = at.readingId;
-      record.readingTitle = at.readingTitle;
-    }
+    /* The draft becomes the piece: the same record, now with its feedback,
+       dated the day it was handed in. */
+    record.result = result;
+    record.model = model;
+    record.ended = true;
+    record.created = new Date().toISOString().slice(0, 10);
+    record.language = s.targetLanguage;
+    record.level = s.learnerLevel;
     record.title = writingTitle(record);
     /* "Not an attempt" scores nothing; feedback scores the cards it
        judged right or wrong, and leaves the ones not used alone. */
@@ -430,6 +545,7 @@ async function handIn() {
     const kept = await store.saveWriting(record);
     if (task !== at) return;
     shown = record;
+    draft = null;
     moves = scored.moves;
     saved = scored.saved;
     renderCard();
@@ -442,6 +558,7 @@ async function handIn() {
     if (task === at) showError(describe(e), true, $('wr-count-row'));
   } finally {
     grading = null;
+    gradingRecord = null;
     btn.textContent = 'Hand in';
     if (task === at) {
       $('wr-text').readOnly = false;
@@ -480,12 +597,7 @@ function writeAgain() {
     return;
   }
   showError('');
-  shown = null;
-  moves = null;
-  saved = null;
-  $('wr-text').value = '';
-  renderCard();
-  $('wr-text').focus();
+  setTask(task, { scroll: false });
 }
 
 /* ── the feedback ────────────────────────────────────────────────────── */
@@ -576,27 +688,42 @@ export function cardsResultHtml(cards, verdicts, moved, ok, lang = '') {
 
 function renderList() {
   const rows = store.state.writings || [];
+  const on = shown || draft;
   $('wr-list-hint').textContent = rows.length ? `${rows.length} piece${rows.length === 1 ? '' : 's'}` : 'nothing yet';
   $('wr-list').innerHTML = rows.length
-    ? rows.map((r) => `<div class="sh-hist rd-row${shown && shown.id === r.id ? ' is-open' : ''}" data-writing="${escapeHtml(r.id)}">
+    ? rows.map((r) => `<div class="sh-hist rd-row${on && on.id === r.id ? ' is-open' : ''}" data-writing="${escapeHtml(r.id)}">
         <button class="sh-hist-open" data-act="open">
-          <span class="sh-hist-id rd-row-title">${escapeHtml(r.title || r.id)}</span>
+          <span class="rd-row-head">
+            <span class="sh-hist-id rd-row-title">${escapeHtml(r.title || r.id)}</span>
+            ${r.ended === false ? '<span class="rd-badge rd-badge--audio">Draft</span>' : ''}
+          </span>
           <span class="sh-hist-sub">${[
             r.created, r.kind === 'summary' ? 'summary' : 'opinion', r.decks && r.decks.length ? r.decks.join(', ') : '', r.language,
           ].filter(Boolean).map(escapeHtml).join(' · ')}</span>
         </button>
-        <button class="btn btn--sm btn--danger" data-act="delete" title="Delete this piece and its feedback">${armed === r.id ? 'Really delete?' : 'Delete'}</button>
+        <button class="btn btn--sm btn--danger" data-act="delete" title="${r.ended === false ? 'Delete this draft' : 'Delete this piece and its feedback'}">${armed === r.id ? 'Really delete?' : 'Delete'}</button>
       </div>`).join('')
-    : '<p class="note">Everything you hand in is kept here with its feedback. Click one to read it again, or to write another piece on the same task.</p>';
+    : '<p class="note">Everything you write is kept here: a piece you have not handed in yet as a draft, to carry on with, and every piece handed in with its feedback. Click one to open it.</p>';
 }
 
 async function openWriting(id) {
-  const record = await store.loadWriting(id);
+  if (draft && draft.id === id) {
+    $('wr-card').scrollIntoView({ block: 'start', behavior: 'smooth' });
+    return;
+  }
+  /* The piece out to be read is taken as it is in memory, which is where
+     its feedback will land, not as the copy on disk. */
+  const record = gradingRecord && gradingRecord.id === id ? gradingRecord : await store.loadWriting(id);
   if (!record) {
     showError(`That piece could not be read from ${storage.label()}. Its file may have been moved or deleted outside the app.`);
     return;
   }
   showError('');
+  await leaveDraft();
+  if (isDraft(record)) {
+    await showDraft(record);
+    return;
+  }
   unlockBox();
   task = await taskOf(record);
   shown = record;
@@ -631,6 +758,8 @@ async function taskOf(record) {
 }
 
 async function remove(id) {
+  /* Not the piece out to be read: its feedback is on its way to it. */
+  if (gradingRecord && gradingRecord.id === id) return;
   clearTimeout(disarm);
   if (armed !== id) {
     armed = id;
@@ -639,16 +768,19 @@ async function remove(id) {
     return;
   }
   armed = null;
-  if (shown && shown.id === id) clear();
+  if ((shown && shown.id === id) || (draft && draft.id === id)) clear();
   await store.deleteWriting(id);
 }
 
 function forgetIfGone() {
-  if (shown && !store.state.writings.some((r) => r.id === shown.id)) clear();
+  const on = shown || draft;
+  if (on && on !== gradingRecord && !store.state.writings.some((r) => r.id === on.id)) clear();
 }
 
 function clear() {
+  if (unsaved && unsaved === draft) { saver.cancel(); unsaved = null; }
   task = null;
+  draft = null;
   shown = null;
   moves = null;
   saved = null;

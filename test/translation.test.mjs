@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import {
   pickTranslationItems, orderForTranslation, translationGradeUser, translationGradeSystem,
   readTranslationGrade, translationScores, cleanAnswer, TRANSLATION_ITEMS, MAX_ANSWER,
+  translationDraft, restoreDraft,
 } from '../js/translation.js';
 import { withDefaults, DEFAULT_TRANSLATION_GRADE_PROMPT } from '../js/defaults.js';
 
@@ -153,4 +154,30 @@ test('with blank answers not counted, a blank scores nothing', () => {
   const results = [{ index: 1, graded: true, correct: false, explanation: '', cards: [1] }];
   assert.deepEqual(translationScores(results, items, ['', '', ''], { blankWrong: false }), []);
   assert.equal(translationScores(results, items, ['', '', '']).length, 2, 'counted by default');
+});
+
+/* ── a set not checked yet ───────────────────────────────────────────── */
+
+test('the set being worked on is kept with its answers, and comes back as it was', () => {
+  const bank = [entry('a'), entry('b'), entry('c')];
+  const items = pickTranslationItems(bank, 3, findCard);
+  const kept = translationDraft(items, ['Tôi đi', undefined]);
+  assert.deepEqual(kept.answers, ['Tôi đi', '', ''], 'one answer per item, blank where nothing was typed');
+  /* Through the file and back. */
+  const back = restoreDraft(JSON.parse(JSON.stringify(kept)), bank);
+  assert.deepEqual(back.items, items);
+  assert.deepEqual(back.answers, ['Tôi đi', '', '']);
+  assert.deepEqual(back.items.map((it) => it.id), ['0', '1', '2']);
+});
+
+test('a kept set whose sentences the bank no longer has is not resumed, nor anything that is not a set', () => {
+  const bank = [entry('a'), entry('b')];
+  const kept = translationDraft(pickTranslationItems(bank, 2, findCard), ['x', 'y']);
+  assert.equal(restoreDraft(kept, [entry('a')]), null, 'a sentence was deleted from the bank');
+  assert.equal(restoreDraft(kept, []), null);
+  for (const bad of [null, {}, { items: [], answers: [] }, { items: 'x', answers: [] }, { items: [{}], answers: [''] },
+    { items: kept.items }, { items: [{ ...kept.items[0], english: ' ' }], answers: [''] }]) {
+    assert.equal(restoreDraft(bad, bank), null, JSON.stringify(bad).slice(0, 60));
+  }
+  assert.equal(restoreDraft({ items: kept.items, answers: ['x'.repeat(MAX_ANSWER + 50)] }, bank).answers[0].length, MAX_ANSWER);
 });

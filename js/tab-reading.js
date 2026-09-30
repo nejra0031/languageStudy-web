@@ -40,6 +40,8 @@ import { describe } from './tab-settings.js';
 import { languageCode } from './speech.js';
 import { placeUnder } from './lookup-popup.js';
 import { errorSpot } from './error-spot.js';
+import { wireExport } from './export-row.js';
+import { readingExport } from './export-html.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -110,6 +112,10 @@ export function init() {
     + VOICES.map(([name, style]) => `<option value="${escapeHtml(name)}">${escapeHtml(name)} — ${escapeHtml(style)}</option>`).join('');
   voice.addEventListener('change', () => store.saveSettings({ readingVoice: voice.value }));
   $('rd-download').addEventListener('click', downloadAudio);
+  /* The text on screen as one file to send on, with its audio if wanted. */
+  syncExport = wireExport($('rd-export-row'), () => current && {
+    kind: 'reading', record: current, read: () => store.readReadingAudio(current), build: readingExport,
+  });
   $('rd-rate').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-rate]');
     if (!btn) return;
@@ -497,6 +503,8 @@ async function loadAudio() {
   setAudio(blob);
 }
 
+let syncExport = () => {};
+
 /* One player, whose source follows the text on screen. The last URL is let
    go first, or every text opened would hold its audio in memory. */
 function setAudio(blob) {
@@ -511,6 +519,7 @@ function setAudio(blob) {
     player.load();
   }
   const has = !!blob;
+  syncExport();
   $('rd-player').hidden = !has;
   /* The same button either way; with audio already there, it says that
      pressing it replaces what is there. Delete audio is offered whenever
