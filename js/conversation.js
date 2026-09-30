@@ -3,7 +3,8 @@
    and no network — the tab is tab-conversation.js and the calls are in
    gemini.js.
 
-   Two kinds, both ported from lessons-web and both a few typed turns long:
+   A conversation is two choices. What it is about, its `kind`, both ported
+   from lessons-web:
 
      'roleplay'  a scene with two roles. The other person answers each of
                  your turns; your sixth turn gets their closing line and the
@@ -13,12 +14,24 @@
                  six of your turns, say which facts they gave away, and the
                  feedback comes after.
 
+   And how it is held, its `delivery`:
+
+     'turns'     a few turns of your own, typed or spoken one at a time,
+                 which is what the two descriptions above are of.
+     'live'      spoken in real time over the Live API, for a set time
+                 rather than a number of turns. See live.js.
+
+   Either kind can be held either way. Live was once a third kind, a
+   find-out held live, and records from then say kind: 'live' with no
+   delivery. They are read through contentOf() and isLive() and never
+   rewritten, so nothing else compares `kind` or `delivery` directly.
+
    With no lessons to hold the scenes, one call on the text model writes the
    scene around a few of your cards, and the opening line with it.
 
    A session is one JSON record, saved after every turn:
 
-     {id, kind, created, title, language, level, request,
+     {id, kind, delivery, created, title, language, level, request,
       cards: [{front, deck}], scenario,
       turns: [{speaker: 'partner'|'learner', text}],
       revealed: [fact ids], feedback, deliveryNote, ended, scored}
@@ -34,8 +47,21 @@ import { modelLimits } from './defaults.js';
 import { attachableClips, toBase64 } from './shadowing.js';
 import { rulesFor, formatRulesBlock } from './shadow-rules.js';
 
-export const KINDS = ['roleplay', 'findout', 'live'];
-const KIND_NAMES = { roleplay: 'roleplay', findout: 'find-out', live: 'live conversation' };
+export const KINDS = ['roleplay', 'findout'];
+export const DELIVERIES = ['turns', 'live'];
+const KIND_NAMES = { roleplay: 'roleplay', findout: 'find-out' };
+
+/* What a conversation is about: 'roleplay' or 'findout'. Takes a session,
+   an index row or a bare kind. The old third kind was a find-out. */
+export function contentOf(session) {
+  const kind = typeof session === 'string' ? session : session && session.kind;
+  return kind === 'findout' || kind === 'live' ? 'findout' : 'roleplay';
+}
+
+/* Whether it is held live, by its delivery or by the old kind. */
+export function isLive(session) {
+  return !!session && (session.delivery === 'live' || session.kind === 'live');
+}
 /* Your turns in a conversation, unless the conversationTurns setting says
    otherwise. A conversation keeps the number it started with, as maxTurns,
    so a change in Settings never moves the end of one already under way. */
@@ -73,8 +99,9 @@ export function repliesNeeded(kind, turns = MAX_LEARNER_TURNS) {
    since they draw on one allowance. Spoken turns add a listening call each,
    and are not counted here: whether a turn is spoken is decided turn by
    turn. A live conversation is the scene, one live session, counted as one
-   call on the live model however long it runs, and the feedback. */
-export function callsNeeded(settings, kind) {
+   call on the live model however long it runs, and the feedback, whichever
+   kind it is. `delivery` is 'turns' or 'live'. */
+export function callsNeeded(settings, kind, delivery = 'turns') {
   const out = [];
   const add = (job, label, count) => {
     const model = settings[job];
@@ -82,12 +109,12 @@ export function callsNeeded(settings, kind) {
     if (hit) { hit.count += count; hit.jobs.push(label); } else out.push({ model, count, jobs: [label] });
   };
   add('sceneModel', 'the scene', 1);
-  if (kind === 'live') {
+  if (isLive({ kind, delivery })) {
     add('liveModel', 'the live conversation', 1);
     add('liveGradeModel', 'the feedback', 1);
     return out;
   }
-  add('chatModel', 'the replies', repliesNeeded(kind, settings.conversationTurns || MAX_LEARNER_TURNS));
+  add('chatModel', 'the replies', repliesNeeded(contentOf(kind), settings.conversationTurns || MAX_LEARNER_TURNS));
   add('conversationGradeModel', 'the feedback', 1);
   return out;
 }
@@ -99,12 +126,13 @@ export function callsNeeded(settings, kind) {
    preflight if its model is blocked right now. A model short on its day is
    refused here, before a call is spent on a scene that could not be
    finished. */
-export function budgetProblem(settings, kind, usage) {
-  for (const need of callsNeeded(settings, kind)) {
+export function budgetProblem(settings, kind, usage, delivery = 'turns') {
+  const what = isLive({ kind, delivery }) ? 'live conversation' : KIND_NAMES[contentOf(kind)];
+  for (const need of callsNeeded(settings, kind, delivery)) {
     const { rpm, rpd } = modelLimits(settings, need.model);
     const u = usage(need.model, rpm, rpd);
     if (u.leftDay !== null && u.leftDay < need.count) {
-      return `${need.model} has ${u.leftDay} call${u.leftDay === 1 ? '' : 's'} left today, and a ${KIND_NAMES[kind] || 'roleplay'} needs ${need.count} on it (${need.jobs.join(', ')}).`;
+      return `${need.model} has ${u.leftDay} call${u.leftDay === 1 ? '' : 's'} left today, and a ${what} needs ${need.count} on it (${need.jobs.join(', ')}).`;
     }
   }
   return null;
@@ -115,7 +143,7 @@ export function budgetProblem(settings, kind, usage) {
 export function scenarioVars(settings, kind, cards, request) {
   return {
     factCount: settings.conversationFacts || 4,
-    kind: kind === 'findout' ? 'find-out' : 'roleplay',
+    kind: KIND_NAMES[contentOf(kind)],
     language: settings.targetLanguage,
     level: settings.learnerLevel,
     languageNote: settings.languageNote || '',
@@ -146,7 +174,7 @@ export function readScenario(reply, kind, factCount = 4) {
   const llmRole = text(p.llmRole, MAX_ROLE);
   const openingLine = unquote(text(p.openingLine, MAX_LINE));
   if (!studentRole || !llmRole || !openingLine) return null;
-  if (kind !== 'findout') {
+  if (contentOf(kind) !== 'findout') {
     const scenario = text(p.scenario, MAX_SCENE);
     return scenario ? { scenario, studentRole, llmRole, openingLine } : null;
   }
@@ -180,7 +208,7 @@ export function learnerTurns(session) {
    are written down as they are spoken, and whoever spoke last, spoke last. */
 export function awaitingReply(session) {
   const turns = (session && session.turns) || [];
-  return !session.ended && session.kind !== 'live' && turns.length > 0 && turns[turns.length - 1].speaker === 'learner';
+  return !session.ended && !isLive(session) && turns.length > 0 && turns[turns.length - 1].speaker === 'learner';
 }
 
 /* Ends with a full stop unless it already ends a sentence, so a scene
@@ -415,8 +443,7 @@ export function readFindOutGrade(reply, session, cards) {
 
 export function conversationTitle(session) {
   const sc = session.scenario || {};
-  const findOut = session.kind === 'findout' || session.kind === 'live';
-  return String((findOut ? sc.goal || sc.situation : sc.scenario) || '').trim();
+  return String((contentOf(session) === 'findout' ? sc.goal || sc.situation : sc.scenario) || '').trim();
 }
 
 /* ── spoken turns ────────────────────────────────────────────────────── */

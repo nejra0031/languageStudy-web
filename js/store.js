@@ -720,7 +720,8 @@ function keeper({ dir, key, topic }) {
 
 /* What a list needs to draw a record without opening its file. `title` is
    whatever the tab put on the record to name it by; `ended` is there only
-   for a record that can be left open, as a conversation can. */
+   for a record that can be left open, as a conversation can, and
+   `delivery` only for one that says how it was held. */
 function recordRow(record) {
   const row = {
     id: record.id,
@@ -731,6 +732,7 @@ function recordRow(record) {
     decks: [...new Set((record.cards || []).map((c) => c && c.deck).filter(Boolean))],
   };
   if (Object.prototype.hasOwnProperty.call(record, 'ended')) row.ended = !!record.ended;
+  if (record.delivery) row.delivery = record.delivery;
   return row;
 }
 

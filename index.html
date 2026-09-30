@@ -38,6 +38,7 @@
     "./js/lookup-popup.js": "./js/lookup-popup.js?v=2026-09-30.1",
     "./js/opus.js": "./js/opus.js?v=2026-09-30.1",
     "./js/reading.js": "./js/reading.js?v=2026-09-30.1",
+    "./js/retired-prompts.js": "./js/retired-prompts.js?v=2026-09-30.1",
     "./js/recorder.js": "./js/recorder.js?v=2026-09-30.1",
     "./js/shadow-rules.js": "./js/shadow-rules.js?v=2026-09-30.1",
     "./js/shadowing.js": "./js/shadowing.js?v=2026-09-30.1",
@@ -596,7 +597,12 @@
       <div class="grid" data-roles="conversation"></div>
       <div class="grid">
         <label class="field"><span>Start on</span>
-          <select id="set-conversation-kind"><option value="roleplay">Roleplay</option><option value="findout">Find out</option><option value="live">Live</option></select>
+          <select id="set-conversation-kind"><option value="roleplay">Roleplay</option><option value="findout">Find out</option></select>
+          <em class="field-sub">what the conversation is</em>
+        </label>
+        <label class="field"><span>Held</span>
+          <select id="set-conversation-delivery"><option value="turns">Turn by turn</option><option value="live">Live</option></select>
+          <em class="field-sub">a turn at a time, typed or spoken, or live in real time; both are also chosen on the tab</em>
         </label>
         <label class="field"><span>Cards to draw from</span>
           <select id="set-conversation-scope"><option value="weak">Weak</option><option value="developing">Weak and developing</option><option value="all">All</option></select>
@@ -612,11 +618,11 @@
           <select id="set-live-seconds"><option value="60">1 minute</option><option value="120">2 minutes</option><option value="180">3 minutes</option></select>
           <em class="field-sub">also chosen on the tab</em></label>
       </div>
-      <p class="note">A conversation spends one call on the scene model, one on the replies model for each of the model's turns, and one on the feedback model at the end. A spoken turn adds one on the listening model, and a roleplay with spoken turns is graded by the listening model, since it listens to them.</p>
-      <p class="note">A <strong>live</strong> conversation spends one call on the scene model, one on the live model for the whole conversation, and one on the live feedback model, which listens to the recording of your microphone. The live model has to be one of Google's Live API models (the audio streams both ways through it as you talk), so it is the one job no other model here can do. Google's free tier limits it by how many live conversations run at once rather than by calls, which is why it starts with no limit here; a number per day entered under <a href="#sec-models" data-open-sec="models">Models and budget</a> is a number of conversations a day. The audio goes straight from this page to Google, over your own key, like every other call.</p>
+      <p class="note">A conversation held turn by turn spends one call on the scene model, one on the replies model for each of the model's turns, and one on the feedback model at the end. A spoken turn adds one on the listening model, and a roleplay with spoken turns is graded by the listening model, since it listens to them.</p>
+      <p class="note">A <strong>live</strong> conversation, roleplay or find out, spends one call on the scene model, one on the live model for the whole conversation, and one on the live feedback model, which listens to the recording of your microphone. The live model has to be one of Google's Live API models (the audio streams both ways through it as you talk), so it is the one job no other model here can do. Google's free tier limits it by how many live conversations run at once rather than by calls, which is why it starts with no limit here; a number per day entered under <a href="#sec-models" data-open-sec="models">Models and budget</a> is a number of conversations a day. The audio goes straight from this page to Google, over your own key, like every other call.</p>
 
       <details class="sec-prompts" data-acc="conversation.prompts">
-        <summary>Prompts <span class="sec-count">8</span></summary>
+        <summary>Prompts <span class="sec-count">9</span></summary>
         <div class="sec-prompts-body">
       <p class="note">Exactly what gets sent. Switch a prompt to <strong>Preview</strong> to see it filled in with your settings and a few of your cards; switch back to <strong>Edit</strong> to change it.</p>
 
@@ -712,18 +718,33 @@
 
       <div class="field">
         <div class="field-head">
-          <label for="set-prompt-livePartner">Live conversation prompt — the system instruction</label>
-          <div class="seg" role="group" aria-label="Show the live conversation prompt as" data-prompt="livePartner">
+          <label for="set-prompt-livePartner">Live find-out prompt — the system instruction</label>
+          <div class="seg" role="group" aria-label="Show the live find-out prompt as" data-prompt="livePartner">
             <button type="button" data-view="edit" aria-pressed="true">Edit</button>
             <button type="button" data-view="preview" aria-pressed="false">Preview</button>
           </div>
         </div>
         <textarea id="set-prompt-livePartner" rows="18" spellcheck="false"></textarea>
-        <textarea id="prompt-preview-livePartner" class="prompt-preview" rows="18" readonly spellcheck="false" aria-label="Live conversation prompt, as it will be sent" hidden></textarea>
+        <textarea id="prompt-preview-livePartner" class="prompt-preview" rows="18" readonly spellcheck="false" aria-label="Live find-out prompt, as it will be sent" hidden></textarea>
       </div>
       <p class="note prompt-warn" id="prompt-warn-livePartner" hidden></p>
-      <p class="note">Sent to the live model once, when a live conversation opens; from then on it hears your voice and answers with its own. Placeholders: <code>{situation}</code>, <code>{studentRole}</code> and <code>{llmRole}</code>; <code>{facts}</code>, the things to be found out with their answers; <code>{terms}</code>, your cards; <code>{language}</code>, <code>{level}</code> and <code>{languageNote}</code>. The page sends <code>[START]</code> to open the conversation and <code>[TIME]</code> fifteen seconds before the end, whatever this says, so keep the lines that tell the model what they mean.</p>
+      <p class="note">Sent to the live model once, when a live find out opens; from then on it hears your voice and answers with its own. Placeholders: <code>{situation}</code>, <code>{studentRole}</code> and <code>{llmRole}</code>; <code>{facts}</code>, the things to be found out with their answers; <code>{terms}</code>, your cards; <code>{language}</code>, <code>{level}</code> and <code>{languageNote}</code>. The page sends <code>[START]</code> to open the conversation and <code>[TIME]</code> fifteen seconds before the end, whatever this says, so keep the lines that tell the model what they mean.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-livePartner-reset">Reset to default</button></div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="set-prompt-liveRoleplayPartner">Live roleplay prompt — the system instruction</label>
+          <div class="seg" role="group" aria-label="Show the live roleplay prompt as" data-prompt="liveRoleplayPartner">
+            <button type="button" data-view="edit" aria-pressed="true">Edit</button>
+            <button type="button" data-view="preview" aria-pressed="false">Preview</button>
+          </div>
+        </div>
+        <textarea id="set-prompt-liveRoleplayPartner" rows="16" spellcheck="false"></textarea>
+        <textarea id="prompt-preview-liveRoleplayPartner" class="prompt-preview" rows="16" readonly spellcheck="false" aria-label="Live roleplay prompt, as it will be sent" hidden></textarea>
+      </div>
+      <p class="note prompt-warn" id="prompt-warn-liveRoleplayPartner" hidden></p>
+      <p class="note">Sent to the live model once, when a live roleplay opens. It is the live find-out prompt without the facts: nothing is held back, and the model plays its part in the scene. Placeholders: <code>{scenario}</code>, <code>{studentRole}</code> and <code>{llmRole}</code>; <code>{openingLine}</code>, the line the scene was written with, which the model opens on; <code>{terms}</code>, your cards; <code>{language}</code>, <code>{level}</code> and <code>{languageNote}</code>. The page sends <code>[START]</code> and <code>[TIME]</code> as for a find out.</p>
+      <div class="row"><button class="btn btn--sm" id="prompt-liveRoleplayPartner-reset">Reset to default</button></div>
 
       <div class="field">
         <div class="field-head">
@@ -737,7 +758,7 @@
         <textarea id="prompt-preview-liveGrade" class="prompt-preview" rows="18" readonly spellcheck="false" aria-label="Live feedback prompt, as it will be sent" hidden></textarea>
       </div>
       <p class="note prompt-warn" id="prompt-warn-liveGrade" hidden></p>
-      <p class="note">Sent to the live feedback model when a live conversation ends. Placeholders: <code>{rules}</code>, this language's listening rules, the ones Shadowing grades by and your ratings revise; <code>{language}</code>, <code>{languageNote}</code> and <code>{feedback}</code>. The situation, the facts, the running transcript and your cards follow as the message, then the recording of your microphone. The reply has to be the JSON object it describes: the percentage is worked out from <code>"bands"</code>, never asked for, with pronunciation counting 35%, grammar 25%, and flow and word choice 20% each.</p>
+      <p class="note">Sent to the live feedback model when a live conversation ends. Placeholders: <code>{rules}</code>, this language's listening rules, the ones Shadowing grades by and your ratings revise; <code>{language}</code>, <code>{languageNote}</code> and <code>{feedback}</code>. One prompt grades both kinds of live conversation. The situation, the facts of a find out (a roleplay has none), the running transcript and your cards follow as the message, then the recording of your microphone. The reply has to be the JSON object it describes: the percentage is worked out from <code>"bands"</code>, never asked for, with pronunciation counting 35%, grammar 25%, and flow and word choice 20% each.</p>
       <div class="row"><button class="btn btn--sm" id="prompt-liveGrade-reset">Reset to default</button></div>
         </div>
       </details>
@@ -1228,7 +1249,7 @@
       <span class="hint" id="cv-pool"></span>
     </div>
     <div class="block-body">
-      <p class="note">A few turns of your own (six, unless <a href="#sec-conversation" data-open-sec="conversation">Settings → Conversation</a> says otherwise) in a short scene with an <strong>AI model</strong>, which plays the other role, then feedback on how it went. In a <strong>roleplay</strong> the model plays its part and answers each of your turns; the feedback goes through them one by one, with a more natural way to say each where there is one. In a <strong>find out</strong> the model knows a few things you were sent to find out, and gives one only when you ask about it specifically; the feedback is about whether you listened to the answers. Either way the scene is written around a few of your cards, listed under it with their meanings while you talk: <strong>try to use them</strong>, since they are scored on what you said. <strong>Speak</strong> your turns or type them: a recording is played back before you send it, written down as you said it, mistakes and all, and a roleplay you spoke gets a note on how it sounded. A <strong>live</strong> conversation is a find out spoken in real time with the model, through Gemini's Live API: you and the model just talk, for one to three minutes, with no button to press between turns, and afterwards you get the whole conversation written out with your mistakes corrected, more natural ways to say what you said, notes on how it sounded, and a percentage made of four marks: pronunciation, flow, grammar and word choice.</p>
+      <p class="note">A short scene with an <strong>AI model</strong>, which plays the other role, then feedback on how it went. Two choices make a conversation. <strong>What it is:</strong> in a <strong>roleplay</strong> the model simply plays its part; in a <strong>find out</strong> it knows a few things you were sent to find out, and gives one only when you ask about it specifically. <strong>How it is held:</strong> <strong>turn by turn</strong> is a few turns of your own (six, unless <a href="#sec-conversation" data-open-sec="conversation">Settings → Conversation</a> says otherwise), which you <strong>speak</strong> or type: a recording is played back before you send it and written down as you said it, mistakes and all. A roleplay's feedback then goes through your turns one by one, with a more natural way to say each where there is one, and a note on how it sounded if you spoke; a find out's is about whether you listened to the answers. <strong>Live</strong> is spoken in real time with the model, through Gemini's Live API: you and the model just talk, for one to three minutes, with no button to press between turns, and afterwards you get the whole conversation written out with your mistakes corrected, more natural ways to say what you said, notes on how it sounded, and a percentage made of four marks: pronunciation, flow, grammar and word choice. Whichever you pick, the scene is written around a few of your cards, listed under it with their meanings while you talk: <strong>try to use them</strong>, since they are scored on what you said.</p>
       <div id="cv-gate"></div>
 
       <div id="cv-stage" hidden>
@@ -1237,7 +1258,10 @@
             <div class="seg" id="cv-kind" role="group" aria-label="Kind of conversation">
               <button data-kind="roleplay" aria-pressed="true">Roleplay</button>
               <button data-kind="findout" aria-pressed="false">Find out</button>
-              <button data-kind="live" aria-pressed="false">Live</button>
+            </div>
+            <div class="seg" id="cv-delivery" role="group" aria-label="How the conversation is held">
+              <button data-delivery="turns" aria-pressed="true">Turn by turn</button>
+              <button data-delivery="live" aria-pressed="false">Live</button>
             </div>
             <div class="seg" id="cv-length" role="group" aria-label="How long a live conversation runs" hidden>
               <button data-seconds="60" aria-pressed="false">1 min</button>

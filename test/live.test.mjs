@@ -12,8 +12,11 @@ import {
   START_CUE, TIME_CUE,
 } from '../js/live.js';
 import { openLiveSocket, decodeFrame, closeReason, LIVE_URL } from '../js/gemini-live.js';
-import { callsNeeded, budgetProblem, awaitingReply, conversationTitle } from '../js/conversation.js';
-import { withDefaults, LIVE_MODEL } from '../js/defaults.js';
+import {
+  callsNeeded, budgetProblem, awaitingReply, conversationTitle, contentOf, isLive,
+} from '../js/conversation.js';
+import { withDefaults, upgradePrompts, DEFAULT_SETTINGS, LIVE_MODEL } from '../js/defaults.js';
+import { RETIRED_PROMPTS } from '../js/retired-prompts.js';
 import { RateLimiter } from '../js/gemini.js';
 
 const settings = withDefaults({ targetLanguage: 'Spanish', learnerLevel: 'B1', feedbackRequest: 'English' });
@@ -48,6 +51,43 @@ test('the partner knows the facts with their answers, and the scene and the card
   assert.ok(text.includes(START_CUE) && text.includes(TIME_CUE), 'it is told what the two signals mean');
   assert.doesNotMatch(text, /\{\w+\}/, 'every placeholder is filled');
   assert.equal(partnerFacts([]), '');
+});
+
+/* A roleplay held live: the same record with a delivery, and a scene that
+   has no facts. */
+const roleplay = {
+  id: 'c_20260930_001', kind: 'roleplay', delivery: 'live', seconds: 120, talked: 90,
+  scenario: {
+    scenario: 'Quieres devolver unos zapatos a la tienda.', studentRole: 'Cliente', llmRole: 'Dependienta',
+    openingLine: 'Buenos días, ¿en qué puedo ayudarle?',
+  },
+  turns: [
+    { speaker: 'partner', text: 'Buenos días, ¿en qué puedo ayudarle?' },
+    { speaker: 'learner', text: 'Quiero devolver estos zapatos.' },
+  ],
+};
+
+test('a live roleplay\'s partner plays the scene, guards no facts, and opens on the scene\'s line', () => {
+  const text = partnerInstruction(settings, roleplay, cards);
+  assert.match(text, /THE SCENE: Quieres devolver unos zapatos a la tienda\./);
+  assert.match(text, /YOU ARE: Dependienta/);
+  assert.match(text, /\[START\]: open the conversation\. Say this line, or the same thing in your own words: Buenos días/);
+  assert.match(text, /1\. "madrugar"/);
+  assert.doesNotMatch(text, /WHAT YOU KNOW/, 'there is nothing to be found out');
+  assert.ok(text.includes(START_CUE) && text.includes(TIME_CUE));
+  assert.doesNotMatch(text, /\{\w+\}/, 'every placeholder is filled');
+});
+
+test('a live conversation is told apart by its delivery, and an old record by its kind', () => {
+  assert.equal(isLive(roleplay), true);
+  assert.equal(contentOf(roleplay), 'roleplay');
+  assert.equal(isLive(session), true, 'kind: "live", from before the two were split');
+  assert.equal(contentOf(session), 'findout', 'which was a find-out');
+  assert.equal(isLive({ kind: 'findout', delivery: 'turns' }), false);
+  assert.equal(isLive({ kind: 'roleplay' }), false);
+  assert.equal(contentOf({ kind: 'findout', delivery: 'live' }), 'findout');
+  assert.equal(contentOf('live'), 'findout');
+  assert.equal(isLive(null), false);
 });
 
 test('the setup names the model, the voice and both transcriptions', () => {
@@ -201,6 +241,12 @@ test('a live conversation is the scene, one live call and the feedback', () => {
   const capped = withDefaults({ ...s, models: [{ id: 'gemini-3.6-flash', rpm: 4, rpd: 20 }, { id: LIVE_MODEL, rpm: 0, rpd: 1 }] });
   limiter.calls[LIVE_MODEL] = [990];
   assert.match(budgetProblem(capped, 'live', (m, rpm, rpd) => limiter.usage(m, rpm, rpd)), /a live conversation needs 1/);
+  /* The same cost whichever kind is held live, and said the new way. */
+  for (const kind of ['roleplay', 'findout']) {
+    assert.deepEqual(callsNeeded(s, kind, 'live'), callsNeeded(s, 'live'));
+    assert.match(budgetProblem(capped, kind, (m, rpm, rpd) => limiter.usage(m, rpm, rpd), 'live'), /a live conversation needs 1/);
+    assert.equal(budgetProblem(capped, kind, (m, rpm, rpd) => limiter.usage(m, rpm, rpd), 'turns'), null, 'turn by turn does not use the live model');
+  }
 });
 
 test('a live conversation is never waiting for a reply, and is titled by its goal', () => {
@@ -208,10 +254,18 @@ test('a live conversation is never waiting for a reply, and is titled by its goa
   assert.equal(awaitingReply(last), false);
   assert.equal(awaitingReply({ ...last, kind: 'findout' }), true);
   assert.equal(conversationTitle(session), scenario.goal);
+  assert.equal(awaitingReply({ ...roleplay, turns: [...roleplay.turns] }), false, 'nor a live roleplay');
+  assert.equal(conversationTitle(roleplay), roleplay.scenario.scenario);
 });
 
 test('an older settings file starts on a kind it knows, and a length it offers', () => {
-  assert.equal(withDefaults({ conversationKind: 'live' }).conversationKind, 'live');
+  /* 'live' was a third kind, a find-out held live; it is now a delivery. */
+  const old = withDefaults({ conversationKind: 'live' });
+  assert.equal(old.conversationKind, 'findout');
+  assert.equal(old.conversationDelivery, 'live');
+  assert.equal(withDefaults({}).conversationDelivery, 'turns');
+  assert.equal(withDefaults({ conversationKind: 'roleplay', conversationDelivery: 'live' }).conversationDelivery, 'live');
+  assert.equal(withDefaults({ conversationDelivery: 'by post' }).conversationDelivery, 'turns');
   assert.equal(withDefaults({ liveSeconds: '180' }).liveSeconds, 180);
   assert.equal(withDefaults({ liveSeconds: 45 }).liveSeconds, 120);
   assert.equal(withDefaults({}).liveSeconds, 120);
@@ -242,6 +296,47 @@ test('the grading request carries the scene, the transcript, the cards and the r
   assert.match(empty.parts[0].text, /rely on the recording/);
   assert.match(empty.parts[0].text, /<cards>\n\(none\)/);
   assert.equal(liveGradeRequest(settings, session, cards, { mime: 'audio/webm', bytes: new Uint8Array(13 * 1024 * 1024) }), null, 'too big for one request');
+});
+
+test('a live roleplay is graded by the same prompt, told there were no facts', () => {
+  const r = liveGradeRequest(settings, roleplay, cards, { mime: 'audio/webm', base64: 'x' });
+  assert.equal(r.system, liveGradeRequest(settings, session, cards, { mime: 'audio/webm', base64: 'x' }).system, 'one system instruction for both, so it caches');
+  assert.match(r.parts[0].text, /Situation: Quieres devolver unos zapatos a la tienda\./);
+  assert.match(r.parts[0].text, /This was a roleplay: there were no facts to find out\./);
+  assert.doesNotMatch(r.parts[0].text, /Their goal|The facts to find out/);
+  assert.match(r.system, /When you were given no facts, "goal" is an empty array/);
+  /* And its reply reads back with nothing found, and a score all the same. */
+  const got = readLiveGrade(JSON.stringify({
+    transcript: [{ speaker: 'you', text: 'Quiero devolver estos zapatos.' }],
+    goal: [], bands: { pronunciation: 3, flow: 3, grammar: 3, wordChoice: 3 }, reasons: {}, overall: 'Bien.', cards: [],
+  }), roleplay, cards);
+  assert.deepEqual(got.found, []);
+  assert.equal(got.score, 75);
+});
+
+/* ── prompts that were never edited ──────────────────────────────────── */
+
+test('a stored prompt that is still an old default becomes the new one; an edited one is kept', () => {
+  const old = RETIRED_PROMPTS.liveGrade[0];
+  assert.notEqual(old, DEFAULT_SETTINGS.prompts.liveGrade, 'the retired text is not the current default');
+  assert.equal(upgradePrompts({ liveGrade: old }).liveGrade, DEFAULT_SETTINGS.prompts.liveGrade);
+  /* What a textarea round-trip does to it changes nothing. */
+  assert.equal(upgradePrompts({ liveGrade: `${old.replace(/\n/g, '\r\n')}\n` }).liveGrade, DEFAULT_SETTINGS.prompts.liveGrade);
+  const edited = `${old}\nBe brief.`;
+  assert.equal(upgradePrompts({ liveGrade: edited }).liveGrade, edited);
+  /* Through a whole settings file, and a file from before the live roleplay
+     prompt existed gets it. */
+  const s = withDefaults({ prompts: { liveGrade: old, scenario: 'mine' } });
+  assert.equal(s.prompts.liveGrade, DEFAULT_SETTINGS.prompts.liveGrade);
+  assert.equal(s.prompts.scenario, 'mine');
+  assert.equal(s.prompts.liveRoleplayPartner, DEFAULT_SETTINGS.prompts.liveRoleplayPartner);
+});
+
+test('no retired default is what ships now, and each names a real prompt', () => {
+  for (const [name, olds] of Object.entries(RETIRED_PROMPTS)) {
+    assert.ok(name in DEFAULT_SETTINGS.prompts, `${name} is a prompt`);
+    for (const old of olds) assert.notEqual(old.trim(), DEFAULT_SETTINGS.prompts[name].trim(), `${name} would be swapped for itself`);
+  }
 });
 
 const reply = {

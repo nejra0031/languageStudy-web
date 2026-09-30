@@ -111,10 +111,10 @@ against your cards. See [Writing](#writing).
 language you are learning, in your own words, checked together in one call.
 See [Translate](#translate).
 
-**Conversation** — a few turns of your own (six by default) in a short scene, a roleplay or a
-*find out*, with the other side played by an AI model and
-feedback at the end; or a **live** conversation with the model, spoken in
-real time for one to three minutes. See [Conversation](#conversation).
+**Conversation** — a short scene, a roleplay or a *find out*, with the other
+side played by an AI model and feedback at the end. Either is held turn by
+turn, a few turns of your own (six by default), or **live**, spoken in real
+time for one to three minutes. See [Conversation](#conversation).
 
 **Errors show where you were waiting.** When something you asked for fails
 — a sentence, a text, a question, a check, a reply, the feedback — the error
@@ -467,12 +467,18 @@ A set is not kept, as a Typing session is not: what stays is the scores.
 ## Conversation
 
 The Conversation tab is a short conversation in the language you are
-learning: **six turns of your own** (or as many as **Settings → Conversation
-→ Your turns** says, from 2 to 12), then feedback. A conversation keeps the
-number it started with. **You are always talking to an AI model**, never to
+learning, then feedback. **You are always talking to an AI model**, never to
 a person: a Gemini model plays the other role in the scene, and the chat
-labels its lines with that role (*Shop assistant*, *Neighbour*). There are
-two kinds, and a third, spoken live, below.
+labels its lines with that role (*Shop assistant*, *Neighbour*).
+
+Two choices make a conversation, each with its own control at the top of the
+tab, so there are four conversations to have. **What it is**, a roleplay or a
+find out, is the first. **How it is held** is the second: **turn by turn**,
+**six turns of your own** (or as many as **Settings → Conversation → Your
+turns** says, from 2 to 12; a conversation keeps the number it started with),
+typed or spoken one at a time; or **live**, spoken in real time, which is
+[its own section below](#live-conversations). What follows here is a
+conversation held turn by turn. The two kinds:
 
 - **Roleplay**: a scene with two roles, such as returning shoes to a shop or
   planning a weekend with a friend. The model plays the other role and
@@ -490,7 +496,7 @@ two kinds, and a third, spoken live, below.
 learning, around five cards from the ticked decks (**Cards in a scene**; the
 Weak / + Developing / All filter is Conversation's own), with the model's
 opening line in its role: one call. Settings also says which kind the tab starts
-on. **A situation you would like** is optional (*at the bakery*); left
+on, and whether turn by turn or live. **A situation you would like** is optional (*at the bakery*); left
 empty, the model chooses, and what you type is kept for next time. The note
 under it says what the conversation costs: one call on the text model, five
 replies (a roleplay: one fewer than your turns) or six (a find out: one per
@@ -566,22 +572,27 @@ more in place.
 
 ### Live conversations
 
-The third kind, **Live**, is a find out spoken in real time **with an AI
-model**, Gemini's Live API, which plays the other role out loud: you and the
-model simply talk, with no button to press between turns, for **1, 2
-or 3 minutes** (chosen beside the kinds, and under **Settings → Conversation
-→ Live conversation length**). It is Praat, from the God-project's lessons suite,
-without the server Praat needed: the page talks to Google's **Live API**
-directly, over a WebSocket, with your own key, as every other mode talks to
-Gemini.
+Pick **Live** beside **Turn by turn** and the conversation, a roleplay or a
+find out, is spoken in real time **with an AI model**, Gemini's Live API,
+which plays the other role out loud: you and the model simply talk, with no
+button to press between turns, for **1, 2 or 3 minutes** (chosen beside the
+two controls, and under **Settings → Conversation → Live conversation
+length**). It is Praat, from the God-project's lessons suite, without the
+server Praat needed: the page talks to Google's **Live API** directly, over a
+WebSocket, with your own key, as every other mode talks to Gemini. Praat was
+a find out; a roleplay held live is the same conversation with nothing to
+find out.
 
-**Start** writes the scene as for a find out (the situation, the two roles,
-what you were sent to find out, and your cards). **Start talking** then asks
-for the microphone and opens the conversation. The model speaks first; you
+**Start** writes the scene exactly as for a conversation held turn by turn:
+the situation, the two roles, your cards, and for a find out what you were
+sent to find out. **Start talking** then asks for the microphone and opens
+the conversation. The model speaks first (in a roleplay, with the opening
+line the scene was written with, or the same thing in its own words); you
 answer out loud, and it hears you as you speak and answers with a generated
 voice, drawn from the dictation voices. You can talk over it, and it stops.
-It gives each fact only when you ask about it specifically, never corrects
-you, and never leaves the language. Fifteen seconds before the end it is
+In a find out it gives each fact only when you ask about it specifically; in
+a roleplay it holds nothing back and plays its part. Either way it never
+corrects you, and never leaves the language. Fifteen seconds before the end it is
 told to round off, and when the time is up its last sentence is let finish
 and the conversation closes. **End now** ends it sooner. **Show what's being
 said** shows the last few lines of the running transcript; it is off by
@@ -603,7 +614,8 @@ writes:
   ways to say something, one step above your level;
 - **how you sounded**: up to five notes on sounds, judged by your language's
   [listening rules](#listening-rules-and-how-they-learn);
-- **what you found out**: the checklist ticks, and shows every answer;
+- in a find out, **what you found out**: the checklist ticks, and shows
+  every answer;
 - **a percentage**, *How Vietnamese you sounded* (in your language), made of
   four marks from 0 to 4 with a reason each: pronunciation (35%), grammar
   (25%), flow (20%) and word choice (20%). The marks are asked for, against
@@ -1188,16 +1200,25 @@ wrong. The reply has to be a JSON array with one object per `"id"`, so a
 reply that drops or reorders a sentence cannot move a grade onto the wrong
 one; a reply that is not an array is a failure.
 
-The two **live** prompts belong to [live conversations](#live-conversations).
-The **live conversation prompt** goes to the live model once, when the
-conversation opens, and takes the scene's `{situation}`, `{studentRole}`,
+The three **live** prompts belong to [live conversations](#live-conversations).
+The **live find-out prompt** goes to the live model once, when a live find
+out opens, and takes the scene's `{situation}`, `{studentRole}`,
 `{llmRole}` and `{facts}` (with their answers), `{terms}`, `{language}`,
-`{level}` and `{languageNote}`. The page sends `[START]` to open the
-conversation and `[TIME]` fifteen seconds before the end, whatever the prompt
+`{level}` and `{languageNote}`. The **live roleplay prompt** is the same
+persona without the facts, sent when a live roleplay opens: it takes
+`{scenario}` and `{openingLine}`, the line the scene was written with, in
+place of `{situation}` and `{facts}`. The page sends `[START]` to open the
+conversation and `[TIME]` fifteen seconds before the end, whatever a prompt
 says, so keep the lines that say what they mean. The **live feedback prompt**
 goes to the live feedback model with the scene, the transcript, your cards
 and the recording, and takes `{rules}`, `{language}`, `{languageNote}` and
-`{feedback}`. Both are Praat's, with Dutch taken out and your cards added.
+`{feedback}`; one prompt grades both kinds, and a roleplay's message says
+there were no facts. The find-out and feedback prompts are Praat's, with
+Dutch taken out and your cards added.
+
+A prompt you never edited follows the app: when a default changes, a stored
+prompt that is still the old default word for word becomes the new one. A
+prompt you changed is left exactly as you wrote it.
 
 The five conversation prompts are sent from the [Conversation](#conversation)
 tab. The **scene prompt** goes to the text model when you press Start. It
@@ -1370,6 +1391,7 @@ js/fs-opfs.js         backend — private browser storage (everywhere)
 js/store.js           shared state
 js/tab-*.js           one per tab
 js/defaults.js        settings, prompts and the starter deck
+js/retired-prompts.js prompt defaults that were replaced, so an unedited one upgrades
 test/                 node --test
 ```
 

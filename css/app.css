@@ -429,6 +429,7 @@ textarea { resize: vertical; font: 13px/1.6 var(--mono); }
 
 /* Segmented control: one strip, hard dividers, inverted selection. */
 .seg { display: inline-flex; border: 1px solid var(--line-strong); }
+.seg[hidden] { display: none; }
 .seg button {
   appearance: none;
   background: none;

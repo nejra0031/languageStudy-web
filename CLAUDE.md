@@ -84,7 +84,11 @@ no trace on GitHub.
   on `base`.
 - `defaults.js` holds every default: settings, prompts, the Gemini voice
   list and the starter deck. Settings from disk are merged over it, so a new
-  key needs only a default here.
+  key needs only a default here. A prompt is the exception: `settings.json`
+  keeps each prompt's text, so a changed default reaches nobody unless the
+  default it replaces is added to `retired-prompts.js`, word for word as it
+  shipped. `upgradePrompts` then swaps a stored prompt that still equals it
+  for the new default, and leaves an edited one alone.
 - `gemini.js` talks to the Gemini API from the page with the user's key, and
   counts calls per model locally before any request goes out. Every call
   site is a job of its own in `MODEL_ROLES` (`defaults.js`): key, label, what
@@ -176,9 +180,20 @@ no trace on GitHub.
   `working` (which is only 'starting', 'talking' and 'saving'), and lands
   on its own record whichever conversation is on screen by then; `take()`
   offers Try again for whatever such a record still owes.
-- A third kind, `'live'`, is the God-project's Praat without its server: a find-out
-  scene, then a timed spoken conversation over the Live API's WebSocket,
-  opened from the page with the user's key. `live.js` is its pure logic
+- A conversation is two choices: its `kind` ('roleplay' or 'findout', what
+  it is about) and its `delivery` ('turns' or 'live', how it is held), and
+  every combination exists. Live was once a third kind, a find-out held
+  live, and records and index rows from then say `kind: 'live'` with no
+  delivery; they are never rewritten. So nothing compares `kind` or
+  `delivery` directly: `contentOf(session)` and `isLive(session)` in
+  `conversation.js` read both shapes, and `withDefaults` maps a stored
+  `conversationKind: 'live'` to find-out and live.
+- A live conversation is the God-project's Praat without its server: the scene,
+  then a timed spoken conversation over the Live API's WebSocket,
+  opened from the page with the user's key. Praat was a find-out; a live
+  roleplay has its own partner prompt (`liveRoleplayPartner`, no facts, and
+  it opens on the scene's written opening line) and is graded by the same
+  prompt, whose message says there were no facts. `live.js` is its pure logic
   (the partner's instruction, the setup and every message, reading what
   comes back, `createTranscript`, `liveGradeRequest`, `readLiveGrade`, and
   `liveScore`, which computes the percentage from four 0-4 bands, never
